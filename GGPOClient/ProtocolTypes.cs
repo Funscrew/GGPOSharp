@@ -286,8 +286,9 @@ public struct UdpMsg
   public static unsafe void FromBytes(byte[] data, ref UdpMsg res)
   {
     // NEW:  Unsafe style!
+    // This is cool b/c we don't have to get too worried about the struct definitions / write interop code...
     if (data == null) throw new ArgumentNullException(nameof(data));
-    //if (data.Length < sizeof(UdpMsg)) throw new ArgumentException("Too short for UdpMsg", nameof(data));
+    if (data.Length > sizeof(UdpMsg)) throw new ArgumentException("Too much data for UdpMsg", nameof(data));
 
     fixed (byte* pSrc = data)
     {
@@ -310,6 +311,22 @@ public struct UdpMsg
     //}
   }
 
+  
+  public static unsafe void ToBytes(in U u, byte[] dst)
+  {
+    // NOTE: whatever calls this code needs a way to make sure that we aren't
+    // always going to send the full size of the message.  Many times, the payload can be
+    // smaller than sizeof(UdpMsg) especially when there isn't chat data, etc.
+    throw new Exception();
+
+    if (dst is null) throw new ArgumentNullException(nameof(dst));
+    if (dst.Length < sizeof(U)) throw new ArgumentException("Too short for U", nameof(dst));
+
+    fixed (byte* pDst = dst)
+    {
+      *(U*)pDst = u;
+    }
+  }
 
   // https://stackoverflow.com/questions/59788851/preferred-way-to-populate-a-byte-buffer-using-binaryprimitives
 
