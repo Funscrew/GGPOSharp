@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace GGPOClient;
+namespace GGPOSharp;
 
 using System;
 using System.Runtime.InteropServices;

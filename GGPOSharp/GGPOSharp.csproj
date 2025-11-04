@@ -12,8 +12,4 @@
     <EditorConfigFiles Remove="C:\code\repos\GGPOClient\GGPOClient\.editorconfig" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="NewFolder\" />
-  </ItemGroup>
-
 </Project>

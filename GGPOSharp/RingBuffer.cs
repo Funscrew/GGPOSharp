@@ -1,6 +1,6 @@
 ﻿using System.Collections;
 
-namespace GGPOClient
+namespace GGPOSharp
 {
   // =================================================================================
   /// <summary>

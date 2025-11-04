@@ -1,8 +1,7 @@
 ﻿using System.Net;
 using System.Net.Sockets;
-using System.Reflection.Metadata.Ecma335;
 
-namespace GGPOClient
+namespace GGPOSharp
 {
   internal class Program
   {
@@ -26,6 +25,7 @@ namespace GGPOClient
 
       while (true)
       {
+        // if (client.Available > 0) {
         byte[] data = client.Receive(ref remote);
 
         UdpMsg msg = new UdpMsg();
