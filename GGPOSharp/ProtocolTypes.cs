@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 namespace GGPOSharp;
 
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 //#pragma warning disable 649
@@ -275,7 +276,32 @@ public struct Message
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct UdpMsg
 {
-  const int SIZE_OF_MESSAGE_HEADER = 5;
+  public UdpMsg() { }
+  public UdpMsg(EMsgType msgType)
+  {
+    header.type = msgType;
+  }
+
+  // -------------------------------------------------------------------------------------------------------------
+  public unsafe int PacketSize()
+  {
+    // Makes sure that the compiler isn't getting any ideas....
+    Debug.Assert(sizeof(MessageHeader) == 5, "Bad message header size!");
+
+    int res = sizeof(MessageHeader) + PayloadSize();
+    return res;
+  }
+
+  // -------------------------------------------------------------------------------------------------------------
+  public int PayloadSize()
+  {
+    int res = 0;
+
+    Debug.WriteLine("FINISH ME PLZ!");
+
+    return res;
+  }
+
 
   // public ConnectStatus connect_status;
   public MessageHeader header;
@@ -311,7 +337,7 @@ public struct UdpMsg
     //}
   }
 
-  
+
   public static unsafe void ToBytes(in U u, byte[] dst)
   {
     // NOTE: whatever calls this code needs a way to make sure that we aren't

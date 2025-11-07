@@ -1,14 +1,57 @@
-﻿using System.Net;
+﻿using System.Diagnostics;
+using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 
 namespace GGPOSharp
 {
   internal class Program
   {
+    [DllImport("winmm.dll", EntryPoint = "timeBeginPeriod")]
+    public static extern void TimeBeginPeriod(int t);
+
+    [DllImport("winmm.dll", EntryPoint = "timeEndPeriod")]
+    public static extern void TimeEndPeriod(int t);
+
     static void Main(string[] args)
     {
       Console.WriteLine("Welcome to GGPO Example Client!");
 
+      var ops  = new GGPOClientOptions() { };
+      var c = new GGPOClient(ops);
+
+
+      // Game loop:
+      // No, this isn't meant to be a sophisticated timing scenario, just get us in the ballpark...
+      TimeBeginPeriod(1);
+
+      var sw = Stopwatch.StartNew();
+      const double FPS = 60.0d;
+      double lastTime = double.MinValue;
+      double frameTime = 1.0d / FPS;
+
+      int frameCount = 0;
+      while (true) {
+        double elapsed = sw.Elapsed.TotalSeconds;
+        double remainder = frameTime - (elapsed - lastTime);
+        if (remainder <= 0.0d) {
+          ++frameCount;
+          c.RunFrame();
+          // double curFPS = frameCount / elapsed;
+          //if (frameCount % 60 == 0) {
+          //  Console.WriteLine($"FPS:{curFPS:f2}");
+          //}
+          lastTime = elapsed;
+        }
+        else {
+          // int sleepFor = (int)remainder * 1000;
+          Thread.Sleep((int)(remainder * 1000.0d));
+        }
+
+      }
+
+      TimeEndPeriod(1);
+      return;
 
       // OPTIONS:
       const int LISTEN_PORT = 7001;

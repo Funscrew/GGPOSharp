@@ -3,7 +3,11 @@ using System.Net;
 using System.Net.Sockets;
 using System.Diagnostics;
 
-using MsgHandler = System.Action<GGPOSharp.UdpMsg, int>;
+// using MsgHandler = System.Action<GGPOSharp.UdpMsg, int>;
+using System;
+using System.Runtime.Intrinsics.Arm;
+
+delegate void MsgHandler<T>(ref T msg, int msgLen);
 
 namespace GGPOSharp
 {
@@ -14,11 +18,27 @@ namespace GGPOSharp
     public const int LOCAL_PORT = 7001;
     public const int REMOTE_PORT = 7000;
 
+    public int LocalPort { get; set; } = LOCAL_PORT;
+    public string RemoteAddress { get; set; } = "127.0.0.1";
+    public int RemotePort { get; set; } = REMOTE_PORT;
+
+    /// <summary>
+    /// These should only be set in scenarios where you want to simulate certain network conditions.
+    /// </summary>
+    public TestOptions TestOptions { get; set; } = new TestOptions();
+  }
+
+  // ================================================================================================================
+  public class TestOptions {
+    /// <summary>
+    /// Use this to simulate latency / jitter when sending packets. (in ms)
+    /// </summary>
     public int SendLatency { get; set; } = 0;
 
-    public int LocalPort { get; set; } = LOCAL_PORT;
-    public string RemoteAddress { get; set; }
-    public int RemotePort { get; set; } = REMOTE_PORT;
+    /// <summary>
+    /// A certain % of packets will be sent based on this option.
+    /// </summary>
+    public float OOPercent { get; set; } = 0.0f;
   }
 
   // ================================================================================================================
@@ -39,12 +59,32 @@ namespace GGPOSharp
 
 
     public EClientState CurrentState { get; private set; } = EClientState.Disconnected;
-    private RingBuffer<int> SendQueue = new RingBuffer<int>(SEND_QUEUE_SIZE);
+
+    /*
+ * Network transmission information
+ */
+    //Udp* _udp;
+    //sockaddr_in _peer_addr;
+    private UInt16 _magic_number;
+    private int _queue;
+    UInt16  _remote_magic_number;
+    bool _connected;
+    int _send_latency;
+    int _oop_percent;
+    
+    //struct {
+    //  int send_time;
+    //  sockaddr_in dest_addr;
+    //  UdpMsg* msg;
+    //}
+    //_oo_packet;
+    private RingBuffer<int> _send_queue = new RingBuffer<int>(SEND_QUEUE_SIZE);
+
 
     /// <summary>
     /// Data used when we are syncing the clients.
     /// </summary>
-    private SyncData SyncData = new SyncData();
+    private SyncData SyncState = new SyncData();
 
     /// <summary>
     /// Data used when the client is in running state.
@@ -60,14 +100,40 @@ namespace GGPOSharp
 
     private GGPOClientOptions Options = null!;
 
-    private Stopwatch Time = Stopwatch.StartNew();
+    private Stopwatch Clock = Stopwatch.StartNew();
 
-    private MsgHandler[] MsgHandlers = new MsgHandler[8];
+    private MsgHandler<UdpMsg>[] MsgHandlers = new MsgHandler<UdpMsg>[8];
+
+    // Network Stats
+    int _round_trip_time;
+    int _packets_sent;
+    int _bytes_sent;
+    int _kbps_sent;
+    int _stats_start_time;
+
+
+    // Packet Loss
+    private uint _last_send_time = 0;
+    private uint _last_recv_time = 0;
+    public uint _shutdown_timeout = 0;
+    public uint _disconnect_event_sent = 0;
+    public uint _disconnect_timeout = 0;
+    public uint _disconnect_notify_start = 0;
+    bool _disconnect_notify_sent = false;
+
+    public UInt16 _next_send_seq = 0;
+    public UInt16 _next_recv_seq = 0;
+
 
     // -------------------------------------------------------------------------------------
     public GGPOClient(GGPOClientOptions ops_)
     {
-      // MsgHandlers[0] = OnInvalid;
+      MsgHandlers[(byte)EMsgType.Invalid] = OnInvalid;
+      MsgHandlers[(byte)EMsgType.SyncRequest] = OnSyncRequest;
+      MsgHandlers[(byte)EMsgType.SyncReply] = OnSyncReply;
+      //MsgHandlers[(byte)EMsgType.Invalid] = OnInvalid;
+      //MsgHandlers[(byte)EMsgType.Invalid] = OnInvalid;
+      //MsgHandlers[(byte)EMsgType.Invalid] = OnInvalid;
 
       Options = ops_;
       Client = new UdpClient(Options.LocalPort);
@@ -93,14 +159,36 @@ namespace GGPOSharp
       }
 
       CurrentState = EClientState.Syncing;
-      SyncData.roundtrips_remaining = SYNC_PACKETS_COUNT;
+      SyncState.roundtrips_remaining = SYNC_PACKETS_COUNT;
       SendSyncRequest();
     }
 
     // -------------------------------------------------------------------------------------
     private void SendSyncRequest()
     {
+      SyncState.random = (UInt32)(Random.Shared.Next() & 0xFFFF);
+      
+      var msg = new UdpMsg(EMsgType.SyncRequest);
+      msg.u.sync_request.random_request = SyncState.random;
+      SendMsg(ref msg);
+
       // throw new NotImplementedException();
+    }
+
+    // -------------------------------------------------------------------------------------
+    public void SendMsg(ref UdpMsg msg) { 
+      LogIt("send", ref msg);
+
+      _packets_sent++;
+      _last_send_time = (uint)Clock.ElapsedMilliseconds;
+      _bytes_sent += msg.PacketSize();
+
+      msg.header.magic = _magic_number;
+      msg.header.sequence_number = _next_send_seq++;
+
+      //_send_queue.Push(QueueEntry(Clock.ElapsedMilliseconds, _peer_addr, msg));
+      //PumpSendQueue();
+
     }
 
     // -------------------------------------------------------------------------------------
@@ -123,6 +211,8 @@ namespace GGPOSharp
 
       PumpSendQueue();
 
+      int next_interval = 0;
+      int now = (int)this.Clock.ElapsedMilliseconds;
 
       switch (CurrentState)
       {
@@ -130,7 +220,15 @@ namespace GGPOSharp
           break;
 
         case EClientState.Syncing:
-        // 
+          // do sync timeout + resend stuff here....
+          next_interval = (SyncState.roundtrips_remaining == SYNC_PACKETS_COUNT) ? SYNC_FIRST_RETRY_INTERVAL : SYNC_RETRY_INTERVAL;
+          if (_last_send_time > 0 && _last_send_time + next_interval < now)
+          {
+           LogIt($"No luck syncing after {next_interval} ms... Re-queueing sync packet.");
+           SendSyncRequest();
+          }
+          break;
+
         case EClientState.Synchronzied:
 
         default:
@@ -163,7 +261,10 @@ namespace GGPOSharp
     // ------------------------------------------------------------------------
     private void HandleMessage(ref UdpMsg msg, int msgLen)
     {
-      throw new Exception("please finish me!");
+      var handler = this.MsgHandlers[(int)msg.header.type];
+      handler(ref msg, msgLen);
+
+      //throw new Exception("please finish me!");
       //// We will use an array of function pointers.....
       //switch (msg.header.type)
       //{
@@ -179,6 +280,18 @@ namespace GGPOSharp
     }
 
     // ------------------------------------------------------------------------
+    private void OnSyncRequest(ref UdpMsg msg, int msgLen)
+    {
+      throw new GGPOException("sync request!!");
+    }
+
+    // ------------------------------------------------------------------------
+    private void OnSyncReply(ref UdpMsg msg, int msgLen)
+    {
+      throw new GGPOException("sync reply!!");
+    }
+
+    // ------------------------------------------------------------------------
     /// <summary>
     /// Send the outgoing messages in the queue.
     /// </summary>
@@ -189,6 +302,16 @@ namespace GGPOSharp
       // TODO: Simulate OO (out out order) packets.
 
       // throw new NotImplementedException();
+    }
+
+
+    // ------------------------------------------------------------------------
+    private void LogIt(string msgType, ref UdpMsg msg)
+    {
+    }
+
+    // ------------------------------------------------------------------------
+    private void LogIt(string msg) { 
     }
 
     // ------------------------------------------------------------------------
