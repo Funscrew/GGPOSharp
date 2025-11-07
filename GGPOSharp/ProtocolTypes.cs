@@ -297,7 +297,7 @@ public struct UdpMsg
   {
     int res = 0;
 
-    Debug.WriteLine("FINISH ME PLZ!");
+    throw new Exception("FINISH ME PLZ!");
 
     return res;
   }
