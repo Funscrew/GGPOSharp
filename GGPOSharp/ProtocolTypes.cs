@@ -8,6 +8,7 @@ namespace GGPOSharp;
 
 using System;
 using System.Diagnostics;
+using System.Drawing;
 using System.Runtime.InteropServices;
 
 //#pragma warning disable 649
@@ -46,42 +47,41 @@ public enum EMsgType : byte
   InputAck = 7,
   ChatCommand = 8
 };
-//// ================================================================================================================
-//// MINE:
-//[StructLayout(LayoutKind.Explicit)]
-//struct ConnectStatus
-//{
-//  [FieldOffset(0)] private int value;
 
-//  public bool IsDisconnected
-//  {
-//    get => (value & 0x1) != 0;
-//    set
-//    {
-//      if (value)
-//        this.value |= 0x1;
-//      else
-//        this.value &= ~0x1;
-//    }
-//  }
-
-//  public int LastFrame
-//  {
-//    get => value >> 1;                 // use remaining 31 bits
-//    set => this.value = (this.value & 0x1) | (value << 1);
-//  }
-//}
-
-
-// If you already have a ConnectStatus definition, replace this with yours.
-// Keep it blittable and packed to match the C++ layout.
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct ConnectStatus
+// ================================================================================================================
+// MINE:
+[StructLayout(LayoutKind.Explicit)]
+struct ConnectStatus
 {
-  // TODO: Replace with real fields. These are placeholders.
-  public int Connected;     // e.g., 0/1
-  public int LastFrame;     // e.g., last confirmed frame
+  [FieldOffset(0)] private int _value;
+
+  public bool IsDisconnected
+  {
+    get => (_value & 0x1) != 0;
+    set
+    {
+      if (value)
+        this._value |= 0x1;
+      else
+        this._value &= ~0x1;
+    }
+  }
+
+  public int LastFrame
+  {
+    get => _value >> 1;                 // use remaining 31 bits
+    set => this._value = (this._value & 0x1) | (value << 1);
+  }
 }
+
+
+//[StructLayout(LayoutKind.Sequential, Pack = 1)]
+//public struct ConnectStatus
+//{
+//  // TODO: Replace with real fields. These are placeholders.
+//  public int Connected;     // e.g., 0/1
+//  public int LastFrame;     // e.g., last confirmed frame
+//}
 
 //// ================================================================================================================
 //// MINE:
@@ -142,6 +142,7 @@ public unsafe struct SyncReply
   }
 }
 
+// ================================================================================================================
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct QualityReport
 {
@@ -149,22 +150,22 @@ public struct QualityReport
   public uint ping;
 }
 
+// ================================================================================================================
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct QualityReply
 {
   public uint pong;
 }
 
+// ================================================================================================================
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public unsafe struct InputMsg
 {
   // Raw storage for peer_connect_status[UDP_MSG_MAX_PLAYERS]
   // Size = sizeof(ConnectStatus) * UDP_MSG_MAX_PLAYERS.
-  public const int PeerConnectStatusBytes =
-      sizeof(int) * 2 * ProtoConsts.UDP_MSG_MAX_PLAYERS; // two ints per ConnectStatus
+  public const int PeerConnectStatusBytes = sizeof(int) * 2 * ProtoConsts.UDP_MSG_MAX_PLAYERS; // two ints per ConnectStatus
 
   public fixed byte peer_connect_status_bytes[PeerConnectStatusBytes];
-
   public uint start_frame;
 
   // bitfields packed into a single int
@@ -185,29 +186,32 @@ public unsafe struct InputMsg
 
   public fixed byte bits[ProtoConsts.MAX_COMPRESSED_BITS];
 
-  // Helpers to get/set a ConnectStatus by index (unsafe)
-  public ConnectStatus GetPeerConnectStatus(int index)
-  {
-    if ((uint)index >= ProtoConsts.UDP_MSG_MAX_PLAYERS) throw new ArgumentOutOfRangeException(nameof(index));
-    fixed (byte* basePtr = peer_connect_status_bytes)
-    {
-      int stride = sizeof(int) * 2;
-      byte* p = basePtr + (index * stride);
-      return *(ConnectStatus*)p;
-    }
-  }
 
-  public void SetPeerConnectStatus(int index, in ConnectStatus value)
-  {
-    if ((uint)index >= ProtoConsts.UDP_MSG_MAX_PLAYERS) throw new ArgumentOutOfRangeException(nameof(index));
-    fixed (byte* basePtr = peer_connect_status_bytes)
-    {
-      int stride = sizeof(int) * 2;
-      *(ConnectStatus*)(basePtr + (index * stride)) = value;
-    }
-  }
+
+  //// Helpers to get/set a ConnectStatus by index (unsafe)
+  //public ConnectStatus GetPeerConnectStatus(int index)
+  //{
+  //  if ((uint)index >= ProtoConsts.UDP_MSG_MAX_PLAYERS) throw new ArgumentOutOfRangeException(nameof(index));
+  //  fixed (byte* basePtr = peer_connect_status_bytes)
+  //  {
+  //    int stride = sizeof(int) * 2;
+  //    byte* p = basePtr + (index * stride);
+  //    return *(ConnectStatus*)p;
+  //  }
+  //}
+
+  //public void SetPeerConnectStatus(int index, in ConnectStatus value)
+  //{
+  //  if ((uint)index >= ProtoConsts.UDP_MSG_MAX_PLAYERS) throw new ArgumentOutOfRangeException(nameof(index));
+  //  fixed (byte* basePtr = peer_connect_status_bytes)
+  //  {
+  //    int stride = sizeof(int) * 2;
+  //    *(ConnectStatus*)(basePtr + (index * stride)) = value;
+  //  }
+  //}
 }
 
+// ================================================================================================
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct InputAck
 {
@@ -225,20 +229,33 @@ public struct InputAck
 }
 
 
+// ================================================================================================
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public unsafe struct Chat
 {
-  // char text[MAX_GGPOCHAT_SIZE + 1];
   public fixed sbyte text[ProtoConsts.MAX_GGPOCHAT_SIZE + 1];
 
+  public int GetTextSize()
+  {
+    fixed (sbyte* p = text)
+    {
+      return AnsiHelpers.PtrToAnsiStringLength(p, ProtoConsts.MAX_GGPOCHAT_SIZE + 1);
+    }
+  }
   public string GetText()
   {
-    fixed (sbyte* p = text) { return AnsiHelpers.PtrToAnsiString(p, ProtoConsts.MAX_GGPOCHAT_SIZE + 1); }
+    fixed (sbyte* p = text)
+    {
+      return AnsiHelpers.PtrToAnsiString(p, ProtoConsts.MAX_GGPOCHAT_SIZE + 1);
+    }
   }
 
   public void SetText(string value)
   {
-    fixed (sbyte* p = text) { AnsiHelpers.WriteAnsiString(value, p, ProtoConsts.MAX_GGPOCHAT_SIZE + 1); }
+    fixed (sbyte* p = text)
+    {
+      AnsiHelpers.WriteAnsiString(value, p, ProtoConsts.MAX_GGPOCHAT_SIZE + 1);
+    }
   }
 }
 
@@ -276,6 +293,11 @@ public struct Message
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct UdpMsg
 {
+
+  // public ConnectStatus connect_status;
+  public MessageHeader header;
+  public U u;   // The actual data we care about....
+
   public UdpMsg() { }
   public UdpMsg(EMsgType msgType)
   {
@@ -293,19 +315,57 @@ public struct UdpMsg
   }
 
   // -------------------------------------------------------------------------------------------------------------
-  public int PayloadSize()
+  public unsafe int PayloadSize()
   {
     int res = 0;
 
-    throw new Exception("FINISH ME PLZ!");
 
-    return res;
+    switch (header.type)
+    {
+      case EMsgType.SyncRequest:
+        return sizeof(SyncRequest);
+      case EMsgType.SyncReply:
+        {
+          res = sizeof(SyncReply);
+          return res;
+        }
+
+      case EMsgType.QualityReport:
+        return sizeof(QualityReport);
+      case EMsgType.QualityReply:
+        return sizeof(QualityReply);
+      case EMsgType.InputAck:
+        return sizeof(InputAck);
+      case EMsgType.KeepAlive:
+        return 0;
+
+      case EMsgType.Input:
+        // NOTE: The calculation of the size of this data is a bit wonky.
+        // It could actually be computed once when the application starts up, I think....
+        // C++ way!
+        //res = (int)((char*)&u.input.bits - (char*)&u.input);
+        //res += (u.input.num_bits + 7) / 8;
+
+        int size2 = sizeof(InputMsg) - (sizeof(byte) * ProtoConsts.MAX_COMPRESSED_BITS);
+        size2 += (u.input.num_bits + 7) / 8;
+        // Debug.Assert (size == size2);
+
+        // Assuming that this computation is correct!
+        res = size2;
+
+        return res;
+
+      case EMsgType.ChatCommand:
+        // Include one extra byte to ensure zero termination.
+        res = u.chat.GetTextSize() + 1; //  GetText()  strnlen_s(u.chat.text, MAX_GGPOCHAT_SIZE) + 1;
+        return res;
+
+      default:
+        throw new InvalidOperationException($"Unsupported type: {header.type}!");
+    }
+
   }
 
-
-  // public ConnectStatus connect_status;
-  public MessageHeader header;
-  public U u;   // The actual data we care about....
 
 
   // --------------------------------------------------------------------------------------------------------------
@@ -389,19 +449,42 @@ public struct UdpMsg
 // ===== Small ANSI helpers =====
 public static unsafe class AnsiHelpers
 {
+  // ------------------------------------------------------------------------------------
+  public static int PtrToAnsiStringLength(sbyte* p, int maxLen)
+  {
+    int len = 0;
+    while (len < maxLen && p[len] != 0)
+    {
+      len++;
+    }
+    return len;
+  }
+
+  // ------------------------------------------------------------------------------------
   public static string PtrToAnsiString(sbyte* p, int maxLen)
   {
     int len = 0;
-    while (len < maxLen && p[len] != 0) { len++; }
+    while (len < maxLen && p[len] != 0)
+    {
+      len++;
+    }
     return Encoding.ASCII.GetString((byte*)p, len);
   }
 
+  // ------------------------------------------------------------------------------------
   public static void WriteAnsiString(string value, sbyte* dest, int capacity)
   {
     var bytes = Encoding.ASCII.GetBytes(value ?? string.Empty);
-    int n = Math.Min(bytes.Length, Math.Max(0, capacity - 1)); // leave room for NUL
-    for (int i = 0; i < n; i++) dest[i] = (sbyte)bytes[i];
+    int n = Math.Min(bytes.Length, Math.Max(0, capacity - 1)); // leave room for NULL
+    for (int i = 0; i < n; i++)
+    {
+      dest[i] = (sbyte)bytes[i];
+    }
+
     dest[n] = 0;
-    for (int i = n + 1; i < capacity; i++) dest[i] = 0;
+    for (int i = n + 1; i < capacity; i++)
+    {
+      dest[i] = 0;
+    }
   }
 }

@@ -78,7 +78,7 @@ namespace GGPOSharp
     //  UdpMsg* msg;
     //}
     //_oo_packet;
-    private RingBuffer<int> _send_queue = new RingBuffer<int>(SEND_QUEUE_SIZE);
+    private RingBuffer<QueueEntry> _send_queue = new RingBuffer<QueueEntry>(SEND_QUEUE_SIZE);
 
 
     /// <summary>
@@ -176,7 +176,7 @@ namespace GGPOSharp
     }
 
     // -------------------------------------------------------------------------------------
-    public void SendMsg(ref UdpMsg msg) { 
+    public unsafe void SendMsg(ref UdpMsg msg) { 
       LogIt("send", ref msg);
 
       _packets_sent++;
@@ -186,6 +186,12 @@ namespace GGPOSharp
       msg.header.magic = _magic_number;
       msg.header.sequence_number = _next_send_seq++;
 
+
+      _send_queue.Push(new QueueEntry() {
+        queue_time = (int)Clock.ElapsedMilliseconds,
+        dest_addr = this.Remote,
+        msg = msg,
+      });
       //_send_queue.Push(QueueEntry(Clock.ElapsedMilliseconds, _peer_addr, msg));
       //PumpSendQueue();
 
@@ -324,11 +330,22 @@ namespace GGPOSharp
 
 
   // ================================================================================================================
-  public unsafe struct QueueEntry
+  public struct QueueEntry
   {
     public int queue_time;
     public IPEndPoint dest_addr;
-    public UdpMsg* msg;
+    
+    // NOTE: We can't really have a pointer here as the originating object will disappear!
+    // Maybe I need to have a copy of the byte array instead?  Maybe index into some array where these are
+    // created....?
+    // public UdpMsg* msg;
+
+    // ARG!
+    // This is a whole copy of a message, which is pretty big, so we
+    // will have to come up with another way to do this... I'm thinking
+    // we should have an array of messages that we can index into...
+    // NOTE: At time of writing, UdpMsg size is 4144 bytes!
+    public UdpMsg msg;
   }
 
   // ================================================================================================================
