@@ -398,19 +398,22 @@ public struct UdpMsg
   }
 
 
-  public static unsafe void ToBytes(in U u, byte[] dst)
+  // --------------------------------------------------------------------------------------------------------------
+  public static unsafe void ToBytes(in UdpMsg msg, byte[] dst, int copySize)
   {
     // NOTE: whatever calls this code needs a way to make sure that we aren't
     // always going to send the full size of the message.  Many times, the payload can be
     // smaller than sizeof(UdpMsg) especially when there isn't chat data, etc.
-    throw new Exception();
+    // throw new Exception();
 
-    if (dst is null) throw new ArgumentNullException(nameof(dst));
-    if (dst.Length < sizeof(U)) throw new ArgumentException("Too short for U", nameof(dst));
+    if (dst is null) { throw new ArgumentNullException(nameof(dst)); }
+    if (dst.Length < sizeof(UdpMsg)) { throw new ArgumentException($"Too short for {nameof(UdpMsg)}", nameof(dst)); }
 
+    // NOTE: We might even come up with a way to only copy the bytes we need.
+    // --> copySize
     fixed (byte* pDst = dst)
     {
-      *(U*)pDst = u;
+      *(UdpMsg*)pDst = msg;
     }
   }
 
