@@ -97,11 +97,12 @@ namespace GGPOSharp
     private RunningData RunningData = new RunningData();
 
 
-    private UdpClient Client = null!;
+    private UdpBlaster Client = null!;
 
     private int LocalPort;
     private int RemotePort;
-    private IPEndPoint Remote;
+    private IPEndPoint RemoteIP;
+    private EndPoint UseRemote;
 
     private GGPOClientOptions Options = null!;
 
@@ -141,8 +142,9 @@ namespace GGPOSharp
       //MsgHandlers[(byte)EMsgType.Invalid] = OnInvalid;
 
       Options = ops_;
-      Client = new UdpClient(Options.LocalPort);
-      Remote = new IPEndPoint(IPAddress.Parse(Options.RemoteAddress), Options.RemotePort);
+      Client = new UdpBlaster(Options.LocalPort);
+      RemoteIP = new IPEndPoint(IPAddress.Parse(Options.RemoteAddress), Options.RemotePort);
+      UseRemote = RemoteIP;
 
       // We can't send packets if we don't connect!
       // Client.Connect(Remote);
@@ -196,7 +198,7 @@ namespace GGPOSharp
       _send_queue.Push(new QueueEntry()
       {
         queue_time = (int)Clock.ElapsedMilliseconds,
-        dest_addr = this.Remote,
+        dest_addr = this.RemoteIP,
         // NOTE: This is a BIG copy, so we will find a different way to handle it in the future.
         // probably index into a fixed size array.
         msg = msg,
@@ -250,24 +252,32 @@ namespace GGPOSharp
       }
     }
 
+    private byte[] ReceiveBuffer = new byte[8192];
+
     // ------------------------------------------------------------------------
     private void ReceiveMessages()
     {
       // Pull in all messages, while they are available.
-      while (Client.Available > 0)
+      //while (Client.Available > 0)
+      //{
+      while (true)
       {
-
         // Get the next message.....
-        byte[] data = Client.Receive(ref Remote);
+        // byte[] data = Client.Receive
+        int received = Client.Receive(ReceiveBuffer, ref UseRemote);
+        if (received == 0)
+        {
+          break;
+        }
 
         UdpMsg msg = new UdpMsg();
-        UdpMsg.FromBytes(data, ref msg);
+        UdpMsg.FromBytes(ReceiveBuffer, ref msg, received);
 
         // Logging?
-        LogIt("MSG", data);
+        LogIt("MSG", ref msg);
 
         // Now that we have the message we can do something with it....
-        HandleMessage(ref msg, data.Length);
+        HandleMessage(ref msg, received);
       }
     }
 
@@ -349,7 +359,7 @@ namespace GGPOSharp
         else
         {
           // Make sure that there is a valid address to send to!
-          if (Remote == null)
+          if (RemoteIP == null)
           {
             throw new Exception("There is no remote address!");
           }
@@ -398,8 +408,9 @@ namespace GGPOSharp
       UdpMsg.ToBytes(msg, toSend, packetSize);
       // Client.Send(toSend, packetSize);
 
-      Client.Send(toSend, packetSize, Remote);
 
+      // Client.Send(toSend, packetSize, Remote);
+      Client.Send(toSend, packetSize, ref UseRemote);
     }
 
 
@@ -427,7 +438,7 @@ namespace GGPOSharp
   public class QueueEntry
   {
     public int queue_time;
-    public IPEndPoint dest_addr;
+    public EndPoint dest_addr;
 
     // NOTE: We can't really have a pointer here as the originating object will disappear!
     // Maybe I need to have a copy of the byte array instead?  Maybe index into some array where these are

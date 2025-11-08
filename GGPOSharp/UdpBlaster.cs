@@ -14,24 +14,20 @@ namespace GGPOSharp
     private readonly Socket Socket;
     private bool IsDisposed;
 
-    private EndPoint Remote;
-
     // OPTIONS:
     const int RECEIVE_BUFFER_SIZE = 8192;
 
     // ------------------------------------------------------------------------------------------------------------
-    public UdpBlaster(int localPort, EndPoint remote_)
-        : this(localPort, IPAddress.Any, remote_)
-    {
-    }
+    public UdpBlaster(int localPort)
+        : this(localPort, IPAddress.Any)
+    { }
 
     // ------------------------------------------------------------------------------------------------------------
     // Use port zero (0) to use an ephemeral port.
-    public UdpBlaster(int localPort, IPAddress localAddress, EndPoint remote_)
+    public UdpBlaster(int localPort, IPAddress localAddress)
     {
       Socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
       Socket.Blocking = true;
-      Remote = remote_;
 
       IPEndPoint bindEndPoint = new IPEndPoint(localAddress, localPort);
       Socket.Bind(bindEndPoint);
@@ -91,7 +87,7 @@ namespace GGPOSharp
     }
 
     // ------------------------------------------------------------------------------------------
-    public int Send(byte[] buffer, int offset, int count, IPEndPoint remoteEndPoint)
+    public int Send(byte[] buffer, int size, ref EndPoint remoteEndPoint)
     {
       if (buffer == null)
       {
@@ -106,41 +102,49 @@ namespace GGPOSharp
       // TODO: If we want ipv6 support, then we should reintroduce this..
       // In reality, we will use the network family that we initialize this with!
       // TODO: This is probably making garbage....
-      EndPoint ep = remoteEndPoint; // ForceIPv6(remoteEndPoint);
-      int sent = Socket.SendTo(buffer, offset, count, SocketFlags.None, ep);
+      //  EndPoint ep = remoteEndPoint; // ForceIPv6(remoteEndPoint);
+      int sent = Socket.SendTo(buffer, 0, size, SocketFlags.None, remoteEndPoint);
       return sent;
     }
 
+    //// ------------------------------------------------------------------------------------------
+    //public int Send(byte[] buffer, IPEndPoint remoteEndPoint)
+    //{
+    //  if (buffer == null)
+    //  {
+    //    throw new ArgumentNullException(nameof(buffer));
+    //  }
+
+    //  return Send(buffer, buffer.Length, remoteEndPoint);
+    //}
+
     // ------------------------------------------------------------------------------------------
-    public int Send(byte[] buffer, IPEndPoint remoteEndPoint)
+    public int Receive(byte[] buffer, ref EndPoint remote)
     {
       if (buffer == null)
       {
         throw new ArgumentNullException(nameof(buffer));
       }
 
-      return Send(buffer, 0, buffer.Length, remoteEndPoint);
-    }
-
-    // ------------------------------------------------------------------------------------------
-    public int Receive(byte[] buffer)
-    {
-      if (buffer == null)
+      // EndPoint any = Remote; //new IPEndPoint(IPAddress.IPv6Any, 0);
+      if (Socket.Available > 0)
       {
-        throw new ArgumentNullException(nameof(buffer));
+        int read = Socket.ReceiveFrom(buffer, 0, buffer.Length, SocketFlags.None, ref remote);
+        return read;
       }
 
-      EndPoint any = Remote; //new IPEndPoint(IPAddress.IPv6Any, 0);
-      int read = Socket.ReceiveFrom(buffer, 0, buffer.Length, SocketFlags.None, ref any);
-
-      IPEndPoint ep = (IPEndPoint)any;
-      if (ep.Address.IsIPv4MappedToIPv6)
-      {
-        ep = new IPEndPoint(ep.Address.MapToIPv4(), ep.Port);
-      }
+      // Nothing!
+      return 0;
+      // lol wh
+      // at?
+      //IPEndPoint ep = (IPEndPoint)any;
+      //if (ep.Address.IsIPv4MappedToIPv6)
+      //{
+      //  ep = new IPEndPoint(ep.Address.MapToIPv4(), ep.Port);
+      //}
 
       //remoteEndPoint = ep;
-      return read;
+      // return read;
     }
 
     //// ------------------------------------------------------------------------------------------
@@ -180,14 +184,14 @@ namespace GGPOSharp
     /// </summary>
     private void TryDisableConnReset()
     {
-        if (Environment.OSVersion.Platform == PlatformID.Win32NT)
-        {
-          // Windows-only: SIO_UDP_CONNRESET = _WSAIOW(IOC_VENDOR, 12) => -1744830452
-          const int SIO_UDP_CONNRESET = -1744830452;
-          byte[] inValue = new byte[] { 0, 0, 0, 0 }; // FALSE to disable errors
-          byte[] outValue = new byte[4];
-          Socket.IOControl((IOControlCode)SIO_UDP_CONNRESET, inValue, outValue);
-        }
+      if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+      {
+        // Windows-only: SIO_UDP_CONNRESET = _WSAIOW(IOC_VENDOR, 12) => -1744830452
+        const int SIO_UDP_CONNRESET = -1744830452;
+        byte[] inValue = new byte[] { 0, 0, 0, 0 }; // FALSE to disable errors
+        byte[] outValue = new byte[4];
+        Socket.IOControl((IOControlCode)SIO_UDP_CONNRESET, inValue, outValue);
+      }
     }
 
     //// ------------------------------------------------------------------------------------------

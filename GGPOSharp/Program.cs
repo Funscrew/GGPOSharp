@@ -50,53 +50,53 @@ namespace GGPOSharp
 
       }
 
-      TimeEndPeriod(1);
-      return;
+      //TimeEndPeriod(1);
+      //return;
 
-      // OPTIONS:
-      const int LISTEN_PORT = 7001;
-      const int REMOTE_PORT = 7000;
-      Console.WriteLine("Waiting for incoming data...");
+      //// OPTIONS:
+      //const int LISTEN_PORT = 7001;
+      //const int REMOTE_PORT = 7000;
+      //Console.WriteLine("Waiting for incoming data...");
 
-      var client = new UdpClient(LISTEN_PORT);
-      var remote = new IPEndPoint(IPAddress.Any, REMOTE_PORT);
+      //var client = new UdpClient(LISTEN_PORT);
+      //var remote = new IPEndPoint(IPAddress.Any, REMOTE_PORT);
 
-      string useHost = args[0];
-      var remoteHost = new IPEndPoint(IPAddress.Parse(useHost), REMOTE_PORT);
-      // NOTE: If we don't call this, then we can't connect!
-      client.Connect(remoteHost);
+      //string useHost = args[0];
+      //var remoteHost = new IPEndPoint(IPAddress.Parse(useHost), REMOTE_PORT);
+      //// NOTE: If we don't call this, then we can't connect!
+      //client.Connect(remoteHost);
 
-      while (true)
-      {
-        // if (client.Available > 0) {
-        byte[] data = client.Receive(ref remote);
+      //while (true)
+      //{
+      //  // if (client.Available > 0) {
+      //  byte[] data = client.Receive(ref remote);
 
-        UdpMsg msg = new UdpMsg();
-        UdpMsg.FromBytes(data, ref msg);
-        Console.WriteLine($"Received content: {data.Length} bytes long....");
+      //  UdpMsg msg = new UdpMsg();
+      //  UdpMsg.FromBytes(data, ref msg);
+      //  Console.WriteLine($"Received content: {data.Length} bytes long....");
 
-        // Handle the message.  What we get + how we handle depends on the current state....
-        switch (msg.header.type)
-        {
-        case EMsgType.SyncRequest:
-          Console.WriteLine("We received a sync request!");
-        break;
-          default:
-            throw new InvalidOperationException($"Unsupported message type: {msg.header.type}");
-        }
-        // msg.Header.Type == EMsgType.SyncRequest;
+      //  // Handle the message.  What we get + how we handle depends on the current state....
+      //  switch (msg.header.type)
+      //  {
+      //  case EMsgType.SyncRequest:
+      //    Console.WriteLine("We received a sync request!");
+      //  break;
+      //    default:
+      //      throw new InvalidOperationException($"Unsupported message type: {msg.header.type}");
+      //  }
+      //  // msg.Header.Type == EMsgType.SyncRequest;
 
-        // NOTE: We are assuming that we are in sync mode......
-        // Let's send a message back....
-        UdpMsg reply = new UdpMsg();
-        byte[] toSend = new byte[32];
+      //  // NOTE: We are assuming that we are in sync mode......
+      //  // Let's send a message back....
+      //  UdpMsg reply = new UdpMsg();
+      //  byte[] toSend = new byte[32];
 
-        reply.ToBytes(toSend, out int length);
+      //  reply.ToBytes(toSend, out int length);
 
-        client.Send(toSend, length);
+      //  client.Send(toSend, length);
 
-        /// string data = msg.ad
-      }
+      //  /// string data = msg.ad
+      //}
 
     }
 

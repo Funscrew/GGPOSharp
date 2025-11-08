@@ -368,88 +368,89 @@ public struct UdpMsg
 
 
 
-  // --------------------------------------------------------------------------------------------------------------
-  public static unsafe void FromBytes(byte[] data, ref UdpMsg res)
-  {
-    // NEW:  Unsafe style!
-    // This is cool b/c we don't have to get too worried about the struct definitions / write interop code...
-    if (data == null) throw new ArgumentNullException(nameof(data));
-    if (data.Length > sizeof(UdpMsg)) throw new ArgumentException("Too much data for UdpMsg", nameof(data));
+  //// --------------------------------------------------------------------------------------------------------------
+  //public static unsafe void FromBytes(byte[] data, ref UdpMsg res, int len)
+  //{
+  //  // NEW:  Unsafe style!
+  //  // This is cool b/c we don't have to get too worried about the struct definitions / write interop code...
+  //  if (data == null) throw new ArgumentNullException(nameof(data));
+  //  if (data.Length > sizeof(UdpMsg)) throw new ArgumentException("Too much data for UdpMsg", nameof(data));
 
+  //  fixed (byte* pSrc = data)
+  //  {
+  //    res = *(UdpMsg*)pSrc;
+  //  }
+
+  //  // OLD:
+  //  //res.header.magic = BitConverter.ToUInt16(data, 0);
+  //  //res.header.sequence_number = BitConverter.ToUInt16(data, sizeof(UInt16));
+  //  //res.header.type = (EMsgType)data[sizeof(UInt16) * 2];
+
+  //  //switch (res.header.type)
+  //  //{
+  //  //  case EMsgType.SyncRequest:
+  //  //    SyncRequest.FromBytes(data, SIZE_OF_MESSAGE_HEADER, ref res.u.sync_request);
+  //  //    break;
+
+  //  //  default:
+  //  //    throw new InvalidOperationException($"The header type: {res.header.type} is not supported!");
+  //  //}
+  //}
+  public static unsafe void FromBytes(byte[] data, ref UdpMsg res, int len)
+  {
+    if (data == null) throw new ArgumentNullException(nameof(data));
+    if (len < 0 || len > data.Length) throw new ArgumentOutOfRangeException(nameof(len));
+    if (len > sizeof(UdpMsg)) throw new ArgumentException("len exceeds size of UdpMsg");
+
+    // Create a stack buffer the size of UdpMsg and zero it first.
+    // This way any missing bytes beyond len are safely zero.
+    byte* buffer = stackalloc byte[sizeof(UdpMsg)];
+    for (int i = 0; i < sizeof(UdpMsg); i++) buffer[i] = 0;
+
+    // Copy only 'len' bytes from the source
     fixed (byte* pSrc = data)
     {
-      res = *(UdpMsg*)pSrc;
+      Buffer.MemoryCopy(pSrc, buffer, sizeof(UdpMsg), len);
     }
 
-    // OLD:
-    //res.header.magic = BitConverter.ToUInt16(data, 0);
-    //res.header.sequence_number = BitConverter.ToUInt16(data, sizeof(UInt16));
-    //res.header.type = (EMsgType)data[sizeof(UInt16) * 2];
-
-    //switch (res.header.type)
-    //{
-    //  case EMsgType.SyncRequest:
-    //    SyncRequest.FromBytes(data, SIZE_OF_MESSAGE_HEADER, ref res.u.sync_request);
-    //    break;
-
-    //  default:
-    //    throw new InvalidOperationException($"The header type: {res.header.type} is not supported!");
-    //}
+    // Now reinterpret into UdpMsg
+    res = *(UdpMsg*)buffer;
   }
 
+  //// --------------------------------------------------------------------------------------------------------------
+  //public static unsafe void ToBytes(in UdpMsg msg, byte[] dst, int copySize)
+  //{
+  //  // NOTE: whatever calls this code needs a way to make sure that we aren't
+  //  // always going to send the full size of the message.  Many times, the payload can be
+  //  // smaller than sizeof(UdpMsg) especially when there isn't chat data, etc.
+  //  // throw new Exception();
 
-  // --------------------------------------------------------------------------------------------------------------
-  public static unsafe void ToBytes(in UdpMsg msg, byte[] dst, int copySize)
+  //  if (dst is null) { throw new ArgumentNullException(nameof(dst)); }
+  //  if (dst.Length < sizeof(UdpMsg)) { throw new ArgumentException($"Too short for {nameof(UdpMsg)}", nameof(dst)); }
+
+  //  // NOTE: We might even come up with a way to only copy the bytes we need.
+  //  // --> copySize
+  //  fixed (byte* pDst = dst)
+  //  {
+  //    *(UdpMsg*)pDst = msg;
+  //  }
+  //}
+  public static unsafe void ToBytes(in UdpMsg msg, byte[] dest, int len)
   {
-    // NOTE: whatever calls this code needs a way to make sure that we aren't
-    // always going to send the full size of the message.  Many times, the payload can be
-    // smaller than sizeof(UdpMsg) especially when there isn't chat data, etc.
-    // throw new Exception();
+    if (dest == null) throw new ArgumentNullException(nameof(dest));
+    if (len < 0 || len > dest.Length) throw new ArgumentOutOfRangeException(nameof(len));
+    if (len > sizeof(UdpMsg)) throw new ArgumentException("len exceeds size of UdpMsg");
 
-    if (dst is null) { throw new ArgumentNullException(nameof(dst)); }
-    if (dst.Length < sizeof(UdpMsg)) { throw new ArgumentException($"Too short for {nameof(UdpMsg)}", nameof(dst)); }
-
-    // NOTE: We might even come up with a way to only copy the bytes we need.
-    // --> copySize
-    fixed (byte* pDst = dst)
+    fixed (byte* pDest = dest)
+    fixed (UdpMsg* pSrc = &msg)
     {
-      *(UdpMsg*)pDst = msg;
+      Buffer.MemoryCopy(pSrc, pDest, len, len);
     }
   }
 
-  // https://stackoverflow.com/questions/59788851/preferred-way-to-populate-a-byte-buffer-using-binaryprimitives
-
-  // --------------------------------------------------------------------------------------------------------------
-  /// <summary>
-  /// Squirt the contents of this message into the given byte array and also output the number of bytes that
-  /// are actually used.
-  /// </summary>
-  internal void ToBytes(byte[] toSend, out int length)
-  {
-    length = 5;
-    unsafe
-    {
-      fixed (byte* dest = &toSend[0])
-      {
-        *(UInt16*)dest = header.magic;
-        *(UInt16*)(dest + sizeof(UInt16)) = header.sequence_number;
-        // *(UInt16*)(dest + sizeof(UInt16)) = Header.SequenceNumber;
-        *(dest + sizeof(UInt16) + sizeof(UInt16)) = (byte)EMsgType.SyncReply;
-      }
-    }
-
-    //BinaryPrimitives.WriteUInt16BigEndian(toSend, Header.MagicNumber);
-    //BinaryPrimitives.WriteUInt16BigEndian(toSend, Header.SequenceNumber);
-    //BinaryPrimitives.Write (toSend, Header.SequenceNumber);
-
-    //   throw new NotImplementedException();
-    int x = 10;
-  }
 }
 
-
-
-// ===== Small ANSI helpers =====
+// ==============================================================================================================
 public static unsafe class AnsiHelpers
 {
   // ------------------------------------------------------------------------------------
