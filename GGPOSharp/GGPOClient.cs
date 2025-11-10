@@ -8,10 +8,142 @@ using System;
 using System.Runtime.Intrinsics.Arm;
 using System.Runtime.CompilerServices;
 
-delegate void MsgHandler<T>(ref T msg, int msgLen);
+delegate bool MsgHandler<T>(ref T msg, int msgLen);
 
 namespace GGPOSharp
 {
+
+  // ==================================================================================================================
+  public struct UdpStats
+  {
+    public int bytes_sent;
+    public int packets_sent;
+    public float kbps_sent;
+  };
+
+
+  //// ==================================================================================================================
+  //struct Stats
+  //{
+  //  int ping;
+  //  int remote_frame_advantage;
+  //  int local_frame_advantage;
+  //  int send_queue_len;
+  //  Udp::Stats udp;
+  //};
+  [StructLayout(LayoutKind.Sequential, Pack = 1)]
+  public struct Stats
+  {
+    public int Ping;
+    public int RemoteFrameAdvantage;
+    public int LocalFrameAdvantage;
+    public int SendQueueLen;
+    public UdpStats Udp; // whatever your Udp::Stats mapped to
+  }
+
+
+  //  // ==================================================================================================================
+  //  struct Event
+  //  {
+  //    enum Type
+  //    {
+  //      Unknown = -1,
+  //      Connected,
+  //      Synchronizing,
+  //      Synchronized,
+  //      Input,
+  //      Disconnected,
+  //      NetworkInterrupted,
+  //      NetworkResumed,
+  //      ChatCommand
+  //    };
+
+  //    Type type;
+  //    union {
+  //      struct {
+  //      GameInput input;
+  //    }
+  //    input;
+
+  //      struct {
+  //      int total;
+  //      int count;
+  //    }
+  //    synchronizing;
+
+  //      struct {
+  //      char playerName[MAX_NAME_SIZE];
+  //    }
+  //    connected;
+
+  //      struct {
+  //      int disconnect_timeout;
+  //    }
+  //    network_interrupted;
+
+  //      struct {
+  //      char text[MAX_GGPOCHAT_SIZE + 1];
+  //    }
+  //    chat;
+
+  //    }
+  //  u;			// REFACTOR: Rename this to 'data'
+
+  //    UdpProtocol::Event(Type t = Unknown) : type(t) { }
+  //};
+  public enum EventType
+  {
+    Unknown = -1,
+    Connected,
+    Synchronizing,
+    Synchronized,
+    Input,
+    Disconnected,
+    NetworkInterrupted,
+    NetworkResumed,
+    ChatCommand
+  }
+
+  // MAX_NAME_SIZE and MAX_GGPOCHAT_SIZE must be const ints.
+  [StructLayout(LayoutKind.Sequential, Pack = 1)]
+  public unsafe struct Event
+  {
+    public EventType type;
+
+    public EventData u;   // was 'u' in the C++ code
+
+    [StructLayout(LayoutKind.Explicit)]
+    public unsafe struct EventData
+    {
+      [FieldOffset(0)]
+      public GameInput input;
+
+      [FieldOffset(0)]
+      public SyncData synchronizing;
+
+      [FieldOffset(0)]
+      public ConnectData connected;
+
+      [FieldOffset(0)]
+      public NetworkInterruptedData network_interrupted;
+
+      [FieldOffset(0)]
+      public Chat chat;
+    }
+
+    public struct SyncData
+    {
+      public int total;
+      public int count;
+    }
+
+    public struct NetworkInterruptedData
+    {
+      public int disconnect_timeout;
+    }
+  }
+
+
 
   // ================================================================================================================
   public class GGPOClientOptions
@@ -64,8 +196,8 @@ namespace GGPOSharp
     public EClientState CurrentState { get; private set; } = EClientState.Disconnected;
 
     /*
- * Network transmission information
- */
+  * Network transmission information
+  */
     //Udp* _udp;
     //sockaddr_in _peer_addr;
     private UInt16 _magic_number;
@@ -129,6 +261,16 @@ namespace GGPOSharp
 
     public UInt16 _next_send_seq = 0;
     public UInt16 _next_recv_seq = 0;
+
+    TimeSync _timesync;
+
+    /*
+     * Event queue
+     */
+    RingBuffer<Event> _event_queue = new RingBuffer<Event>(64);
+
+    // Your name.  This will be exchanged with other peers on sync.
+    char[] _playerName = new char[ProtoConsts.MAX_NAME_SIZE];
 
 
     // -------------------------------------------------------------------------------------
@@ -208,6 +350,7 @@ namespace GGPOSharp
     }
 
     // -------------------------------------------------------------------------------------
+    // NOTE: This is like 'OnLoopPoll' from the C++ version....
     public void RunFrame()
     {
       DoPoll();
@@ -299,19 +442,34 @@ namespace GGPOSharp
     }
 
     // ------------------------------------------------------------------------
-    private void OnInvalid(ref UdpMsg msg, int msgLen)
+    private bool OnInvalid(ref UdpMsg msg, int msgLen)
     {
       throw new GGPOException("Invalid message!");
     }
 
     // ------------------------------------------------------------------------
-    private void OnSyncRequest(ref UdpMsg msg, int msgLen)
+    private bool OnSyncRequest(ref UdpMsg msg, int msgLen)
     {
-      throw new GGPOException("sync request!!");
+      if (_remote_magic_number != 0 && msg.header.magic != _remote_magic_number)
+      {
+        LogIt($"Ignoring sync request from unknown endpoint ({msg.header.magic} != {_remote_magic_number}).");
+        return false;
+      }
+      UdpMsg reply = new UdpMsg(EMsgType.SyncReply);
+      reply.u.sync_reply.random_reply = msg.u.sync_request.random_request;
+
+      reply.u.sync_reply.SetPlayerName(_playerName);
+      //      strcpy_s(reply.u.sync_reply.playerName, _playerName);
+
+      SendMsg(ref reply);
+      return true;
+
+
+      //throw new GGPOException("sync request!!");
     }
 
     // ------------------------------------------------------------------------
-    private void OnSyncReply(ref UdpMsg msg, int msgLen)
+    private bool OnSyncReply(ref UdpMsg msg, int msgLen)
     {
       throw new GGPOException("sync reply!!");
     }
@@ -322,10 +480,6 @@ namespace GGPOSharp
     /// </summary>
     private void PumpSendQueue()
     {
-      // TODO: Send the messages.
-      // TODO: Simulate network latency / jitter.
-      // TODO: Simulate OO (out out order) packets.
-
       // Ported from C++:
       while (!_send_queue.IsEmpty)
       {
@@ -385,6 +539,7 @@ namespace GGPOSharp
           LogIt("sending rogue oop!");
 
           SendMsgPacket(_oo_packet.msg);
+          _oo_packet.MsgIndex = -1;
           // int packetSize = _oo_packet.msg.PacketSize();
           //_udp->SendTo((char*)_oo_packet.msg, packetSize, 0,
           //  (struct sockaddr*)&_oo_packet.dest_addr, sizeof _oo_packet.dest_addr);
@@ -517,6 +672,239 @@ namespace GGPOSharp
   //  [FieldOffset(0)]
   //}
 
+
+  // ========================================================================================================
+  public class TimeSync
+  {
+    public const int FRAME_WINDOW_SIZE = 40;
+    public const int MIN_UNIQUE_FRAMES = 10;
+    public const int MIN_FRAME_ADVANTAGE = 3;
+    public const int MAX_FRAME_ADVANTAGE = 9;
+
+    protected int[] _local = new int[TimeSync.FRAME_WINDOW_SIZE];
+    protected int[] _remote = new int[TimeSync.FRAME_WINDOW_SIZE];
+    protected GameInput[] _last_inputs = new GameInput[MIN_UNIQUE_FRAMES];
+    protected int _next_prediction;
+
+    // -----------------------------------------------------------------------------------------------------
+    public TimeSync()
+    {
+      _next_prediction = FRAME_WINDOW_SIZE * 3;
+    }
+    // virtual ~TimeSync();
+
+    // -----------------------------------------------------------------------------------------------------
+    public void rollback_frame(ref GameInput input, int localAdvantage, int remoteAdvantage)
+    {
+      throw new NotSupportedException();
+      //// Remember the last frame and frame advantage
+      //_last_inputs[input.frame % ARRAY_SIZE(_last_inputs)] = input;
+      //_local[input.frame % ARRAY_SIZE(_local)] = localAdvantage;
+      //_remote[input.frame % ARRAY_SIZE(_remote)] = remoteAdvantage;
+    }
+
+    // -----------------------------------------------------------------------------------------------------
+    public int recommend_frame_wait_duration(bool require_idle_input)
+    {
+      throw new NotSupportedException();
+
+      //// Average our local and remote frame advantages
+      //int i, sum = 0;
+      //float advantage, radvantage;
+      //for (i = 0; i < ARRAY_SIZE(_local); i++)
+      //{
+      //  sum += _local[i];
+      //}
+      //advantage = sum / (float)ARRAY_SIZE(_local);
+
+      //sum = 0;
+      //for (i = 0; i < ARRAY_SIZE(_remote); i++)
+      //{
+      //  sum += _remote[i];
+      //}
+      //radvantage = sum / (float)ARRAY_SIZE(_remote);
+
+      //static int count = 0;
+      //count++;
+
+      //// See if someone should take action.  The person furthest ahead
+      //// needs to slow down so the other user can catch up.
+      //// Only do this if both clients agree on who's ahead!!
+      //if (advantage >= radvantage)
+      //{
+      //  return 0;
+      //}
+
+      //// Both clients agree that we're the one ahead.  Split
+      //// the difference between the two to figure out how long to
+      //// sleep for.
+      //int sleep_frames = (int)(((radvantage - advantage) / 2) + 0.5);
+
+      //Log("iteration %d:  sleep frames is %d\n", count, sleep_frames);
+
+      //// Some things just aren't worth correcting for.  Make sure
+      //// the difference is relevant before proceeding.
+      //if (sleep_frames < MIN_FRAME_ADVANTAGE)
+      //{
+      //  return 0;
+      //}
+
+      //// Make sure our input had been "idle enough" before recommending
+      //// a sleep.  This tries to make the emulator sleep while the
+      //// user's input isn't sweeping in arcs (e.g. fireball motions in
+      //// Street Fighter), which could cause the player to miss moves.
+      //if (require_idle_input)
+      //{
+      //  for (i = 1; i < ARRAY_SIZE(_last_inputs); i++)
+      //  {
+      //    if (!_last_inputs[i].equal(_last_inputs[0], true))
+      //    {
+      //      Log("iteration %d:  rejecting due to input stuff at position %d...!!!\n", count, i);
+      //      return 0;
+      //    }
+      //  }
+      //}
+
+      //// Success!!! Recommend the number of frames to sleep and adjust
+      //return MIN(sleep_frames, MAX_FRAME_ADVANTAGE);
+    }
+
+  }
+
+
+
+  // ========================================================================================================
+  [StructLayout(LayoutKind.Sequential, Pack = 1)]
+  public unsafe struct GameInput
+  {
+    public const UInt16 GAMEINPUT_MAX_BYTES = 7;
+    public const UInt16 GAMEINPUT_MAX_PLAYERS = 4;    // NOTE: This probably need to be 2?
+    public const int NullFrame = -1;
+
+    public GameInput() { }
+
+    public int frame;
+    public int size; /* size in bytes of the entire input for all players */
+
+    private const int BITS_SIZE = GAMEINPUT_MAX_BYTES * GAMEINPUT_MAX_PLAYERS;
+    public fixed byte bits[BITS_SIZE];
+
+    public bool is_null() { return frame == NullFrame; }
+    public void init(int frame, char[] bits, int size, int offset)
+    {
+      throw new NotSupportedException();
+      //ASSERT(isize);
+      //ASSERT(isize <= GAMEINPUT_MAX_BYTES);
+      //frame = iframe;
+      //size = isize;
+      //memset(bits, 0, sizeof(bits));
+      //if (ibits)
+      //{
+      //  memcpy(bits + (offset * isize), ibits, isize);
+      //}
+    }
+
+    public void init(int frame, char[] bits, int size)
+    {
+      throw new NotSupportedException();
+      //ASSERT(isize);
+      //ASSERT(isize <= GAMEINPUT_MAX_BYTES * GAMEINPUT_MAX_PLAYERS);
+      //frame = iframe;
+      //size = isize;
+      //memset(bits, 0, sizeof(bits));
+      //if (values)
+      //{
+      //  memcpy(bits, values, isize);
+      //}
+    }
+
+    // ----------------------------------------------------------------------------------------
+    public bool value(int i)
+    {
+      return (bits[i / 8] & (1 << (i % 8))) != 0;
+    }
+
+    // ----------------------------------------------------------------------------------------
+    public void set(int i)
+    {
+      bits[i / 8] |= (byte)(1 << (i % 8));
+    }
+
+    // ----------------------------------------------------------------------------------------
+    public void clear(int i)
+    {
+      bits[i / 8] &= (byte)~(1 << (i % 8));
+    }
+
+    // ----------------------------------------------------------------------------------------
+    public unsafe void erase()
+    {
+      fixed (byte* pBits = bits)
+      {
+        Unsafe.InitBlock(pBits, 0, BITS_SIZE);
+      }
+    }
+
+    // ----------------------------------------------------------------------------------------
+    public void desc(char[] buf, int buf_size, bool show_frame = true)
+    {
+      throw new NotImplementedException();
+      //ASSERT(size);
+      //size_t remaining = buf_size;
+      //if (show_frame)
+      //{
+      //  remaining -= sprintf_s(buf, buf_size, "(frame:%d size:%d ", frame, size);
+      //}
+      //else
+      //{
+      //  remaining -= sprintf_s(buf, buf_size, "(size:%d ", size);
+      //}
+
+      //for (int i = 0; i < size * 8; i++)
+      //{
+      //  char buf2[16];
+      //  if (value(i))
+      //  {
+      //    int c = sprintf_s(buf2, ARRAY_SIZE(buf2), "%2d ", i);
+      //    strncat_s(buf, remaining, buf2, ARRAY_SIZE(buf2));
+      //    remaining -= c;
+      //  }
+      //}
+      //strncat_s(buf, remaining, ")", 1);
+    }
+
+    public void log(char[] prefix, bool show_frame = true)
+    {
+      throw new NotSupportedException();
+      //char buf[1024];
+      //size_t c = strlen(prefix);
+      //strcpy_s(buf, prefix);
+      //desc(buf + c, ARRAY_SIZE(buf) - c, show_frame);
+      //strncat_s(buf, ARRAY_SIZE(buf) - strlen(buf), "\n", 1);
+      //Log(buf);
+    }
+
+    public bool equal(ref GameInput input, bool bitsonly)
+    {
+      throw new NotSupportedException();
+      //if (!bitsonly && frame != other.frame)
+      //{
+      //  Log("frames don't match: %d, %d\n", frame, other.frame);
+      //}
+      //if (size != other.size)
+      //{
+      //  Log("sizes don't match: %d, %d\n", size, other.size);
+      //}
+      //if (memcmp(bits, other.bits, size))
+      //{
+      //  Log("bits don't match\n");
+      //}
+      //ASSERT(size && other.size);
+      //return (bitsonly || frame == other.frame) &&
+      //       size == other.size &&
+      //       memcmp(bits, other.bits, size) == 0;
+    }
+  }
 
 
 }

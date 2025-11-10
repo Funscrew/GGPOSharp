@@ -126,6 +126,7 @@ public unsafe struct SyncReply
 
   public fixed sbyte playerName[ProtoConsts.MAX_NAME_SIZE];
 
+  // --------------------------------------------------------------------------------------------------------------
   public string GetPlayerName()
   {
     fixed (sbyte* p = playerName)
@@ -133,6 +134,18 @@ public unsafe struct SyncReply
       return AnsiHelpers.PtrToAnsiString(p, ProtoConsts.MAX_NAME_SIZE);
     }
   }
+
+  // --------------------------------------------------------------------------------------------------------------
+  public void SetPlayerName(char[] value)
+  {
+    fixed (sbyte* p = playerName) {
+      for (int i = 0; i < value.Length; i++) {
+        playerName[i] = (sbyte)value[i];
+      }
+    }
+  }
+
+  // --------------------------------------------------------------------------------------------------------------
   public void SetPlayerName(string value)
   {
     fixed (sbyte* p = playerName)
@@ -228,6 +241,37 @@ public struct InputAck
   }
 }
 
+// ================================================================================================
+// NOTE: This is the same as 'Chat', but uses different buffer sizes.  There is probably a way
+// to better unify the code.
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public unsafe struct ConnectData
+{
+  public fixed sbyte text[ProtoConsts.MAX_NAME_SIZE + 1];
+
+  public int GetTextSize()
+  {
+    fixed (sbyte* p = text)
+    {
+      return AnsiHelpers.PtrToAnsiStringLength(p, ProtoConsts.MAX_NAME_SIZE + 1);
+    }
+  }
+  public string GetText()
+  {
+    fixed (sbyte* p = text)
+    {
+      return AnsiHelpers.PtrToAnsiString(p, ProtoConsts.MAX_NAME_SIZE + 1);
+    }
+  }
+
+  public void SetText(string value)
+  {
+    fixed (sbyte* p = text)
+    {
+      AnsiHelpers.WriteAnsiString(value, p, ProtoConsts.MAX_NAME_SIZE + 1);
+    }
+  }
+}
 
 // ================================================================================================
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
