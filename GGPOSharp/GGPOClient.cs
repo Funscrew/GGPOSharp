@@ -91,7 +91,7 @@ namespace GGPOSharp
 
   //    UdpProtocol::Event(Type t = Unknown) : type(t) { }
   //};
-  public enum EventType
+  public enum EEventType
   {
     Unknown = -1,
     Connected,
@@ -104,13 +104,25 @@ namespace GGPOSharp
     ChatCommand
   }
 
-  // MAX_NAME_SIZE and MAX_GGPOCHAT_SIZE must be const ints.
+  // ================================================================================================
   [StructLayout(LayoutKind.Sequential, Pack = 1)]
   public unsafe struct Event
   {
-    public EventType type;
 
-    public EventData u;   // was 'u' in the C++ code
+    // ----------------------------------------------------------------------------------------------
+    public Event() { }
+
+    // ----------------------------------------------------------------------------------------------
+    public Event(EEventType eventType_)
+    {
+      type = eventType_;
+    }
+
+    public EEventType type;
+
+    // REFACTOR: Find a better name for this + sync with C++ code ('data' will do the trick!)
+    public EventData u;
+
 
     [StructLayout(LayoutKind.Explicit)]
     public unsafe struct EventData
@@ -193,7 +205,7 @@ namespace GGPOSharp
     public const int MAX_SEQ_DISTANCE = (1 << 15);
 
 
-    public EClientState CurrentState { get; private set; } = EClientState.Disconnected;
+    public EClientState _current_state { get; private set; } = EClientState.Disconnected;
 
     /*
   * Network transmission information
@@ -251,6 +263,11 @@ namespace GGPOSharp
 
 
     // Packet Loss
+    RingBuffer<GameInput> _pending_output = new RingBuffer<GameInput>(64);
+    GameInput _last_received_input;
+    GameInput _last_sent_input;
+    GameInput _last_acked_input;
+
     private uint _last_send_time = 0;
     private uint _last_recv_time = 0;
     public uint _shutdown_timeout = 0;
@@ -302,12 +319,12 @@ namespace GGPOSharp
     /// </summary>
     public void Synchronize()
     {
-      if (CurrentState != EClientState.Disconnected)
+      if (_current_state != EClientState.Disconnected)
       {
         throw new InvalidOperationException("Invalid state to begin synchronize operations.");
       }
 
-      CurrentState = EClientState.Syncing;
+      _current_state = EClientState.Syncing;
       SyncState.roundtrips_remaining = SYNC_PACKETS_COUNT;
       SendSyncRequest();
     }
@@ -327,7 +344,7 @@ namespace GGPOSharp
     // -------------------------------------------------------------------------------------
     public unsafe void SendMsg(ref UdpMsg msg)
     {
-      LogIt("send", ref msg);
+      Log("send", ref msg);
 
       _packets_sent++;
       _last_send_time = (uint)Clock.ElapsedMilliseconds;
@@ -373,7 +390,7 @@ namespace GGPOSharp
       int next_interval = 0;
       int now = (int)this.Clock.ElapsedMilliseconds;
 
-      switch (CurrentState)
+      switch (_current_state)
       {
         case EClientState.Disconnected:
           break;
@@ -383,15 +400,17 @@ namespace GGPOSharp
           next_interval = (SyncState.roundtrips_remaining == SYNC_PACKETS_COUNT) ? SYNC_FIRST_RETRY_INTERVAL : SYNC_RETRY_INTERVAL;
           if (_last_send_time > 0 && _last_send_time + next_interval < now)
           {
-            LogIt($"No luck syncing after {next_interval} ms... Re-queueing sync packet.");
+            Log($"No luck syncing after {next_interval} ms... Re-queueing sync packet.");
             SendSyncRequest();
           }
           break;
 
         case EClientState.Synchronzied:
+          int x = 10;
+          break;
 
         default:
-          throw new InvalidOperationException($"Invalid current state: {CurrentState}");
+          throw new InvalidOperationException($"Invalid current state: {_current_state}");
       }
     }
 
@@ -417,7 +436,7 @@ namespace GGPOSharp
         UdpMsg.FromBytes(ReceiveBuffer, ref msg, received);
 
         // Logging?
-        LogIt("MSG", ref msg);
+        Log("MSG", ref msg);
 
         // Now that we have the message we can do something with it....
         HandleMessage(ref msg, received);
@@ -452,7 +471,7 @@ namespace GGPOSharp
     {
       if (_remote_magic_number != 0 && msg.header.magic != _remote_magic_number)
       {
-        LogIt($"Ignoring sync request from unknown endpoint ({msg.header.magic} != {_remote_magic_number}).");
+        Log($"Ignoring sync request from unknown endpoint ({msg.header.magic} != {_remote_magic_number}).");
         return false;
       }
       UdpMsg reply = new UdpMsg(EMsgType.SyncReply);
@@ -471,8 +490,59 @@ namespace GGPOSharp
     // ------------------------------------------------------------------------
     private bool OnSyncReply(ref UdpMsg msg, int msgLen)
     {
-      throw new GGPOException("sync reply!!");
+      if (_current_state != EClientState.Syncing)
+      {
+        Log("Ignoring SyncReply while not synching.");
+        return msg.header.magic == _remote_magic_number;
+      }
+
+      if (msg.u.sync_reply.random_reply != SyncState.random)
+      {
+        Log($"sync reply {msg.u.sync_reply.random_reply} != {SyncState.random}.  Keep looking...");
+        return false;
+      }
+
+      if (!_connected)
+      {
+        var evt = new Event(EEventType.Connected);
+
+        // TODO: A direct copy from sbyte in the future!
+        string pn = msg.u.sync_reply.GetPlayerName();
+        evt.u.connected.SetText(pn);
+        // strcpy_s(evt.u.connected.playerName, msg.u.sync_reply.playerName);
+        QueueEvent(ref evt);
+
+        _connected = true;
+      }
+
+      Log($"Checking sync state ({SyncState.roundtrips_remaining} round trips remaining).");
+      if (--SyncState.roundtrips_remaining == 0)
+      {
+        Log("Synchronized!");
+
+        var e = new Event(EEventType.Synchronized);
+        QueueEvent(ref e);
+        _current_state = EClientState.Running;
+        _last_received_input.frame = -1;
+        _remote_magic_number = msg.header.magic;
+      }
+      else
+      {
+        var evt = new Event(EEventType.Synchronizing);
+        evt.u.synchronizing.total = SYNC_PACKETS_COUNT;
+        evt.u.synchronizing.count = SYNC_PACKETS_COUNT - (int)SyncState.roundtrips_remaining;
+        QueueEvent(ref evt);
+        SendSyncRequest();
+      }
+      return true;
     }
+
+    private void QueueEvent(ref Event evt)
+    {
+      LogEvent("Queuing event", evt);
+      _event_queue.Push(evt);
+    }
+
 
     // ------------------------------------------------------------------------
     /// <summary>
@@ -505,7 +575,7 @@ namespace GGPOSharp
         if (_oop_percent != 0 && !_oo_packet.HasMessage && (Random.Shared.Next(100) < _oop_percent))
         {
           int delay = Random.Shared.Next(_send_latency * 10 + 1000);
-          LogIt($"creating rogue oop (seq: {entry.msg.header.sequence_number}  delay: {delay})");
+          Log($"creating rogue oop (seq: {entry.msg.header.sequence_number}  delay: {delay})");
           _oo_packet.queue_time = (int)Clock.ElapsedMilliseconds + delay;
           _oo_packet.msg = entry.msg;
           _oo_packet.dest_addr = entry.dest_addr;
@@ -520,7 +590,7 @@ namespace GGPOSharp
           // ASSERT(entry.dest_addr.sin_addr.s_addr);
 
           // Send the packet!
-          //_udp->SendTo((char*)entry.msg, packetSize, 0,
+          //_udp.SendTo((char*)entry.msg, packetSize, 0,
           //  (struct sockaddr*)&entry.dest_addr, sizeof entry.dest_addr);
           SendMsgPacket(entry.msg);
           //int packetSize = entry.msg.PacketSize();
@@ -536,12 +606,12 @@ namespace GGPOSharp
 
         if (_oo_packet.HasMessage && _oo_packet.queue_time < (int)Clock.ElapsedMilliseconds)
         {
-          LogIt("sending rogue oop!");
+          Log("sending rogue oop!");
 
           SendMsgPacket(_oo_packet.msg);
           _oo_packet.MsgIndex = -1;
           // int packetSize = _oo_packet.msg.PacketSize();
-          //_udp->SendTo((char*)_oo_packet.msg, packetSize, 0,
+          //_udp.SendTo((char*)_oo_packet.msg, packetSize, 0,
           //  (struct sockaddr*)&_oo_packet.dest_addr, sizeof _oo_packet.dest_addr);
 
           //delete _oo_packet.msg;
@@ -569,20 +639,29 @@ namespace GGPOSharp
     }
 
 
-
     // ------------------------------------------------------------------------
-    private void LogIt(string msgType, ref UdpMsg msg)
+    private void LogEvent(string v, Event evt)
     {
+      Debug.WriteLine("implement this logging!");
+      // throw new NotImplementedException();
     }
 
     // ------------------------------------------------------------------------
-    private void LogIt(string msg)
+    private void Log(string msgType, ref UdpMsg msg)
     {
+      Debug.WriteLine("implement this logging!");
     }
 
     // ------------------------------------------------------------------------
-    private void LogIt(string v, byte[] data)
+    private void Log(string msg)
     {
+      Debug.WriteLine("implement this logging!");
+    }
+
+    // ------------------------------------------------------------------------
+    private void Log(string v, byte[] data)
+    {
+      Debug.WriteLine("implement this logging!");
       // It is OK to do nothing for now...
       // throw new NotImplementedException();
     }
@@ -740,7 +819,7 @@ namespace GGPOSharp
       //// sleep for.
       //int sleep_frames = (int)(((radvantage - advantage) / 2) + 0.5);
 
-      //Log("iteration %d:  sleep frames is %d\n", count, sleep_frames);
+      //LogIt("iteration %d:  sleep frames is %d", count, sleep_frames);
 
       //// Some things just aren't worth correcting for.  Make sure
       //// the difference is relevant before proceeding.
@@ -759,7 +838,7 @@ namespace GGPOSharp
       //  {
       //    if (!_last_inputs[i].equal(_last_inputs[0], true))
       //    {
-      //      Log("iteration %d:  rejecting due to input stuff at position %d...!!!\n", count, i);
+      //      LogIt("iteration %d:  rejecting due to input stuff at position %d...!!!", count, i);
       //      return 0;
       //    }
       //  }
@@ -873,15 +952,15 @@ namespace GGPOSharp
       //strncat_s(buf, remaining, ")", 1);
     }
 
-    public void log(char[] prefix, bool show_frame = true)
+    public void LogIt(char[] prefix, bool show_frame = true)
     {
       throw new NotSupportedException();
       //char buf[1024];
       //size_t c = strlen(prefix);
       //strcpy_s(buf, prefix);
       //desc(buf + c, ARRAY_SIZE(buf) - c, show_frame);
-      //strncat_s(buf, ARRAY_SIZE(buf) - strlen(buf), "\n", 1);
-      //Log(buf);
+      //strncat_s(buf, ARRAY_SIZE(buf) - strlen(buf), "", 1);
+      //LogIt(buf);
     }
 
     public bool equal(ref GameInput input, bool bitsonly)
@@ -889,15 +968,15 @@ namespace GGPOSharp
       throw new NotSupportedException();
       //if (!bitsonly && frame != other.frame)
       //{
-      //  Log("frames don't match: %d, %d\n", frame, other.frame);
+      //  LogIt("frames don't match: %d, %d", frame, other.frame);
       //}
       //if (size != other.size)
       //{
-      //  Log("sizes don't match: %d, %d\n", size, other.size);
+      //  LogIt("sizes don't match: %d, %d", size, other.size);
       //}
       //if (memcmp(bits, other.bits, size))
       //{
-      //  Log("bits don't match\n");
+      //  LogIt("bits don't match");
       //}
       //ASSERT(size && other.size);
       //return (bitsonly || frame == other.frame) &&
