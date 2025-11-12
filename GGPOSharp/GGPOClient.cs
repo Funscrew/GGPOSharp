@@ -156,38 +156,6 @@ namespace GGPOSharp
   }
 
 
-
-  // ================================================================================================================
-  public class GGPOClientOptions
-  {
-    public const int LOCAL_PORT = 7001;
-    public const int REMOTE_PORT = 7000;
-
-    public int LocalPort { get; set; } = LOCAL_PORT;
-    public string RemoteAddress { get; set; } = "127.0.0.1";
-    public int RemotePort { get; set; } = REMOTE_PORT;
-
-    /// <summary>
-    /// These should only be set in scenarios where you want to simulate certain network conditions.
-    /// </summary>
-    public TestOptions TestOptions { get; set; } = new TestOptions();
-  }
-
-  // ================================================================================================================
-  public class TestOptions
-  {
-    /// <summary>
-    /// Use this to simulate latency / jitter when sending packets. (in ms)
-    /// </summary>
-    public int SendLatency { get; set; } = 0;
-
-    /// <summary>
-    /// A certain % of packets will be sent based on this option.
-    /// </summary>
-    public float OOPercent { get; set; } = 0.0f;
-  }
-
-
   // ================================================================================================================
   public class GGPOClient
   {
@@ -205,7 +173,6 @@ namespace GGPOSharp
     public const int MAX_SEQ_DISTANCE = (1 << 15);
 
 
-    public EClientState _current_state { get; private set; } = EClientState.Disconnected;
 
     /*
   * Network transmission information
@@ -238,7 +205,7 @@ namespace GGPOSharp
     /// <summary>
     /// Data used when the client is in running state.
     /// </summary>
-    private RunningData RunningData = new RunningData();
+    private RunningData RunningState = new RunningData();
 
 
     private UdpBlaster Client = null!;
@@ -262,6 +229,14 @@ namespace GGPOSharp
     int _stats_start_time;
 
 
+    ConnectStatus[] _local_connect_status = new ConnectStatus[ProtoConsts.UDP_MSG_MAX_PLAYERS];
+    ConnectStatus[] _peer_connect_status = new ConnectStatus[ProtoConsts.UDP_MSG_MAX_PLAYERS];
+    // UdpMsg::connect_status _peer_connect_status[ProtoConsts.UDP_MSG_MAX_PLAYERS];
+
+    public EClientState _current_state { get; private set; } = EClientState.Disconnected;
+
+
+
     // Packet Loss
     RingBuffer<GameInput> _pending_output = new RingBuffer<GameInput>(64);
     GameInput _last_received_input;
@@ -270,11 +245,11 @@ namespace GGPOSharp
 
     private uint _last_send_time = 0;
     private uint _last_recv_time = 0;
-    public uint _shutdown_timeout = 0;
-    public uint _disconnect_event_sent = 0;
-    public uint _disconnect_timeout = 0;
-    public uint _disconnect_notify_start = 0;
-    bool _disconnect_notify_sent = false;
+    private uint _shutdown_timeout = 0;
+    private bool _disconnect_event_sent = false;
+    private uint _disconnect_timeout = 0;
+    private uint _disconnect_notify_start = 0;
+    private bool _disconnect_notify_sent = false;
 
     public UInt16 _next_send_seq = 0;
     public UInt16 _next_recv_seq = 0;
@@ -287,7 +262,7 @@ namespace GGPOSharp
     RingBuffer<Event> _event_queue = new RingBuffer<Event>(64);
 
     // Your name.  This will be exchanged with other peers on sync.
-    char[] _playerName = new char[ProtoConsts.MAX_NAME_SIZE];
+    string _playerName = null!; //new char[ProtoConsts.MAX_NAME_SIZE];
 
 
     // -------------------------------------------------------------------------------------
@@ -296,6 +271,8 @@ namespace GGPOSharp
       MsgHandlers[(byte)EMsgType.Invalid] = OnInvalid;
       MsgHandlers[(byte)EMsgType.SyncRequest] = OnSyncRequest;
       MsgHandlers[(byte)EMsgType.SyncReply] = OnSyncReply;
+      MsgHandlers[(byte)EMsgType.Input] = OnInput;
+
       //MsgHandlers[(byte)EMsgType.Invalid] = OnInvalid;
       //MsgHandlers[(byte)EMsgType.Invalid] = OnInvalid;
       //MsgHandlers[(byte)EMsgType.Invalid] = OnInvalid;
@@ -305,12 +282,188 @@ namespace GGPOSharp
       RemoteIP = new IPEndPoint(IPAddress.Parse(Options.RemoteAddress), Options.RemotePort);
       UseRemote = RemoteIP;
 
-      // We can't send packets if we don't connect!
-      // Client.Connect(Remote);
+      _last_sent_input.init(-1, null, 1);
+      _last_received_input.init(-1, null, 1);
+      _last_acked_input.init(-1, null, 1);
+
+      // memset(&_state, 0, sizeof _state);
+      SyncState = new SyncData();
+      RunningState = new RunningData();
+
+      // memset(_peer_connect_status, 0, sizeof(_peer_connect_status));
+      //for (int i = 0; i < ARRAY_SIZE(_peer_connect_status); i++)
+      //{
+      //  _peer_connect_status[i].last_frame = -1;
+      //}
+      int len = _peer_connect_status.Length;
+      for (int i = 0; i < len; i++)
+      {
+        _peer_connect_status[i] = new ConnectStatus();
+        _peer_connect_status[i].last_frame = -1;
+      }
+
+      // PEER ADDRESS is set otherwise.
+      //memset(&_peer_addr, 0, sizeof _peer_addr);
+
+      //_oo_packet.msg = NULL;
+      _oo_packet.MsgIndex = -1;
+
+      // These are set in the options....
+      //_send_latency = Platform::GetConfigInt(L"ggpo.network.delay");
+      //_oop_percent = Platform::GetConfigInt(L"ggpo.oop.percent");
+
+      // memset(_playerName, 0, MAX_NAME_SIZE);
+      if (Options.PlayerName.Length > ProtoConsts.MAX_NAME_SIZE) { 
+        throw new InvalidOperationException("Invalid player name!");
+      }
+      _playerName = Options.PlayerName;
+      // _playerName.SetValue(Options.PlayerName);
+
 
       // Begin the sync operation.....
       Synchronize();
     }
+
+    // -------------------------------------------------------------------------------------
+    private bool OnInput(ref UdpMsg msg, int msgLen)
+    {
+      /*
+       * If a disconnect is requested, go ahead and disconnect now.
+       */
+      bool disconnect_requested = msg.u.input.disconnect_requested;
+      if (disconnect_requested)
+      {
+        if (_current_state != EClientState.Disconnected && !_disconnect_event_sent)
+        {
+          Log("Disconnecting endpoint on remote request.\n");
+          QueueEvent(new Event(EEventType.Disconnected));
+          _disconnect_event_sent = true;
+        }
+      }
+      else
+      {
+        /*
+         * Update the peer connection status if this peer is still considered to be part
+         * of the network.
+         */
+        //var remote_status = msg.u.input.peer_connect_status;
+        for (int i = 0; i < _peer_connect_status.Length; i++)
+        {
+          var remote_status = msg.u.input.GetPeerConnectStatus(i);
+          Utils.ASSERT(remote_status.last_frame >= _peer_connect_status[i].last_frame);
+
+          _peer_connect_status[i].disconnected = _peer_connect_status[i].disconnected || remote_status.disconnected;
+          _peer_connect_status[i].last_frame = Math.Max(_peer_connect_status[i].last_frame, remote_status.last_frame);
+        }
+      }
+
+      /*
+       * Decompress the input.
+       */
+      int last_received_frame_number = _last_received_input.frame;
+      unsafe
+      {
+        if (msg.u.input.num_bits > 0)
+        {
+          int offset = 0;
+          fixed (byte* bits = msg.u.input.bits)
+          {
+
+            int numBits = msg.u.input.num_bits;
+            int currentFrame = (int)msg.u.input.start_frame;
+
+            _last_received_input.size = msg.u.input.input_size;
+            if (_last_received_input.frame < 0)
+            {
+              _last_received_input.frame = (int)msg.u.input.start_frame - 1;
+            }
+            while (offset < numBits)
+            {
+              /*
+               * Keep walking through the frames (parsing bits) until we reach
+               * the inputs for the frame right after the one we're on.
+               */
+              if (currentFrame > (_last_received_input.frame + 1))
+              {
+                throw new InvalidOperationException("invalid frame number!");
+              }
+              bool useInputs = currentFrame == _last_received_input.frame + 1;
+
+              while (BitVector.ReadBit(bits, ref offset) != 0)
+              {
+                bool on = BitVector.ReadBit(bits, ref offset) == 1;
+                int button = BitVector.ReadNibblet(bits, ref offset);
+                if (useInputs)
+                {
+                  if (on)
+                  {
+                    _last_received_input.set(button);
+                  }
+                  else
+                  {
+                    _last_received_input.clear(button);
+                  }
+                }
+              }
+              Utils.ASSERT(offset <= numBits);
+
+              /*
+               * Now if we want to use these inputs, go ahead and send them to
+               * the emulator.
+               */
+              if (useInputs)
+              {
+                /*
+                 * Move forward 1 frame in the stream.
+                 */
+                const int DESC_SIZE = 1024;
+                byte[] desc = new byte[1024];
+                Utils.ASSERT(currentFrame == _last_received_input.frame + 1);
+                _last_received_input.frame = currentFrame;
+
+                /*
+                 * Send the event to the emualtor
+                 */
+                // UdpProtocol::Event evt(UdpProtocol::Event::Input);
+                var evt = new Event(EEventType.Input);
+                evt.u.input = _last_received_input;
+
+                _last_received_input.desc(desc, DESC_SIZE);
+
+                RunningState.last_input_packet_recv_time = (uint)Clock.ElapsedMilliseconds;
+
+                Log($"Sending frame {_last_received_input.frame} to emu queue {_queue} ({desc}).");
+                QueueEvent(evt);
+
+              }
+              else
+              {
+                Log($"Skipping past frame:({currentFrame}) current is {_last_received_input}.");
+              }
+
+              /*
+               * Move forward 1 frame in the input stream.
+               */
+              currentFrame++;
+            }
+          }
+        }
+      }
+
+      Utils.ASSERT(_last_received_input.frame >= last_received_frame_number);
+
+      /*
+       * Get rid of our buffered input
+       */
+      while (_pending_output.Size > 0 && _pending_output.Front().frame < msg.u.input.ack_frame)
+      {
+        Log($"Throwing away pending output frame {_pending_output.Front().frame}");
+        _last_acked_input = _pending_output.Front();
+        _pending_output.Pop();
+      }
+      return true;
+    }
+
 
 
     // -------------------------------------------------------------------------------------
@@ -531,13 +684,14 @@ namespace GGPOSharp
         var evt = new Event(EEventType.Synchronizing);
         evt.u.synchronizing.total = SYNC_PACKETS_COUNT;
         evt.u.synchronizing.count = SYNC_PACKETS_COUNT - (int)SyncState.roundtrips_remaining;
-        QueueEvent(ref evt);
+        QueueEvent(evt);
         SendSyncRequest();
       }
       return true;
     }
 
-    private void QueueEvent(ref Event evt)
+    // ------------------------------------------------------------------------
+    private void QueueEvent(in Event evt)
     {
       LogEvent("Queuing event", evt);
       _event_queue.Push(evt);
@@ -869,11 +1023,32 @@ namespace GGPOSharp
     public fixed byte bits[BITS_SIZE];
 
     public bool is_null() { return frame == NullFrame; }
-    public void init(int frame, char[] bits, int size, int offset)
+
+    // ------------------------------------------------------------------------------------------
+    public void init(int iframe, byte[] ibits, int isize, int offset)
     {
-      throw new NotSupportedException();
-      //ASSERT(isize);
-      //ASSERT(isize <= GAMEINPUT_MAX_BYTES);
+      Utils.ASSERT(isize < GAMEINPUT_MAX_BYTES);
+
+      frame = iframe;
+      size = isize;
+
+      // TODO: We could probably come up with a better way to copy this data...
+      for (int i = 0; i < size; i++)
+      {
+        bits[i] = 0;
+      }
+      if (ibits != null)
+      {
+        for (int i = 0; i < size; i++)
+        {
+          if (i < size)
+          {
+            bits[i + offset] = ibits[i];
+          }
+        }
+      }
+
+      // C++ style!
       //frame = iframe;
       //size = isize;
       //memset(bits, 0, sizeof(bits));
@@ -881,20 +1056,13 @@ namespace GGPOSharp
       //{
       //  memcpy(bits + (offset * isize), ibits, isize);
       //}
+
     }
 
-    public void init(int frame, char[] bits, int size)
+    // ------------------------------------------------------------------------------------------
+    public void init(int iframe, byte[] ibits, int isize)
     {
-      throw new NotSupportedException();
-      //ASSERT(isize);
-      //ASSERT(isize <= GAMEINPUT_MAX_BYTES * GAMEINPUT_MAX_PLAYERS);
-      //frame = iframe;
-      //size = isize;
-      //memset(bits, 0, sizeof(bits));
-      //if (values)
-      //{
-      //  memcpy(bits, values, isize);
-      //}
+      init(frame, ibits, isize, 0);
     }
 
     // ----------------------------------------------------------------------------------------
@@ -925,7 +1093,7 @@ namespace GGPOSharp
     }
 
     // ----------------------------------------------------------------------------------------
-    public void desc(char[] buf, int buf_size, bool show_frame = true)
+    public void desc(byte[] buf, int buf_size, bool show_frame = true)
     {
       throw new NotImplementedException();
       //ASSERT(size);
@@ -952,17 +1120,19 @@ namespace GGPOSharp
       //strncat_s(buf, remaining, ")", 1);
     }
 
-    public void LogIt(char[] prefix, bool show_frame = true)
-    {
-      throw new NotSupportedException();
-      //char buf[1024];
-      //size_t c = strlen(prefix);
-      //strcpy_s(buf, prefix);
-      //desc(buf + c, ARRAY_SIZE(buf) - c, show_frame);
-      //strncat_s(buf, ARRAY_SIZE(buf) - strlen(buf), "", 1);
-      //LogIt(buf);
-    }
+    //// ----------------------------------------------------------------------------------------
+    //public void LogIt(char[] prefix, bool show_frame = true)
+    //{
+    //  throw new NotSupportedException();
+    //  //char buf[1024];
+    //  //size_t c = strlen(prefix);
+    //  //strcpy_s(buf, prefix);
+    //  //desc(buf + c, ARRAY_SIZE(buf) - c, show_frame);
+    //  //strncat_s(buf, ARRAY_SIZE(buf) - strlen(buf), "", 1);
+    //  //LogIt(buf);
+    //}
 
+    // ----------------------------------------------------------------------------------------
     public bool equal(ref GameInput input, bool bitsonly)
     {
       throw new NotSupportedException();

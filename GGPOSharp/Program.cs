@@ -17,7 +17,10 @@ namespace GGPOSharp
     {
       Console.WriteLine("Welcome to GGPO Example Client!");
 
-      var ops  = new GGPOClientOptions() { };
+      var ops = new GGPOClientOptions()
+      {
+        PlayerName = "Screwie"
+      };
       var c = new GGPOClient(ops);
 
 
@@ -31,10 +34,12 @@ namespace GGPOSharp
       double frameTime = 1.0d / FPS;
 
       int frameCount = 0;
-      while (true) {
+      while (true)
+      {
         double elapsed = sw.Elapsed.TotalSeconds;
         double remainder = frameTime - (elapsed - lastTime);
-        if (remainder <= 0.0d) {
+        if (remainder <= 0.0d)
+        {
           ++frameCount;
           c.RunFrame();
           // double curFPS = frameCount / elapsed;
@@ -43,7 +48,8 @@ namespace GGPOSharp
           //}
           lastTime = elapsed;
         }
-        else {
+        else
+        {
           // int sleepFor = (int)remainder * 1000;
           Thread.Sleep((int)(remainder * 1000.0d));
         }

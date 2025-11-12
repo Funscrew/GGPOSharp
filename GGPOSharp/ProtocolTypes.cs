@@ -55,7 +55,7 @@ struct ConnectStatus
 {
   [FieldOffset(0)] private int _value;
 
-  public bool IsDisconnected
+  public bool disconnected
   {
     get => (_value & 0x1) != 0;
     set
@@ -67,7 +67,7 @@ struct ConnectStatus
     }
   }
 
-  public int LastFrame
+  public int last_frame
   {
     get => _value >> 1;                 // use remaining 31 bits
     set => this._value = (this._value & 0x1) | (value << 1);
@@ -138,8 +138,10 @@ public unsafe struct SyncReply
   // --------------------------------------------------------------------------------------------------------------
   public void SetPlayerName(char[] value)
   {
-    fixed (sbyte* p = playerName) {
-      for (int i = 0; i < value.Length; i++) {
+    fixed (sbyte* p = playerName)
+    {
+      for (int i = 0; i < value.Length; i++)
+      {
         playerName[i] = (sbyte)value[i];
       }
     }
@@ -174,12 +176,14 @@ public struct QualityReply
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public unsafe struct InputMsg
 {
-  // Raw storage for peer_connect_status[UDP_MSG_MAX_PLAYERS]
-  // Size = sizeof(ConnectStatus) * UDP_MSG_MAX_PLAYERS.
-  public const int PeerConnectStatusBytes = sizeof(int) * 2 * ProtoConsts.UDP_MSG_MAX_PLAYERS; // two ints per ConnectStatus
+  //// Raw storage for peer_connect_status[UDP_MSG_MAX_PLAYERS]
+  //// Size = sizeof(ConnectStatus) * UDP_MSG_MAX_PLAYERS.
+  //public const int PeerConnectStatusBytes = sizeof(int) * 2 * ProtoConsts.UDP_MSG_MAX_PLAYERS; // two ints per ConnectStatus
+  //public fixed byte peer_connect_status_bytes[PeerConnectStatusBytes];
+  public const int CONNECT_STATUS_SIZE = sizeof(int) * ProtoConsts.UDP_MSG_MAX_PLAYERS;
+  private fixed byte peer_connect_status_bytes[CONNECT_STATUS_SIZE];
 
-  public fixed byte peer_connect_status_bytes[PeerConnectStatusBytes];
-  public uint start_frame;
+  public UInt32 start_frame;
 
   // bitfields packed into a single int
   private int _flags;
@@ -201,27 +205,36 @@ public unsafe struct InputMsg
 
 
 
-  //// Helpers to get/set a ConnectStatus by index (unsafe)
-  //public ConnectStatus GetPeerConnectStatus(int index)
-  //{
-  //  if ((uint)index >= ProtoConsts.UDP_MSG_MAX_PLAYERS) throw new ArgumentOutOfRangeException(nameof(index));
-  //  fixed (byte* basePtr = peer_connect_status_bytes)
-  //  {
-  //    int stride = sizeof(int) * 2;
-  //    byte* p = basePtr + (index * stride);
-  //    return *(ConnectStatus*)p;
-  //  }
-  //}
+  // ------------------------------------------------------------------------------------------
+  // Helpers to get/set a ConnectStatus by index (unsafe)
+  internal ConnectStatus GetPeerConnectStatus(int index)
+  {
+    if (index >= ProtoConsts.UDP_MSG_MAX_PLAYERS)
+    {
+      throw new ArgumentOutOfRangeException(nameof(index));
+    }
 
-  //public void SetPeerConnectStatus(int index, in ConnectStatus value)
-  //{
-  //  if ((uint)index >= ProtoConsts.UDP_MSG_MAX_PLAYERS) throw new ArgumentOutOfRangeException(nameof(index));
-  //  fixed (byte* basePtr = peer_connect_status_bytes)
-  //  {
-  //    int stride = sizeof(int) * 2;
-  //    *(ConnectStatus*)(basePtr + (index * stride)) = value;
-  //  }
-  //}
+    fixed (byte* basePtr = peer_connect_status_bytes)
+    {
+      int stride = sizeof(int); // * 2;
+      byte* p = basePtr + (index * stride);
+      return *(ConnectStatus*)p;
+    }
+  }
+
+  // ------------------------------------------------------------------------------------------
+  internal void SetPeerConnectStatus(int index, in ConnectStatus value)
+  {
+    if (index >= ProtoConsts.UDP_MSG_MAX_PLAYERS)
+    {
+      throw new ArgumentOutOfRangeException(nameof(index));
+    }
+    fixed (byte* basePtr = peer_connect_status_bytes)
+    {
+      int stride = sizeof(int); // * 2;
+      *(ConnectStatus*)(basePtr + (index * stride)) = value;
+    }
+  }
 }
 
 // ================================================================================================
