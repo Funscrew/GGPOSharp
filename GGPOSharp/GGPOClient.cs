@@ -21,16 +21,7 @@ namespace GGPOSharp
     public float kbps_sent;
   };
 
-
-  //// ==================================================================================================================
-  //struct Stats
-  //{
-  //  int ping;
-  //  int remote_frame_advantage;
-  //  int local_frame_advantage;
-  //  int send_queue_len;
-  //  Udp::Stats udp;
-  //};
+  // ==================================================================================================================
   [StructLayout(LayoutKind.Sequential, Pack = 1)]
   public struct Stats
   {
@@ -41,56 +32,7 @@ namespace GGPOSharp
     public UdpStats Udp; // whatever your Udp::Stats mapped to
   }
 
-
-  //  // ==================================================================================================================
-  //  struct Event
-  //  {
-  //    enum Type
-  //    {
-  //      Unknown = -1,
-  //      Connected,
-  //      Synchronizing,
-  //      Synchronized,
-  //      Input,
-  //      Disconnected,
-  //      NetworkInterrupted,
-  //      NetworkResumed,
-  //      ChatCommand
-  //    };
-
-  //    Type type;
-  //    union {
-  //      struct {
-  //      GameInput input;
-  //    }
-  //    input;
-
-  //      struct {
-  //      int total;
-  //      int count;
-  //    }
-  //    synchronizing;
-
-  //      struct {
-  //      char playerName[MAX_NAME_SIZE];
-  //    }
-  //    connected;
-
-  //      struct {
-  //      int disconnect_timeout;
-  //    }
-  //    network_interrupted;
-
-  //      struct {
-  //      char text[MAX_GGPOCHAT_SIZE + 1];
-  //    }
-  //    chat;
-
-  //    }
-  //  u;			// REFACTOR: Rename this to 'data'
-
-  //    UdpProtocol::Event(Type t = Unknown) : type(t) { }
-  //};
+  // ==================================================================================================================
   public enum EEventType
   {
     Unknown = -1,
@@ -174,9 +116,8 @@ namespace GGPOSharp
 
 
 
-    /*
-  * Network transmission information
-  */
+    // Network transmission information
+  
     //Udp* _udp;
     //sockaddr_in _peer_addr;
     private UInt16 _magic_number;
@@ -219,7 +160,7 @@ namespace GGPOSharp
 
     private Stopwatch Clock = Stopwatch.StartNew();
 
-    private MsgHandler<UdpMsg>[] MsgHandlers = new MsgHandler<UdpMsg>[8];
+    private MsgHandler<UdpMsg>[] MsgHandlers = new MsgHandler<UdpMsg>[9];
 
     // Network Stats
     int _round_trip_time;
@@ -235,7 +176,11 @@ namespace GGPOSharp
 
     public EClientState _current_state { get; private set; } = EClientState.Disconnected;
 
-
+    /*
+     * Fairness.
+     */
+    int _local_frame_advantage;
+    int _remote_frame_advantage;
 
     // Packet Loss
     RingBuffer<GameInput> _pending_output = new RingBuffer<GameInput>(64);
@@ -272,10 +217,11 @@ namespace GGPOSharp
       MsgHandlers[(byte)EMsgType.SyncRequest] = OnSyncRequest;
       MsgHandlers[(byte)EMsgType.SyncReply] = OnSyncReply;
       MsgHandlers[(byte)EMsgType.Input] = OnInput;
-
-      //MsgHandlers[(byte)EMsgType.Invalid] = OnInvalid;
-      //MsgHandlers[(byte)EMsgType.Invalid] = OnInvalid;
-      //MsgHandlers[(byte)EMsgType.Invalid] = OnInvalid;
+      MsgHandlers[(byte)EMsgType.QualityReport] = OnQualityReport;
+      MsgHandlers[(byte)EMsgType.QualityReply] = OnQualityReply;
+      MsgHandlers[(byte)EMsgType.KeepAlive] = OnKeepAlive;
+      MsgHandlers[(byte)EMsgType.InputAck] = OnInputAck;
+      MsgHandlers[(byte)EMsgType.ChatCommand] = OnChat;
 
       Options = ops_;
       Client = new UdpBlaster(Options.LocalPort);
@@ -313,7 +259,8 @@ namespace GGPOSharp
       //_oop_percent = Platform::GetConfigInt(L"ggpo.oop.percent");
 
       // memset(_playerName, 0, MAX_NAME_SIZE);
-      if (Options.PlayerName.Length > ProtoConsts.MAX_NAME_SIZE) { 
+      if (Options.PlayerName.Length > ProtoConsts.MAX_NAME_SIZE)
+      {
         throw new InvalidOperationException("Invalid player name!");
       }
       _playerName = Options.PlayerName;
@@ -322,6 +269,67 @@ namespace GGPOSharp
 
       // Begin the sync operation.....
       Synchronize();
+    }
+
+    // -------------------------------------------------------------------------------------
+    private unsafe bool OnChat(ref UdpMsg msg, int msgLen)
+    {
+      var evt = new Event(EEventType.ChatCommand);
+      // evt.u.input.input = _last_received_input;
+      //_last_received_input.desc(desc, ARRAY_SIZE(desc));
+
+      //_state.running.last_input_packet_recv_time = Platform::GetCurrentTimeMS();
+      int textlen = msgLen - 5; //sizeof(UdpMsg::header);
+      fixed (sbyte* txtData = msg.u.chat.text)
+      {
+        evt.u.chat.SetText(txtData, textlen);
+      }
+      // strcpy_s(evt.u.chat.text, textlen + 1, msg->u.chat.text);
+
+      //Log("Sending frame %d to emu queue %d (%s).\n", _last_received_input.frame, _queue, desc);
+      QueueEvent(evt);
+
+
+      return true;
+    }
+
+    // -------------------------------------------------------------------------------------
+    private bool OnInputAck(ref UdpMsg msg, int msgLen)
+    {
+      // Get rid of our buffered input
+      while (_pending_output.Size != 0 && _pending_output.Front().frame < msg.u.input_ack.ack_frame)
+      {
+        Log($"Throwing away pending output frame {_pending_output.Front().frame}");
+        _last_acked_input = _pending_output.Front();
+        _pending_output.Pop();
+      }
+      return true;
+    }
+
+    // -------------------------------------------------------------------------------------
+    private bool OnKeepAlive(ref UdpMsg msg, int msgLen)
+    {
+      // Yep, we just say OK!
+      return true;
+    }
+
+    // -------------------------------------------------------------------------------------
+    private bool OnQualityReport(ref UdpMsg msg, int msgLen)
+    {
+      // send a reply so the other side can compute the round trip transmit time.
+      UdpMsg reply = new UdpMsg(EMsgType.QualityReply);
+      reply.u.quality_reply.pong = msg.u.quality_report.ping;
+      SendMsg(ref reply);
+
+      _remote_frame_advantage = msg.u.quality_report.frame_advantage;
+      return true;
+    }
+
+    // -------------------------------------------------------------------------------------
+    private bool OnQualityReply(ref UdpMsg msg, int msgLen)
+    {
+      _round_trip_time = (int)(Clock.ElapsedMilliseconds - msg.u.quality_reply.pong);
+      return true;
     }
 
     // -------------------------------------------------------------------------------------
@@ -1119,18 +1127,6 @@ namespace GGPOSharp
       //}
       //strncat_s(buf, remaining, ")", 1);
     }
-
-    //// ----------------------------------------------------------------------------------------
-    //public void LogIt(char[] prefix, bool show_frame = true)
-    //{
-    //  throw new NotSupportedException();
-    //  //char buf[1024];
-    //  //size_t c = strlen(prefix);
-    //  //strcpy_s(buf, prefix);
-    //  //desc(buf + c, ARRAY_SIZE(buf) - c, show_frame);
-    //  //strncat_s(buf, ARRAY_SIZE(buf) - strlen(buf), "", 1);
-    //  //LogIt(buf);
-    //}
 
     // ----------------------------------------------------------------------------------------
     public bool equal(ref GameInput input, bool bitsonly)

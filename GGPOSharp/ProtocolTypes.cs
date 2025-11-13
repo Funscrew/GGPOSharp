@@ -292,6 +292,7 @@ public unsafe struct Chat
 {
   public fixed sbyte text[ProtoConsts.MAX_GGPOCHAT_SIZE + 1];
 
+  // -------------------------------------------------------------------------------------
   public int GetTextSize()
   {
     fixed (sbyte* p = text)
@@ -299,6 +300,8 @@ public unsafe struct Chat
       return AnsiHelpers.PtrToAnsiStringLength(p, ProtoConsts.MAX_GGPOCHAT_SIZE + 1);
     }
   }
+
+  // -------------------------------------------------------------------------------------
   public string GetText()
   {
     fixed (sbyte* p = text)
@@ -307,6 +310,7 @@ public unsafe struct Chat
     }
   }
 
+  // -------------------------------------------------------------------------------------
   public void SetText(string value)
   {
     fixed (sbyte* p = text)
@@ -314,6 +318,19 @@ public unsafe struct Chat
       AnsiHelpers.WriteAnsiString(value, p, ProtoConsts.MAX_GGPOCHAT_SIZE + 1);
     }
   }
+
+  // -------------------------------------------------------------------------------------
+  public void SetText(sbyte* data, int size)
+  {
+    fixed (sbyte* p = text)
+    {
+      for (int i = 0; i < size; i++) {
+        text[i] = data[i];
+      }
+      // AnsiHelpers.WriteAnsiString(value, p, ProtoConsts.MAX_GGPOCHAT_SIZE + 1);
+    }
+  }
+
 }
 
 //[StructLayout(LayoutKind.Sequential, Pack = 1, CharSet = CharSet.Ansi)]
