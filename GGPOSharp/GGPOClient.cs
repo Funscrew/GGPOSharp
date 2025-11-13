@@ -117,7 +117,7 @@ namespace GGPOSharp
 
 
     // Network transmission information
-  
+
     //Udp* _udp;
     //sockaddr_in _peer_addr;
     private UInt16 _magic_number;
@@ -424,8 +424,6 @@ namespace GGPOSharp
                 /*
                  * Move forward 1 frame in the stream.
                  */
-                const int DESC_SIZE = 1024;
-                byte[] desc = new byte[1024];
                 Utils.ASSERT(currentFrame == _last_received_input.frame + 1);
                 _last_received_input.frame = currentFrame;
 
@@ -436,11 +434,16 @@ namespace GGPOSharp
                 var evt = new Event(EEventType.Input);
                 evt.u.input = _last_received_input;
 
-                _last_received_input.desc(desc, DESC_SIZE);
+                // NOTE: This is expensive loggin that we are not going to support in the C# version.  It
+                // should be replaced with something better tho.
+                string desc = "NOT SUPPORTED - REWRITE";
+                //const int DESC_SIZE = 1024;
+                //byte[] desc = new byte[1024];
+                //_last_received_input.desc(desc, DESC_SIZE);
 
                 RunningState.last_input_packet_recv_time = (uint)Clock.ElapsedMilliseconds;
 
-                Log($"Sending frame {_last_received_input.frame} to emu queue {_queue} ({desc}).");
+                Log($"Sending frame {_last_received_input.frame} to emu queue {_queue} (<{desc}>).");
                 QueueEvent(evt);
 
               }
@@ -671,7 +674,7 @@ namespace GGPOSharp
         string pn = msg.u.sync_reply.GetPlayerName();
         evt.u.connected.SetText(pn);
         // strcpy_s(evt.u.connected.playerName, msg.u.sync_reply.playerName);
-        QueueEvent(ref evt);
+        QueueEvent(evt);
 
         _connected = true;
       }
@@ -682,7 +685,7 @@ namespace GGPOSharp
         Log("Synchronized!");
 
         var e = new Event(EEventType.Synchronized);
-        QueueEvent(ref e);
+        QueueEvent(e);
         _current_state = EClientState.Running;
         _last_received_input.frame = -1;
         _remote_magic_number = msg.header.magic;
@@ -802,26 +805,26 @@ namespace GGPOSharp
 
 
     // ------------------------------------------------------------------------
-    private void LogEvent(string v, Event evt)
+    internal static void LogEvent(string v, Event evt)
     {
       Debug.WriteLine("implement this logging!");
       // throw new NotImplementedException();
     }
 
     // ------------------------------------------------------------------------
-    private void Log(string msgType, ref UdpMsg msg)
+    internal static void Log(string msgType, ref UdpMsg msg)
     {
       Debug.WriteLine("implement this logging!");
     }
 
     // ------------------------------------------------------------------------
-    private void Log(string msg)
+    internal static void Log(string msg)
     {
       Debug.WriteLine("implement this logging!");
     }
 
     // ------------------------------------------------------------------------
-    private void Log(string v, byte[] data)
+    internal static void Log(string v, byte[] data)
     {
       Debug.WriteLine("implement this logging!");
       // It is OK to do nothing for now...
@@ -876,18 +879,6 @@ namespace GGPOSharp
     Running,
     Disconnected
   };
-
-
-
-
-  // ================================================================================================================
-  [StructLayout(LayoutKind.Explicit)]
-  public struct TestUnion
-  {
-    // This should overlap 'Single' by 4 bytes.
-    [FieldOffset(0)] public double Double;
-    [FieldOffset(0)] public float Single;
-  }
 
 
   //// ================================================================================================================
@@ -1103,12 +1094,15 @@ namespace GGPOSharp
     // ----------------------------------------------------------------------------------------
     public void desc(byte[] buf, int buf_size, bool show_frame = true)
     {
-      throw new NotImplementedException();
-      //ASSERT(size);
-      //size_t remaining = buf_size;
+      // NOTE: I am not porting this as it is just some expensive logging messages
+      // that can be handled in a better way, both in C++ and here.
+      //Debug.WriteLine
+      //// NOTE: The C++ version of this code sort of 
+      //Utils.ASSERT(size > 0);   // Not sure why size would ever be zero... ?
+      //int remaining = buf_size;
       //if (show_frame)
       //{
-      //  remaining -= sprintf_s(buf, buf_size, "(frame:%d size:%d ", frame, size);
+      //  remaining -= sprintf_s(buf, buf_size, $"(frame:{frame} size:{size} ");
       //}
       //else
       //{
@@ -1117,7 +1111,7 @@ namespace GGPOSharp
 
       //for (int i = 0; i < size * 8; i++)
       //{
-      //  char buf2[16];
+      //  char[] buf2 = new char[16];
       //  if (value(i))
       //  {
       //    int c = sprintf_s(buf2, ARRAY_SIZE(buf2), "%2d ", i);
@@ -1129,27 +1123,52 @@ namespace GGPOSharp
     }
 
     // ----------------------------------------------------------------------------------------
-    public bool equal(ref GameInput input, bool bitsonly)
+    public bool equal(in GameInput other)
     {
-      throw new NotSupportedException();
-      //if (!bitsonly && frame != other.frame)
-      //{
-      //  LogIt("frames don't match: %d, %d", frame, other.frame);
-      //}
-      //if (size != other.size)
-      //{
-      //  LogIt("sizes don't match: %d, %d", size, other.size);
-      //}
-      //if (memcmp(bits, other.bits, size))
-      //{
-      //  LogIt("bits don't match");
-      //}
-      //ASSERT(size && other.size);
-      //return (bitsonly || frame == other.frame) &&
-      //       size == other.size &&
-      //       memcmp(bits, other.bits, size) == 0;
+      bool bitsonly = true;
+      if (!bitsonly && frame != other.frame)
+      {
+        GGPOClient.Log($"frames don't match: {frame}, {other.frame}");
+      }
+      if (size != other.size)
+      {
+        GGPOClient.Log($"sizes don't match: {size}, {other.size}");
+      }
+
+      bool memMatch = false;
+      fixed (byte* p = bits)
+      fixed (byte* p2 = other.bits)
+      {
+        memMatch = MemMatches(p, p2, size);
+      }
+
+      if (!memMatch)
+      {
+        GGPOClient.Log("bits don't match");
+      }
+
+      // NOTE: Because of this assert, we don't need to check the condition: size==other.size
+      Utils.ASSERT(size != 0 && other.size != 0);
+      return (bitsonly || frame == other.frame) &&
+             size == other.size &&
+             memMatch;
+    }
+
+    // ----------------------------------------------------------------------------------------
+    private unsafe bool MemMatches(byte* data1, byte* data2, int size)
+    {
+      // probably not as fast as memcmp, but that is OK for now...
+      for (int i = 0; i < size; i++)
+      {
+        if (data1[i] != data2[i])
+        {
+          return false;
+        }
+      }
+      return true;
     }
   }
+
 
 
 }

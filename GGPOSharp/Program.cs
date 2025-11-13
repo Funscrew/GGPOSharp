@@ -106,30 +106,5 @@ namespace GGPOSharp
 
     }
 
-    // ----------------------------------------------------------------------------------------------------------------------------------
-    /// <summary>
-    /// Demonstrates some interesting properties of "unions" in C#!
-    /// </summary>
-    private static void UnionExample()
-    {
-      var u = new TestUnion()
-      {
-        Double = 0.0d,
-        Single = 0.0f
-      };
-
-      Console.WriteLine($"d:{u.Double}");
-      Console.WriteLine($"s:{u.Single}");
-
-      // Add a number.....
-      u.Double = 3.14159267d;
-
-      Console.WriteLine($"d:{u.Double} [2]");
-      Console.WriteLine($"s:{u.Single} [2]");
-
-      u.Single = 0.0f;
-      Console.WriteLine($"d:{u.Double} [3]");
-      Console.WriteLine($"s:{u.Single} [3]");
-    }
   }
 }
