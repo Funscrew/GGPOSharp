@@ -17,11 +17,7 @@ namespace GGPOSharp
     {
       Console.WriteLine("Welcome to GGPO Example Client!");
 
-      var ops = new GGPOClientOptions()
-      {
-        LocalPlayerName = "Screwie",
-        LocalPort = Defaults.LOCAL_PORT,
-      };
+      var ops = new GGPOClientOptions(0, "Screwie", Defaults.LOCAL_PORT);
       var c = new GGPOClient(ops);
       c.AddRemote(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT);
       c.Lock();

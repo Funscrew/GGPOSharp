@@ -3,25 +3,25 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+
 
 namespace GGPOSharp;
 
-using System;
-using System.Diagnostics;
-using System.Drawing;
-using System.Runtime.InteropServices;
-
-//#pragma warning disable 649
-
-
 // ================================================================================================================
 // NOTE: These should match what is compiled in the C++ code....
-public static class ProtoConsts
+public static class GGPOConsts
 {
-  public const int MAX_NAME_SIZE = 16;                 // TODO
-  public const int UDP_MSG_MAX_PLAYERS = 4;            // TODO
-  public const int MAX_COMPRESSED_BITS = 4096;         // TODO
-  public const int MAX_GGPOCHAT_SIZE = 128;            // TODO
+  public const int MAX_NAME_SIZE = 16;              
+  public const int UDP_MSG_MAX_PLAYERS = 4;         
+  public const int MAX_COMPRESSED_BITS = 4096;      
+  public const int MAX_GGPOCHAT_SIZE = 128;         
+
+  public const int MAX_PREDICTION_FRAMES = 8;
+  public const int INPUT_QUEUE_LENGTH = 128;
+  public const int DEFAULT_INPUT_SIZE = 4;
 }
 
 
@@ -124,14 +124,14 @@ public unsafe struct SyncReply
 {
   public uint random_reply;     // OK, here's your random data back
 
-  public fixed sbyte playerName[ProtoConsts.MAX_NAME_SIZE];
+  public fixed sbyte playerName[GGPOConsts.MAX_NAME_SIZE];
 
   // --------------------------------------------------------------------------------------------------------------
   public string GetPlayerName()
   {
     fixed (sbyte* p = playerName)
     {
-      return AnsiHelpers.PtrToAnsiString(p, ProtoConsts.MAX_NAME_SIZE);
+      return AnsiHelpers.PtrToAnsiString(p, GGPOConsts.MAX_NAME_SIZE);
     }
   }
 
@@ -152,7 +152,7 @@ public unsafe struct SyncReply
   {
     fixed (sbyte* p = playerName)
     {
-      AnsiHelpers.WriteAnsiString(value, p, ProtoConsts.MAX_NAME_SIZE);
+      AnsiHelpers.WriteAnsiString(value, p, GGPOConsts.MAX_NAME_SIZE);
     }
   }
 }
@@ -182,7 +182,7 @@ public unsafe struct InputMsg
   //public fixed byte peer_connect_status_bytes[PeerConnectStatusBytes];
   // public const int CONNECT_STATUS_SIZE = sizeof(int) * ProtoConsts.UDP_MSG_MAX_PLAYERS;
   // private fixed byte peer_connect_status_bytes[CONNECT_STATUS_SIZE];
-  private fixed int peer_connect_data[ProtoConsts.UDP_MSG_MAX_PLAYERS];
+  private fixed int peer_connect_data[GGPOConsts.UDP_MSG_MAX_PLAYERS];
 
   public UInt32 start_frame;
 
@@ -202,7 +202,7 @@ public unsafe struct InputMsg
   public ushort num_bits;
   public byte input_size;
 
-  public fixed byte bits[ProtoConsts.MAX_COMPRESSED_BITS];
+  public fixed byte bits[GGPOConsts.MAX_COMPRESSED_BITS];
 
 
 
@@ -210,7 +210,7 @@ public unsafe struct InputMsg
   // Helpers to get/set a ConnectStatus by index (unsafe)
   internal ConnectStatus GetPeerConnectStatus(int index)
   {
-    if (index >= ProtoConsts.UDP_MSG_MAX_PLAYERS)
+    if (index >= GGPOConsts.UDP_MSG_MAX_PLAYERS)
     {
       throw new ArgumentOutOfRangeException(nameof(index));
     }
@@ -221,7 +221,7 @@ public unsafe struct InputMsg
     //  byte* p = basePtr + (index * stride);
     //  return *(ConnectStatus*)p;
     //}
-    fixed(int* basePtr = peer_connect_data)
+    fixed (int* basePtr = peer_connect_data)
     {
       int* p = basePtr + index;
       return *(ConnectStatus*)p;
@@ -231,7 +231,7 @@ public unsafe struct InputMsg
   // ------------------------------------------------------------------------------------------
   internal void SetPeerConnectStatus(int index, in ConnectStatus value)
   {
-    if (index >= ProtoConsts.UDP_MSG_MAX_PLAYERS)
+    if (index >= GGPOConsts.UDP_MSG_MAX_PLAYERS)
     {
       throw new ArgumentOutOfRangeException(nameof(index));
     }
@@ -271,20 +271,20 @@ public struct InputAck
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public unsafe struct ConnectData
 {
-  public fixed sbyte text[ProtoConsts.MAX_NAME_SIZE + 1];
+  public fixed sbyte text[GGPOConsts.MAX_NAME_SIZE + 1];
 
   public int GetTextSize()
   {
     fixed (sbyte* p = text)
     {
-      return AnsiHelpers.PtrToAnsiStringLength(p, ProtoConsts.MAX_NAME_SIZE + 1);
+      return AnsiHelpers.PtrToAnsiStringLength(p, GGPOConsts.MAX_NAME_SIZE + 1);
     }
   }
   public string GetText()
   {
     fixed (sbyte* p = text)
     {
-      return AnsiHelpers.PtrToAnsiString(p, ProtoConsts.MAX_NAME_SIZE + 1);
+      return AnsiHelpers.PtrToAnsiString(p, GGPOConsts.MAX_NAME_SIZE + 1);
     }
   }
 
@@ -292,7 +292,7 @@ public unsafe struct ConnectData
   {
     fixed (sbyte* p = text)
     {
-      AnsiHelpers.WriteAnsiString(value, p, ProtoConsts.MAX_NAME_SIZE + 1);
+      AnsiHelpers.WriteAnsiString(value, p, GGPOConsts.MAX_NAME_SIZE + 1);
     }
   }
 }
@@ -301,14 +301,14 @@ public unsafe struct ConnectData
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public unsafe struct Chat
 {
-  public fixed sbyte text[ProtoConsts.MAX_GGPOCHAT_SIZE + 1];
+  public fixed sbyte text[GGPOConsts.MAX_GGPOCHAT_SIZE + 1];
 
   // -------------------------------------------------------------------------------------
   public int GetTextSize()
   {
     fixed (sbyte* p = text)
     {
-      return AnsiHelpers.PtrToAnsiStringLength(p, ProtoConsts.MAX_GGPOCHAT_SIZE + 1);
+      return AnsiHelpers.PtrToAnsiStringLength(p, GGPOConsts.MAX_GGPOCHAT_SIZE + 1);
     }
   }
 
@@ -317,7 +317,7 @@ public unsafe struct Chat
   {
     fixed (sbyte* p = text)
     {
-      return AnsiHelpers.PtrToAnsiString(p, ProtoConsts.MAX_GGPOCHAT_SIZE + 1);
+      return AnsiHelpers.PtrToAnsiString(p, GGPOConsts.MAX_GGPOCHAT_SIZE + 1);
     }
   }
 
@@ -326,7 +326,7 @@ public unsafe struct Chat
   {
     fixed (sbyte* p = text)
     {
-      AnsiHelpers.WriteAnsiString(value, p, ProtoConsts.MAX_GGPOCHAT_SIZE + 1);
+      AnsiHelpers.WriteAnsiString(value, p, GGPOConsts.MAX_GGPOCHAT_SIZE + 1);
     }
   }
 
@@ -335,7 +335,8 @@ public unsafe struct Chat
   {
     fixed (sbyte* p = text)
     {
-      for (int i = 0; i < size; i++) {
+      for (int i = 0; i < size; i++)
+      {
         text[i] = data[i];
       }
       // AnsiHelpers.WriteAnsiString(value, p, ProtoConsts.MAX_GGPOCHAT_SIZE + 1);
@@ -431,7 +432,7 @@ public struct UdpMsg
         //res = (int)((char*)&u.input.bits - (char*)&u.input);
         //res += (u.input.num_bits + 7) / 8;
 
-        int size2 = sizeof(InputMsg) - (sizeof(byte) * ProtoConsts.MAX_COMPRESSED_BITS);
+        int size2 = sizeof(InputMsg) - (sizeof(byte) * GGPOConsts.MAX_COMPRESSED_BITS);
         size2 += (u.input.num_bits + 7) / 8;
         // Debug.Assert (size == size2);
 

@@ -29,7 +29,7 @@ public class GGPOClient
   /// Are we currently processing a rollback?
   /// </summary>
   private bool InRollback = false;
-
+  private bool _synchronizing = false;
 
   // ----------------------------------------------------------------------------------------
   public GGPOClient(GGPOClientOptions options_)
@@ -44,7 +44,7 @@ public class GGPOClient
   // ----------------------------------------------------------------------------------------
   private void ValidateOptions()
   {
-    if (Options.LocalPlayerName.Length > ProtoConsts.MAX_NAME_SIZE)
+    if (Options.LocalPlayerName.Length > GGPOConsts.MAX_NAME_SIZE)
     {
       throw new InvalidOperationException("Invalid player name!");
     }
@@ -145,6 +145,39 @@ public class GGPOClient
   }
 
   // ----------------------------------------------------------------------------------------
+  /// <summary>
+  /// Sync the inputs for all players for the current frame.
+  /// This sends the local inputs, and receives the remote ones.
+  /// </summary>
+  public bool SyncInputs(in GameInput input)
+  {
+    if (_synchronizing) { return false; }
+
+
+    // If we are rolling back, there is no need to attempt to add a local input.
+    // The call will result in an error code anyway....
+    if (!_sync.InRollback())
+    {
+      if (!AddLocalInput(input)) { return false; }
+    }
+
+    // NOTE: We aren't doing anything with the flags... I think the system is probably using the event codes
+    // to playerIndex this kind of thing......
+    _sync.SynchronizeInputs(values, isize * playerCount);
+
+    return true;
+
+  }
+
+  // ----------------------------------------------------------------------------------------
+  private bool AddLocalInput(in GameInput input)
+  {
+    throw new NotImplementedException();
+  }
+
+
+  // ----------------------------------------------------------------------------------------
+  // REFACTOR: 'HandleEvents'
   private void PollUdpProtocolEvents()
   {
     // throw new NotImplementedException();
@@ -168,6 +201,19 @@ public class GGPOClient
 // ==========================================================================================
 public class GGPOClientOptions
 {
+
+  // ----------------------------------------------------------------------------------------
+  public GGPOClientOptions(int playerIndex_, string localPlayerName_, int localPort_)
+  {
+    PlayerIndex = playerIndex_;
+    LocalPlayerName = localPlayerName_;
+    LocalPort = localPort_;
+  }
+
+  /// <summary>
+  /// Index of the player, coresponding to 0 == player 1, 1 == player 2, etc.
+  /// </summary>
+  public int PlayerIndex { get; set; }
   public string LocalPlayerName { get; set; }
   public int LocalPort { get; set; } = Defaults.LOCAL_PORT;
 
