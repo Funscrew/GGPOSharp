@@ -180,8 +180,9 @@ public unsafe struct InputMsg
   //// Size = sizeof(ConnectStatus) * UDP_MSG_MAX_PLAYERS.
   //public const int PeerConnectStatusBytes = sizeof(int) * 2 * ProtoConsts.UDP_MSG_MAX_PLAYERS; // two ints per ConnectStatus
   //public fixed byte peer_connect_status_bytes[PeerConnectStatusBytes];
-  public const int CONNECT_STATUS_SIZE = sizeof(int) * ProtoConsts.UDP_MSG_MAX_PLAYERS;
-  private fixed byte peer_connect_status_bytes[CONNECT_STATUS_SIZE];
+  // public const int CONNECT_STATUS_SIZE = sizeof(int) * ProtoConsts.UDP_MSG_MAX_PLAYERS;
+  // private fixed byte peer_connect_status_bytes[CONNECT_STATUS_SIZE];
+  private fixed int peer_connect_data[ProtoConsts.UDP_MSG_MAX_PLAYERS];
 
   public UInt32 start_frame;
 
@@ -214,10 +215,15 @@ public unsafe struct InputMsg
       throw new ArgumentOutOfRangeException(nameof(index));
     }
 
-    fixed (byte* basePtr = peer_connect_status_bytes)
+    //fixed (byte* basePtr = peer_connect_status_bytes)
+    //{
+    //  int stride = sizeof(int); // * 2;
+    //  byte* p = basePtr + (index * stride);
+    //  return *(ConnectStatus*)p;
+    //}
+    fixed(int* basePtr = peer_connect_data)
     {
-      int stride = sizeof(int); // * 2;
-      byte* p = basePtr + (index * stride);
+      int* p = basePtr + index;
       return *(ConnectStatus*)p;
     }
   }
@@ -229,10 +235,15 @@ public unsafe struct InputMsg
     {
       throw new ArgumentOutOfRangeException(nameof(index));
     }
-    fixed (byte* basePtr = peer_connect_status_bytes)
+    //fixed (byte* basePtr = peer_connect_status_bytes)
+    //{
+    //  int stride = sizeof(int); // * 2;
+    //  *(ConnectStatus*)(basePtr + (index * stride)) = value;
+    //}
+    fixed (int* basePtr = peer_connect_data)
     {
-      int stride = sizeof(int); // * 2;
-      *(ConnectStatus*)(basePtr + (index * stride)) = value;
+      int* p = basePtr + index;
+      *(ConnectStatus*)p = value;
     }
   }
 }
