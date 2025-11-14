@@ -62,7 +62,7 @@ class InputQueue
 
 
   // ------------------------------------------------------------------------------------------
-  void Init(int id, int input_size)
+  internal void Init(int id, int input_size)
   {
     _id = id;
     _head = 0;
@@ -90,20 +90,20 @@ class InputQueue
   }
 
   // ------------------------------------------------------------------------------------------
-  int GetLastConfirmedFrame()
+  internal int GetLastConfirmedFrame()
   {
     Utils.Log($"returning last confirmed frame {_last_added_frame}.");
     return _last_added_frame;
   }
 
   // ------------------------------------------------------------------------------------------
-  int GetFirstIncorrectFrame()
+  internal int GetFirstIncorrectFrame()
   {
     return _first_incorrect_frame;
   }
 
   // ------------------------------------------------------------------------------------------
-  void DiscardConfirmedFrames(int frame)
+  internal void DiscardConfirmedFrames(int frame)
   {
     Utils.ASSERT(frame >= 0);
 
@@ -134,7 +134,7 @@ class InputQueue
   }
 
   // ------------------------------------------------------------------------------------------
-  void ResetPrediction(int frame)
+  internal void ResetPrediction(int frame)
   {
     Utils.ASSERT(_first_incorrect_frame == GameInput.NULL_FRAME || frame <= _first_incorrect_frame);
 
@@ -150,7 +150,7 @@ class InputQueue
   }
 
   // ------------------------------------------------------------------------------------------
-  bool GetConfirmedInput(int requested_frame, ref GameInput input)
+  internal bool GetConfirmedInput(int requested_frame, ref GameInput input)
   {
     Utils.ASSERT(_first_incorrect_frame == GameInput.NULL_FRAME || requested_frame < _first_incorrect_frame);
     int offset = requested_frame % GGPOConsts.INPUT_QUEUE_LENGTH;
@@ -168,7 +168,7 @@ class InputQueue
   }
 
   // ------------------------------------------------------------------------------------------
-  bool GetInput(int requested_frame, ref GameInput input)
+  internal bool GetInput(int requested_frame, ref GameInput input)
   {
     Utils.Log($"requesting input frame {requested_frame}.");
 
@@ -230,7 +230,7 @@ class InputQueue
       {
         Utils.Log("basing new prediction frame from previously added frame (queue entry:%d, frame:%d).",
               PREVIOUS_FRAME(_head), _inputs[PREVIOUS_FRAME(_head)].frame);
-            _prediction = _inputs[PREVIOUS_FRAME(_head)];
+        _prediction = _inputs[PREVIOUS_FRAME(_head)];
       }
       _prediction.frame++;
     }
@@ -242,15 +242,21 @@ class InputQueue
      * forward the prediction frame contents.  Be sure to return the
      * frame number requested by the client, though.
      */
-    *input = _prediction;
+
+    // OLD:
+    //  *input = _prediction;
+
+    // NEW: REVIEW:  Is this the same as the original?  I'm not sure.....
+    input = _prediction;
+
     input.frame = requested_frame;
     Utils.Log("returning prediction frame number %d (%d).", input.frame, _prediction.frame);
 
     return false;
   }
 
-  void
-  AddInput(GameInput &input)
+  // ------------------------------------------------------------------------------------------
+  internal void AddInput(ref GameInput input)
   {
     int new_frame;
 
@@ -281,8 +287,8 @@ class InputQueue
     input.frame = new_frame;
   }
 
-  void
-  AddDelayedInputToQueue(GameInput &input, int frame_number)
+  // ------------------------------------------------------------------------------------------
+  void AddDelayedInputToQueue(in GameInput input, int frame_number)
   {
     Utils.Log("adding delayed input frame number %d to queue.", frame_number);
 
@@ -297,7 +303,7 @@ class InputQueue
      */
     _inputs[_head] = input;
     _inputs[_head].frame = frame_number;
-    _head = (_head + 1) % INPUT_QUEUE_LENGTH;
+    _head = (_head + 1) % GGPOConsts.INPUT_QUEUE_LENGTH;
     _length++;
     _first_frame = false;
 
@@ -335,11 +341,11 @@ class InputQueue
         _prediction.frame++;
       }
     }
-    Utils.ASSERT(_length <= INPUT_QUEUE_LENGTH);
+    Utils.ASSERT(_length <= GGPOConsts.INPUT_QUEUE_LENGTH);
   }
 
-  int
-  AdvanceQueueHead(int frame)
+  // ------------------------------------------------------------------------------------------
+  int AdvanceQueueHead(int frame)
   {
     Utils.Log("advancing queue head to frame %d.", frame);
 
@@ -367,10 +373,13 @@ class InputQueue
        * last frame in the queue several times in order to fill the space
        * left.
        */
-      Utils.Log("Adding padding frame %d to account for change in frame delay.",
-           expected_frame);
-      GameInput & last_frame = _inputs[PREVIOUS_FRAME(_head)];
-      AddDelayedInputToQueue(last_frame, expected_frame);
+      Utils.Log("Adding padding frame %d to account for change in frame delay.", expected_frame);
+
+      // REVIEW: Can we get a ref to this input?
+      // GameInput& last_frame = _inputs[PREVIOUS_FRAME(_head)];
+      GameInput last_frame = _inputs[PREVIOUS_FRAME(_head)];
+
+      AddDelayedInputToQueue(ref last_frame, expected_frame);
       expected_frame++;
     }
 

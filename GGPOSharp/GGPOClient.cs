@@ -31,6 +31,10 @@ public class GGPOClient
   private bool InRollback = false;
   private bool _synchronizing = false;
 
+  private Sync _sync = null!;
+
+  ConnectStatus[] _local_connect_status = null!;
+
   // ----------------------------------------------------------------------------------------
   public GGPOClient(GGPOClientOptions options_)
   {
@@ -39,6 +43,9 @@ public class GGPOClient
     ValidateOptions();
 
     UdpClient = new UdpBlaster(Options.LocalPort);
+
+    _local_connect_status = new ConnectStatus[GGPOConsts.UDP_MSG_MAX_PLAYERS];
+    _sync = new Sync(_local_connect_status);
   }
 
   // ----------------------------------------------------------------------------------------
@@ -65,7 +72,7 @@ public class GGPOClient
       TestOptions = testOptions ?? new TestOptions()
     };
 
-    var res = new GGPOEndpoint(this, ops);
+    var res = new GGPOEndpoint(this, ops, _local_connect_status);
     this.Endpoints.Add(res);
 
     return res;
@@ -163,7 +170,7 @@ public class GGPOClient
 
     // NOTE: We aren't doing anything with the flags... I think the system is probably using the event codes
     // to playerIndex this kind of thing......
-    _sync.SynchronizeInputs(values, isize * playerCount);
+    _sync.SynchronizeInputs(input.data, isize * playerCount);
 
     return true;
 

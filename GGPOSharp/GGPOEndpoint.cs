@@ -85,7 +85,7 @@ public class GGPOEndpoint
 
   // NOTE: This needs to be passed in during initialization so that anything that uses the client can see the data....
   // OR!  We can just let them peer in and interrogate the client for the information! --> Probably a better plan!
-  ConnectStatus[] _local_connect_status = new ConnectStatus[GGPOConsts.UDP_MSG_MAX_PLAYERS];
+  ConnectStatus[] _local_connect_status = null; 
   ConnectStatus[] _peer_connect_status = new ConnectStatus[GGPOConsts.UDP_MSG_MAX_PLAYERS];
   // UdpMsg::connect_status _peer_connect_status[ProtoConsts.UDP_MSG_MAX_PLAYERS];
 
@@ -130,7 +130,7 @@ public class GGPOEndpoint
 
 
   // -------------------------------------------------------------------------------------
-  public GGPOEndpoint(GGPOClient client_, GGPOEndpointOptions ops_)
+  public GGPOEndpoint(GGPOClient client_, GGPOEndpointOptions ops_, ConnectStatus[] localConnectStatus_)
   {
     MsgHandlers[(byte)EMsgType.Invalid] = OnInvalid;
     MsgHandlers[(byte)EMsgType.SyncRequest] = OnSyncRequest;
@@ -182,6 +182,10 @@ public class GGPOEndpoint
     _playerName = Client.PlayerName; // Options.PlayerName;
     // _playerName.SetValue(Options.PlayerName);
 
+    this._local_connect_status = localConnectStatus_;
+    while(_magic_number == 0 ) {
+      _magic_number = (UInt16)Random.Shared.Next();
+    }
 
     // Begin the sync operation.....
     Synchronize();
