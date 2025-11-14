@@ -19,10 +19,12 @@ namespace GGPOSharp
 
       var ops = new GGPOClientOptions()
       {
-        PlayerName = "Screwie"
+        LocalPlayerName = "Screwie",
+        LocalPort = Defaults.LOCAL_PORT,
       };
       var c = new GGPOClient(ops);
-
+      c.AddRemote(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT);
+      c.Lock();
 
       // Game loop:
       // No, this isn't meant to be a sophisticated timing scenario, just get us in the ballpark...
@@ -41,7 +43,7 @@ namespace GGPOSharp
         if (remainder <= 0.0d)
         {
           ++frameCount;
-          c.RunFrame();
+          c.DoPoll();
           // double curFPS = frameCount / elapsed;
           //if (frameCount % 60 == 0) {
           //  Console.WriteLine($"FPS:{curFPS:f2}");
