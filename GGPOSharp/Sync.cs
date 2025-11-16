@@ -60,7 +60,7 @@ internal class Sync
 
   protected GGPOSessionCallbacks _callbacks;
   protected SavedState _savedstate;
-  protected Config _config;
+  protected SyncOptions _config;
 
   protected bool _rollingback;
   protected int _last_confirmed_frame;
@@ -73,7 +73,7 @@ internal class Sync
   ConnectStatus[] _local_connect_status = null!;
 
   // ----------------------------------------------------------------------------------------------
-  public Sync(ConnectStatus[] connect_status)
+  public Sync(ConnectStatus[] connect_status, SyncOptions config)
   {
     _local_connect_status = connect_status;
     _input_queues = null;
@@ -87,6 +87,15 @@ internal class Sync
 
     // memset(&_savedstate, 0, sizeof(_savedstate));
     _savedstate = new SavedState();
+
+    _config = config;
+    _callbacks = config.callbacks;
+    _curFrame = 0;
+    _rollingback = false;
+
+    _max_prediction_frames = config.num_prediction_frames;
+
+    CreateQueues(config);
   }
 
   public bool InRollback() { return _rollingback; }
@@ -112,18 +121,18 @@ internal class Sync
     // _input_queues = NULL;
   }
 
-  // ------------------------------------------------------------------------------------------------------------------------
-  void Init(Config config)
-  {
-    _config = config;
-    _callbacks = config.callbacks;
-    _curFrame = 0;
-    _rollingback = false;
+  //// ------------------------------------------------------------------------------------------------------------------------
+  //void Init(Config config)
+  //{
+  //  _config = config;
+  //  _callbacks = config.callbacks;
+  //  _curFrame = 0;
+  //  _rollingback = false;
 
-    _max_prediction_frames = config.num_prediction_frames;
+  //  _max_prediction_frames = config.num_prediction_frames;
 
-    CreateQueues(config);
-  }
+  //  CreateQueues(config);
+  //}
 
   // ------------------------------------------------------------------------------------------------------------------------
   void SetLastConfirmedFrame(int frame)
@@ -155,15 +164,15 @@ internal class Sync
 
     Utils.Log("Sending undelayed local frame %d to queue %d.\n", _curFrame, playerIndex);
     input.frame = _curFrame;
-    _input_queues[playerIndex].AddInput(input);
+    _input_queues[playerIndex].AddInput(ref input);
 
     return true;
   }
 
   // ------------------------------------------------------------------------------------------------------------------------
-  internal void AddRemoteInput(int playerIndex, in GameInput input)
+  internal void AddRemoteInput(int playerIndex, ref GameInput input)
   {
-    _input_queues[playerIndex].AddInput(input);
+    _input_queues[playerIndex].AddInput(ref input);
   }
 
   // ------------------------------------------------------------------------------------------------------------------------
@@ -358,14 +367,15 @@ internal class Sync
 
 
   // ------------------------------------------------------------------------------------------
-  bool CreateQueues(in Config config)
+  bool CreateQueues(in SyncOptions config)
   {
     // delete[] _input_queues;
     _input_queues = new InputQueue[_config.num_players];
 
     for (int i = 0; i < _config.num_players; i++)
     {
-      _input_queues[i].Init(i, _config.input_size);
+      _input_queues[i] = new InputQueue(i, _config.input_size);
+      // _input_queues[i].Init(i, _config.input_size);
     }
     return true;
   }
@@ -428,7 +438,7 @@ internal class Sync
 
 
 // ================================================================================================
-struct Config
+struct SyncOptions
 {
   public GGPOSessionCallbacks callbacks;
   public int num_prediction_frames;

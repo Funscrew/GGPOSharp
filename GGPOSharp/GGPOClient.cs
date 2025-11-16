@@ -50,7 +50,15 @@ public class GGPOClient
     UdpClient = new UdpBlaster(Options.LocalPort);
 
     _local_connect_status = new ConnectStatus[GGPOConsts.UDP_MSG_MAX_PLAYERS];
-    _sync = new Sync(_local_connect_status);
+
+    var ops = new SyncOptions()
+    {
+      callbacks = Options.Callbacks,
+      input_size = Options.InputSize,
+      num_players = Options.MaxPlayerCount,
+      num_prediction_frames = GGPOConsts.MAX_PREDICTION_FRAMES
+    };
+    _sync = new Sync(_local_connect_status, ops);
 
     _callbacks = Options.Callbacks;
   }
@@ -62,7 +70,8 @@ public class GGPOClient
     {
       throw new InvalidOperationException("Invalid player name!");
     }
-    if (Options.Callbacks == null) { 
+    if (Options.Callbacks == null)
+    {
       throw new InvalidOperationException("Callbacks are null!");
     }
   }
@@ -288,7 +297,7 @@ public class GGPOClient
           int new_remote_frame = evt.u.input.frame;
           Utils.ASSERT(current_remote_frame == -1 || new_remote_frame == (current_remote_frame + 1));
 
-          _sync.AddRemoteInput(playerIndex, evt.u.input);
+          _sync.AddRemoteInput(playerIndex, ref evt.u.input);
           // Notify the other endpoints which frame we received from a peer
           Utils.Log("setting remote connect status for playerIndex %d to %d", playerIndex, evt.u.input.frame);
           _local_connect_status[playerIndex].last_frame = evt.u.input.frame;
@@ -410,7 +419,7 @@ public class GGPOClient
         info.code = EEventCode.GGPO_EVENTCODE_CONNECTION_INTERRUPTED;
         info.u.connection_interrupted.player_index = playerIndex;
         info.u.connection_interrupted.disconnect_timeout = evt.u.network_interrupted.disconnect_timeout;
-        _callbacks.on_event( ref info);
+        _callbacks.on_event(ref info);
         break;
 
       case EEventType.NetworkResumed:
@@ -485,6 +494,8 @@ public class GGPOClient
 // ==========================================================================================
 public class GGPOClientOptions
 {
+  private const int DEFAULT_INPUT_SIZE = 5;   // This is for 3rd strike.
+  private const int MAX_PLAYER_COUNT = 4;
 
   // ----------------------------------------------------------------------------------------
   public GGPOClientOptions(int playerIndex_, string localPlayerName_, int localPort_)
@@ -500,6 +511,8 @@ public class GGPOClientOptions
   public int PlayerIndex { get; set; }
   public string LocalPlayerName { get; set; }
   public int LocalPort { get; set; } = Defaults.LOCAL_PORT;
+  public int InputSize { get; set; } = DEFAULT_INPUT_SIZE;
+  public int MaxPlayerCount { get; set; } = MAX_PLAYER_COUNT;
   public GGPOSessionCallbacks Callbacks { get; set; } = null!;
 }
 

@@ -48,9 +48,9 @@ class InputQueue
   GameInput _prediction;
 
   // ------------------------------------------------------------------------------------------
-  InputQueue(int input_size)
+  public InputQueue(int id, int input_size)
   {
-    Init(-1, input_size);
+    Init(id, input_size);
   }
 
   // ------------------------------------------------------------------------------------------
@@ -62,7 +62,7 @@ class InputQueue
 
 
   // ------------------------------------------------------------------------------------------
-  internal void Init(int id, int input_size)
+  private void Init(int id, int input_size)
   {
     _id = id;
     _head = 0;
@@ -256,7 +256,7 @@ class InputQueue
   }
 
   // ------------------------------------------------------------------------------------------
-  internal void AddInput(in GameInput input)
+  internal void AddInput(ref GameInput input)
   {
     int new_frame;
 
@@ -284,8 +284,8 @@ class InputQueue
      * frame to GameInput.NULL_FRAME for frames that get dropped (by
      * design).
      */
-     throw new NotImplementedException();
-    // input.frame = new_frame;
+    //  throw new NotImplementedException();
+    input.frame = new_frame;
   }
 
   // ------------------------------------------------------------------------------------------
