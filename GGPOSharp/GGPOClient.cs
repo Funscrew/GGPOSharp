@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,7 +17,7 @@ namespace GGPOSharp;
 public class GGPOClient
 {
   private GGPOClientOptions Options = null!;
-  private List<GGPOEndpoint> Endpoints = new List<GGPOEndpoint>();
+  private List<GGPOEndpoint> _endpoints = new List<GGPOEndpoint>();
   internal UdpBlaster UdpClient = null!;
 
   public string PlayerName { get { return Options.LocalPlayerName; } }
@@ -29,11 +31,14 @@ public class GGPOClient
   /// Are we currently processing a rollback?
   /// </summary>
   private bool InRollback = false;
-  private bool _synchronizing = false;
+  private bool _synchronizing = true;
 
   private Sync _sync = null!;
 
   ConnectStatus[] _local_connect_status = null!;
+
+  private string[] _PlayerNames = new string[GGPOConsts.UDP_MSG_MAX_PLAYERS];
+  private GGPOSessionCallbacks _callbacks;
 
   // ----------------------------------------------------------------------------------------
   public GGPOClient(GGPOClientOptions options_)
@@ -46,6 +51,8 @@ public class GGPOClient
 
     _local_connect_status = new ConnectStatus[GGPOConsts.UDP_MSG_MAX_PLAYERS];
     _sync = new Sync(_local_connect_status);
+
+    _callbacks = Options.Callbacks;
   }
 
   // ----------------------------------------------------------------------------------------
@@ -54,6 +61,9 @@ public class GGPOClient
     if (Options.LocalPlayerName.Length > GGPOConsts.MAX_NAME_SIZE)
     {
       throw new InvalidOperationException("Invalid player name!");
+    }
+    if (Options.Callbacks == null) { 
+      throw new InvalidOperationException("Callbacks are null!");
     }
   }
 
@@ -73,7 +83,7 @@ public class GGPOClient
     };
 
     var res = new GGPOEndpoint(this, ops, _local_connect_status);
-    this.Endpoints.Add(res);
+    this._endpoints.Add(res);
 
     return res;
   }
@@ -82,10 +92,10 @@ public class GGPOClient
   public void DoPoll()
   {
     // Endpoints get updated first so that we can get events, inputs, etc.
-    int len = Endpoints.Count;
+    int len = _endpoints.Count;
     for (int i = 0; i < len; i++)
     {
-      Endpoints[i].RunFrame();
+      _endpoints[i].RunFrame();
     }
 
     // Now we can handle the results of the endpoint updates (events, etc.)
@@ -116,12 +126,12 @@ public class GGPOClient
     //    total_min_confirmed = PollNPlayers(current_frame);
     //  }
 
-    //  Log("last confirmed frame in p2p backend is %d.\n", total_min_confirmed);
+    //  Log("last confirmed frame in p2p backend is %d.", total_min_confirmed);
     //  if (total_min_confirmed >= 0)
     //  {
     //    ASSERT(total_min_confirmed != INT_MAX);
 
-    //    Log("setting confirmed frame in sync to %d.\n", total_min_confirmed);
+    //    Log("setting confirmed frame in sync to %d.", total_min_confirmed);
     //    _sync.SetLastConfirmedFrame(total_min_confirmed);
     //  }
 
@@ -154,9 +164,9 @@ public class GGPOClient
   // ----------------------------------------------------------------------------------------
   /// <summary>
   /// Sync the inputs for all players for the current frame.
-  /// This sends the local inputs, and receives the remote ones.
+  /// This sends the local inputs, receives the remote ones, and intiates any rollbacks if needed.
   /// </summary>
-  public bool SyncInputs(in GameInput input)
+  public bool SyncInputs(in byte[] values, int isize)
   {
     if (_synchronizing) { return false; }
 
@@ -165,21 +175,77 @@ public class GGPOClient
     // The call will result in an error code anyway....
     if (!_sync.InRollback())
     {
-      if (!AddLocalInput(input)) { return false; }
+      if (!AddLocalInput(values, isize)) { return false; }
     }
 
     // NOTE: We aren't doing anything with the flags... I think the system is probably using the event codes
     // to playerIndex this kind of thing......
-    _sync.SynchronizeInputs(input.data, isize * playerCount);
+    // _sync.SynchronizeInputs(input.data, isize * playerCount);
 
     return true;
 
   }
 
   // ----------------------------------------------------------------------------------------
-  private bool AddLocalInput(in GameInput input)
+  private bool AddLocalInput(byte[] values, int isize)
   {
-    throw new NotImplementedException();
+
+    // NOTE: When this function is called, we already know that we aren't in rollback!
+    // REDUNDANT CHECK:
+    if (_sync.InRollback())
+    {
+      return false;
+    }
+    // REDUNDANT CHECK:
+    if (_synchronizing)
+    {
+      return false;
+    }
+
+    GameInput input = new GameInput();
+    input.init(-1, values, isize);
+
+    // Feed the input for the current frame into the synchronzation layer.
+    if (!_sync.AddLocalInput(Options.PlayerIndex, ref input))
+    {
+      // return GGPO_ERRORCODE_PREDICTION_THRESHOLD;
+      Utils.Log("Prediction threshold met!");
+      return false;
+    }
+
+    if (input.frame != GameInput.NULL_FRAME)
+    { // xxx: <- comment why this is the case
+      // Update the local connect status state to indicate that we've got a
+      // confirmed local frame for this player.  this must come first so it
+      // gets incorporated into the next packet we send.
+
+      // NOTE: All endpoints send out the _local_connect_status data with each message.
+      // An ideal implemetation would have a single 'client' that we set this data on,
+      // and then all endpoints would also be contained internally.
+      Utils.Log("setting local connect status for local player %d to %d", Options.PlayerIndex, input.frame);
+      _local_connect_status[Options.PlayerIndex].last_frame = input.frame;
+
+      // Send the input to all the remote players.
+      // NOTE: This queues input, and it gets pumped out later....
+      // NOTE: In a two player game, only one of these endpoints has the 'udp' member set, and so
+      // only one of them will actully do anything.....
+      int epLen = _endpoints.Count;
+      for (int i = 0; i < epLen; i++)
+      {
+        var ep = _endpoints[i];
+        ep.SendInput(ref input);
+      }
+      // C++ Style:
+      //for (int i = 0; i < _num_players; i++)
+      //{
+      //  if (_endpoints[i].IsInitialized())
+      //  {
+      //    _endpoints[i].SendInput(input);
+      //  }
+      //}
+    }
+
+    return true;
   }
 
 
@@ -188,7 +254,218 @@ public class GGPOClient
   private void PollUdpProtocolEvents()
   {
     // throw new NotImplementedException();
+    var evt = new Event();
+    for (UInt16 i = 0; i < _endpoints.Count; i++)
+    {
+      var ep = _endpoints[i];
+      while (ep.GetEvent(ref evt))
+      {
+        OnUdpProtocolPeerEvent(ref evt, i);
+      }
+    }
+
+    //for (int i = 0; i < _num_players; i++)
+    //{
+    //  while (_endpoints[i].GetEvent(evt))
+    //  {
+    //    OnUdpProtocolPeerEvent(evt, i);
+    //  }
+    //}
   }
+
+  // ----------------------------------------------------------------------------------------------------------
+  void OnUdpProtocolPeerEvent(ref Event evt, UInt16 playerIndex)
+  {
+    // int playerIndex = -1;
+    OnUdpProtocolEvent(ref evt, playerIndex);
+    switch (evt.type)
+    {
+      case EEventType.Input:
+        if (!_local_connect_status[playerIndex].disconnected)
+        {
+
+          int current_remote_frame = _local_connect_status[playerIndex].last_frame;
+          int new_remote_frame = evt.u.input.frame;
+          Utils.ASSERT(current_remote_frame == -1 || new_remote_frame == (current_remote_frame + 1));
+
+          _sync.AddRemoteInput(playerIndex, evt.u.input);
+          // Notify the other endpoints which frame we received from a peer
+          Utils.Log("setting remote connect status for playerIndex %d to %d", playerIndex, evt.u.input.frame);
+          _local_connect_status[playerIndex].last_frame = evt.u.input.frame;
+        }
+        break;
+
+      case EEventType.Disconnected:
+        DisconnectPlayer(playerIndex);
+        break;
+
+    }
+  }
+
+  // ----------------------------------------------------------------------------------------------------------
+  bool DisconnectPlayer(UInt16 playerIndex)
+  {
+    UInt16 queue = playerIndex;
+    //	GGPOErrorCode result;
+
+    // if (player > MAX_PLA
+    //result = PlayerHandleToQueue(player, &playerIndex);
+    //if (!GGPO_SUCCEEDED(result)) {
+    //	return result;
+    //}
+
+    if (_local_connect_status[queue].disconnected)
+    {
+      // TODO: Log this !
+      return false; //GGPO_ERRORCODE_PLAYER_DISCONNECTED;
+    }
+
+    if (!_endpoints[queue].IsInitialized())
+    {
+      int current_frame = _sync.GetFrameCount();
+      // xxx: we should be tracking who the local player is, but for now assume
+      // that if the endpoint is not initalized, this must be the local player.
+      Utils.Log("Disconnecting local player %d at frame %d by user request.", queue, _local_connect_status[queue].last_frame);
+      int epLen = _endpoints.Count;
+      for (UInt16 i = 0; i < epLen; i++)
+      {
+        if (_endpoints[i].IsInitialized())
+        {
+          DisconnectPlayer(i, current_frame);
+        }
+      }
+    }
+    else
+    {
+      Utils.Log("Disconnecting playerIndex %d at frame %d by user request.", queue, _local_connect_status[queue].last_frame);
+      DisconnectPlayer(queue, _local_connect_status[queue].last_frame);
+    }
+
+    return true;
+  }
+
+
+  // --------------------------------------------------------------------------------------------------------------
+  void DisconnectPlayer(int playerIndex, int syncto)
+  {
+    GGPOEvent info = new GGPOEvent();
+    int framecount = _sync.GetFrameCount();
+
+    _endpoints[playerIndex].Disconnect();
+
+    Utils.Log("Changing playerIndex %d local connect status for last frame from %d to %d on disconnect request (current: %d).",
+      playerIndex, _local_connect_status[playerIndex].last_frame, syncto, framecount);
+
+    _local_connect_status[playerIndex].disconnected = true;
+    _local_connect_status[playerIndex].last_frame = syncto;
+
+    if (syncto < framecount)
+    {
+      Utils.Log("adjusting simulation to account for the fact that %d disconnected @ %d.", playerIndex, syncto);
+      _sync.AdjustSimulation(syncto);
+      Utils.Log("finished adjusting simulation.");
+    }
+
+    info.code = EEventCode.GGPO_EVENTCODE_DISCONNECTED_FROM_PEER;
+    info.u.disconnected.player_index = playerIndex;
+    _callbacks.on_event(ref info);
+
+    CheckInitialSync();
+  }
+
+  // ----------------------------------------------------------------------------------------------------------
+  void OnUdpProtocolEvent(ref Event evt, int playerIndex)
+  {
+    GGPOEvent info = new GGPOEvent();
+
+    switch (evt.type)
+    {
+      case EEventType.Connected:
+        info.code = EEventCode.GGPO_EVENTCODE_CONNECTED_TO_PEER;
+        info.u.connected.player_index = playerIndex;
+
+        _PlayerNames[playerIndex] = evt.u.connected.GetText();
+        // strcpy_s(_PlayerNames[playerIndex], evt.u.connected.playerName);
+
+        // strcpy_s(info.u.connected.playerName, evt.u.connected.playerName);
+
+        _callbacks.on_event(ref info);
+        break;
+      case EEventType.Synchronizing:
+        info.code = EEventCode.GGPO_EVENTCODE_SYNCHRONIZING_WITH_PEER;
+        info.u.synchronizing.player_index = playerIndex;
+        info.u.synchronizing.count = evt.u.synchronizing.count;
+        info.u.synchronizing.total = evt.u.synchronizing.total;
+        _callbacks.on_event(ref info);
+        break;
+      case EEventType.Synchronized:
+        info.code = EEventCode.GGPO_EVENTCODE_SYNCHRONIZED_WITH_PEER;
+        info.u.synchronized.player_index = playerIndex;
+        _callbacks.on_event(ref info);
+
+        CheckInitialSync();
+        break;
+
+      case EEventType.NetworkInterrupted:
+        info.code = EEventCode.GGPO_EVENTCODE_CONNECTION_INTERRUPTED;
+        info.u.connection_interrupted.player_index = playerIndex;
+        info.u.connection_interrupted.disconnect_timeout = evt.u.network_interrupted.disconnect_timeout;
+        _callbacks.on_event( ref info);
+        break;
+
+      case EEventType.NetworkResumed:
+        info.code = EEventCode.GGPO_EVENTCODE_CONNECTION_RESUMED;
+        info.u.connection_resumed.player_index = playerIndex;
+        _callbacks.on_event(ref info);
+        break;
+
+      case EEventType.ChatCommand:
+
+        // char[] text = new char[GGPOConsts.MAX_GGPOCHAT_SIZE + 1];
+        var userName = _PlayerNames[playerIndex];
+        string text = evt.u.chat.GetText();
+
+        // evt.u.chat.SetText(text);
+        // strcpy_s(text, evt.u.chat.text);
+
+        info.code = EEventCode.GGPO_EVENTCODE_CHATCOMMAND;
+        info.u.chat.SetUsername(userName);
+        info.u.chat.SetText(text);
+
+        _callbacks.on_event(ref info);
+
+        break;
+    }
+  }
+
+  // ----------------------------------------------------------------------------------------------------------
+  void CheckInitialSync()
+  {
+    int i;
+
+    if (_synchronizing)
+    {
+      // Check to see if everyone is now synchronized.  If so,
+      // go ahead and tell the client that we're ok to accept input.
+      int epLen = _endpoints.Count;
+      for (i = 0; i < epLen; i++)
+      {
+        var ep = _endpoints[i];
+        // xxx: IsInitialized() must go... we're actually using it as a proxy for "represents the local player"
+        if (ep.IsInitialized() && !ep.IsSynchronized() && !_local_connect_status[i].disconnected)
+        {
+          return;
+        }
+      }
+
+      GGPOEvent info = new GGPOEvent();
+      info.code = EEventCode.GGPO_EVENTCODE_RUNNING;
+      _callbacks.on_event(ref info);
+      _synchronizing = false;
+    }
+  }
+
+
 
   // ----------------------------------------------------------------------------------------
   /// <summary>
@@ -223,7 +500,7 @@ public class GGPOClientOptions
   public int PlayerIndex { get; set; }
   public string LocalPlayerName { get; set; }
   public int LocalPort { get; set; } = Defaults.LOCAL_PORT;
-
+  public GGPOSessionCallbacks Callbacks { get; set; } = null!;
 }
 
 // ==========================================================================================

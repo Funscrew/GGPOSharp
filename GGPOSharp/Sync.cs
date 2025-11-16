@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
@@ -71,9 +72,6 @@ internal class Sync
   RingBuffer<Event> _event_queue = new RingBuffer<Event>(32);
   ConnectStatus[] _local_connect_status = null!;
 
-  // UdpMsg::connect_status* _local_connect_status;
-
-
   // ----------------------------------------------------------------------------------------------
   public Sync(ConnectStatus[] connect_status)
   {
@@ -141,7 +139,7 @@ internal class Sync
   }
 
   // ------------------------------------------------------------------------------------------------------------------------
-  bool AddLocalInput(int playerIndex, ref GameInput input)
+  internal bool AddLocalInput(int playerIndex, ref GameInput input)
   {
     int frames_behind = _curFrame - _last_confirmed_frame;
     if (_curFrame >= _max_prediction_frames && frames_behind >= _max_prediction_frames)
@@ -163,84 +161,89 @@ internal class Sync
   }
 
   // ------------------------------------------------------------------------------------------------------------------------
-  void AddRemoteInput(int playerIndex, GameInput &input)
+  internal void AddRemoteInput(int playerIndex, in GameInput input)
   {
     _input_queues[playerIndex].AddInput(input);
   }
 
   // ------------------------------------------------------------------------------------------------------------------------
-  int GetConfirmedInputs(void* values, int size, int frame)
+  internal unsafe int GetConfirmedInputs(byte* values, int size, int frame)
   {
-    int disconnect_flags = 0;
-    char* output = (char*)values;
+    throw new NotImplementedException();
 
-    Utils.ASSERT(size >= _config.num_players * _config.input_size);
+    //int disconnect_flags = 0;
+    //char* output = (char*)values;
 
-    memset(output, 0, size);
-    for (int i = 0; i < _config.num_players; i++)
-    {
-      GameInput input;
-      if (_local_connect_status[i].disconnected && frame > _local_connect_status[i].last_frame)
-      {
-        disconnect_flags |= (1 << i);
-        input.erase();
-      }
-      else
-      {
-        _input_queues[i].GetConfirmedInput(frame, &input);
-      }
-      memcpy(output + (i * _config.input_size), input.bits, _config.input_size);
-    }
-    return disconnect_flags;
+    //Utils.ASSERT(size >= _config.num_players * _config.input_size);
+
+    //memset(output, 0, size);
+    //for (int i = 0; i < _config.num_players; i++)
+    //{
+    //  GameInput input;
+    //  if (_local_connect_status[i].disconnected && frame > _local_connect_status[i].last_frame)
+    //  {
+    //    disconnect_flags |= (1 << i);
+    //    input.erase();
+    //  }
+    //  else
+    //  {
+    //    _input_queues[i].GetConfirmedInput(frame, &input);
+    //  }
+    //  memcpy(output + (i * _config.input_size), input.bits, _config.input_size);
+    //}
+    //return disconnect_flags;
   }
 
   // ------------------------------------------------------------------------------------------------------------------------
   unsafe int SynchronizeInputs(byte* values, int totalSize)
   {
-    int disconnect_flags = 0;
-    char* output = (char*)values;
+    throw new NotImplementedException();
+    //int disconnect_flags = 0;
+    //char* output = (char*)values;
 
-    // Ensure a minimum amount of data so we don't overrun the buffer...
-    // Shouldn't we expect that totalSize is always the same... ??
-    Utils.ASSERT(totalSize >= _config.num_players * _config.input_size);
+    //// Ensure a minimum amount of data so we don't overrun the buffer...
+    //// Shouldn't we expect that totalSize is always the same... ??
+    //Utils.ASSERT(totalSize >= _config.num_players * _config.input_size);
 
-    memset(output, 0, totalSize);
-    for (int i = 0; i < _config.num_players; i++)
-    {
-      GameInput input;
-      if (_local_connect_status[i].disconnected && _curFrame > _local_connect_status[i].last_frame)
-      {
-        disconnect_flags |= (1 << i);
-        input.erase();
-      }
-      else
-      {
-        _input_queues[i].GetInput(_curFrame, &input);
-      }
-      memcpy(output + (i * _config.input_size), input.bits, _config.input_size);
-    }
-    return disconnect_flags;
+    //memset(output, 0, totalSize);
+    //for (int i = 0; i < _config.num_players; i++)
+    //{
+    //  GameInput input;
+    //  if (_local_connect_status[i].disconnected && _curFrame > _local_connect_status[i].last_frame)
+    //  {
+    //    disconnect_flags |= (1 << i);
+    //    input.erase();
+    //  }
+    //  else
+    //  {
+    //    _input_queues[i].GetInput(_curFrame, &input);
+    //  }
+    //  memcpy(output + (i * _config.input_size), input.bits, _config.input_size);
+    //}
+    //return disconnect_flags;
   }
 
-  void
-  CheckSimulation(int timeout)
+  // ------------------------------------------------------------------------------------------------------------------------
+  void CheckSimulation(int timeout)
   {
-    int seek_to;
-    if (!CheckSimulationConsistency(&seek_to))
-    {
-      AdjustSimulation(seek_to);
-    }
+    throw new NotImplementedException();
+
+    //int seek_to;
+    //if (!CheckSimulationConsistency(&seek_to))
+    //{
+    //  AdjustSimulation(seek_to);
+    //}
   }
 
-  void
-  IncrementFrame(void)
+  // ------------------------------------------------------------------------------------------------------------------------
+  void IncrementFrame()
   {
     _curFrame++;
     SaveCurrentFrame();
   }
 
-  void
-  AdjustSimulation(int seek_to)
+  // ------------------------------------------------------------------------------------------------------------------------
+  internal void AdjustSimulation(int seek_to)
   {
     int prevFrame = _curFrame;
     int count = _curFrame - seek_to;   // This is assumed to be positive b/c we are rolling back to an earlier frame.  Therefore, _framecount is always > seek_to.
@@ -274,62 +277,65 @@ internal class Sync
     Utils.Log("---\n");
   }
 
-  void
-  LoadFrame(int frame)
+  // ------------------------------------------------------------------------------------------------------------------------
+  void LoadFrame(int frame)
   {
-    // find the frame in question
-    if (frame == _curFrame)
-    {
-      Utils.Log("Skipping NOP.\n");
-      return;
-    }
+    throw new NotImplementedException();
 
-    // Move the head pointer back and load it up
-    _savedstate.head = FindSavedFrameIndex(frame);
-    SavedFrame* state = _savedstate.frames + _savedstate.head;
+    //// find the frame in question
+    //if (frame == _curFrame)
+    //{
+    //  Utils.Log("Skipping NOP.\n");
+    //  return;
+    //}
 
-    Utils.Log("=== Loading frame info %d (size: %d  checksum: %08x).\n",
-        state->frame, state->cbuf, state->checksum);
+    //// Move the head pointer back and load it up
+    //_savedstate.head = FindSavedFrameIndex(frame);
+    //SavedFrame* state = _savedstate.frames + _savedstate.head;
 
-    Utils.ASSERT(state->buf && state->cbuf);
-    _callbacks.load_game_state(state->buf, state->cbuf);
+    //Utils.Log("=== Loading frame info %d (size: %d  checksum: %08x).\n",
+    //    state->frame, state->cbuf, state->checksum);
 
-    // Reset framecount and the head of the state ring-buffer to point in
-    // advance of the current frame (as if we had just finished executing it).
-    _curFrame = state->frame;
-    _savedstate.head = (_savedstate.head + 1) % SavedState.SAVED_FRAME_COUNT;
+    //Utils.ASSERT(state->buf && state->cbuf);
+    //_callbacks.load_game_state(state->buf, state->cbuf);
+
+    //// Reset framecount and the head of the state ring-buffer to point in
+    //// advance of the current frame (as if we had just finished executing it).
+    //_curFrame = state->frame;
+    //_savedstate.head = (_savedstate.head + 1) % SavedState.SAVED_FRAME_COUNT;
   }
 
-  void
-  SaveCurrentFrame()
+  // ------------------------------------------------------------------------------------------------------------------------
+  void SaveCurrentFrame()
   {
-    /*
-     * See StateCompress for the real save feature implemented by FinalBurn.
-     * Write everything into the head, then advance the head pointer.
-     */
-    SavedFrame* state = _savedstate.frames + _savedstate.head;
-    if (state->buf)
-    {
-      _callbacks.free_buffer(state->buf);
-      state->buf = NULL;
-    }
-    state->frame = _curFrame;
-    _callbacks.save_game_state(&state->buf, &state->cbuf, &state->checksum, state->frame);
+  throw new NotImplementedException();
+    ///*
+    // * See StateCompress for the real save feature implemented by FinalBurn.
+    // * Write everything into the head, then advance the head pointer.
+    // */
+    //SavedFrame* state = _savedstate.frames + _savedstate.head;
+    //if (state->buf)
+    //{
+    //  _callbacks.free_buffer(state->buf);
+    //  state->buf = NULL;
+    //}
+    //state->frame = _curFrame;
+    //_callbacks.save_game_state(&state->buf, &state->cbuf, &state->checksum, state->frame);
 
-    Utils.Log("=== Saved frame info %d (size: %d  checksum: %08x).\n", state->frame, state->cbuf, state->checksum);
-    _savedstate.head = (_savedstate.head + 1) % SavedState.SAVED_FRAME_COUNT;
+    //Utils.Log("=== Saved frame info %d (size: %d  checksum: %08x).\n", state->frame, state->cbuf, state->checksum);
+    //_savedstate.head = (_savedstate.head + 1) % SavedState.SAVED_FRAME_COUNT;
   }
 
   // ------------------------------------------------------------------------------------------
-  SavedFrame& GetLastSavedFrame()
-  {
-    int i = _savedstate.head - 1;
-    if (i < 0)
-    {
-      i = SavedState.SAVED_FRAME_COUNT - 1;
-    }
-    return _savedstate.frames[i];
-  }
+  //SavedFrame& GetLastSavedFrame()
+  //{
+  //  int i = _savedstate.head - 1;
+  //  if (i < 0)
+  //  {
+  //    i = SavedState.SAVED_FRAME_COUNT - 1;
+  //  }
+  //  return _savedstate.frames[i];
+  //}
 
 
   // ------------------------------------------------------------------------------------------
@@ -365,7 +371,7 @@ internal class Sync
   }
 
   // ------------------------------------------------------------------------------------------
-  bool CheckSimulationConsistency(int* seekTo)
+  internal unsafe bool CheckSimulationConsistency(int* seekTo)
   {
     int first_incorrect = GameInput.NULL_FRAME;
     for (int i = 0; i < _config.num_players; i++)
@@ -389,9 +395,10 @@ internal class Sync
   }
 
   // ------------------------------------------------------------------------------------------
-  void SetFrameDelay(int queue, int delay)
+  internal void SetFrameDelay(int queue, int delay)
   {
-    _input_queues[queue].SetFrameDelay(delay);
+    throw new NotImplementedException();
+    // _input_queues[queue].SetFrameDelay(delay);
   }
 
 
@@ -435,17 +442,20 @@ enum ESyncType
   ConfirmedInput = 0
 }
 
+// ================================================================================================
 struct SyncEvent
 {
   ESyncType type;
   GameInput confirmedInput;
 }
 
-unsafe delegate bool SessionCallback<T>(T* arg);
+public unsafe delegate bool SessionPointerCallback<T>(T* arg);
+public delegate bool SessionRefCallback<T>(ref T arg);
 
 // ================================================================================================
-internal unsafe class GGPOSessionCallbacks
+public unsafe class GGPOSessionCallbacks
 {
-  public SessionCallback<byte>? free_buffer = null;
+  public SessionRefCallback<GGPOEvent>? on_event = null;
+  public SessionPointerCallback<byte>? free_buffer = null;
   public Action<int>? rollback_frame = null;
 }

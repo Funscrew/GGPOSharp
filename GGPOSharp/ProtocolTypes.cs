@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System;
+﻿using System.Text;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -14,14 +9,29 @@ namespace GGPOSharp;
 // NOTE: These should match what is compiled in the C++ code....
 public static class GGPOConsts
 {
-  public const int MAX_NAME_SIZE = 16;              
-  public const int UDP_MSG_MAX_PLAYERS = 4;         
-  public const int MAX_COMPRESSED_BITS = 4096;      
-  public const int MAX_GGPOCHAT_SIZE = 128;         
+  public const int MAX_NAME_SIZE = 16;
+  public const int UDP_MSG_MAX_PLAYERS = 4;
+  public const int MAX_COMPRESSED_BITS = 4096;
+  public const int MAX_GGPOCHAT_SIZE = 128;
 
   public const int MAX_PREDICTION_FRAMES = 8;
   public const int INPUT_QUEUE_LENGTH = 128;
   public const int DEFAULT_INPUT_SIZE = 4;
+}
+
+// ================================================================================================================
+public enum EEventCode
+{
+  Invalid = 0,
+  GGPO_EVENTCODE_CONNECTED_TO_PEER = 1000,
+  GGPO_EVENTCODE_SYNCHRONIZING_WITH_PEER = 1001,
+  GGPO_EVENTCODE_SYNCHRONIZED_WITH_PEER = 1002,
+  GGPO_EVENTCODE_RUNNING = 1003,
+  GGPO_EVENTCODE_DISCONNECTED_FROM_PEER = 1004,
+  GGPO_EVENTCODE_TIMESYNC = 1005,
+  GGPO_EVENTCODE_CONNECTION_INTERRUPTED = 1006,
+  GGPO_EVENTCODE_CONNECTION_RESUMED = 1007,
+  GGPO_EVENTCODE_CHATCOMMAND = 1008,
 }
 
 
@@ -51,7 +61,7 @@ public enum EMsgType : byte
 // ================================================================================================================
 // MINE:
 [StructLayout(LayoutKind.Explicit)]
-struct ConnectStatus
+public struct ConnectStatus
 {
   [FieldOffset(0)] private int _value;
 
@@ -270,6 +280,38 @@ public struct InputAck
 // to better unify the code.
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public unsafe struct ConnectData
+{
+  public fixed sbyte text[GGPOConsts.MAX_NAME_SIZE + 1];
+
+  public int GetTextSize()
+  {
+    fixed (sbyte* p = text)
+    {
+      return AnsiHelpers.PtrToAnsiStringLength(p, GGPOConsts.MAX_NAME_SIZE + 1);
+    }
+  }
+  public string GetText()
+  {
+    fixed (sbyte* p = text)
+    {
+      return AnsiHelpers.PtrToAnsiString(p, GGPOConsts.MAX_NAME_SIZE + 1);
+    }
+  }
+
+  public void SetText(string value)
+  {
+    fixed (sbyte* p = text)
+    {
+      AnsiHelpers.WriteAnsiString(value, p, GGPOConsts.MAX_NAME_SIZE + 1);
+    }
+  }
+}
+
+// ================================================================================================
+// NOTE: This is the same as 'Chat', but uses different buffer sizes.  There is probably a way
+// to better unify the code.
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public unsafe struct PlayerConnectData
 {
   public fixed sbyte text[GGPOConsts.MAX_NAME_SIZE + 1];
 
@@ -536,45 +578,106 @@ public struct UdpMsg
 
 }
 
-// ==============================================================================================================
-public static unsafe class AnsiHelpers
+[StructLayout(LayoutKind.Sequential)]
+public struct GGPOEvent
 {
-  // ------------------------------------------------------------------------------------
-  public static int PtrToAnsiStringLength(sbyte* p, int maxLen)
+  public EEventCode code;
+  public EventUnion u;   // union
+}
+
+[StructLayout(LayoutKind.Explicit)]
+public struct EventUnion
+{
+  [FieldOffset(0)] public Connected connected;
+  [FieldOffset(0)] public Synchronizing synchronizing;
+  [FieldOffset(0)] public Synchronized synchronized;
+  [FieldOffset(0)] public Disconnected disconnected;
+  [FieldOffset(0)] public EventTimeSync timesync;
+  [FieldOffset(0)] public ConnectionInterrupted connection_interrupted;
+  [FieldOffset(0)] public ConnectionResumed connection_resumed;
+  [FieldOffset(0)] public EventChat chat;
+}
+
+//
+// Individual union member structs
+//
+
+// struct { PlayerID player_index; } connected;
+[StructLayout(LayoutKind.Sequential)]
+public struct Connected
+{
+  public int player_index;  // match underlying PlayerID
+}
+
+// struct { PlayerID player_index; int count; int total; } synchronizing;
+[StructLayout(LayoutKind.Sequential)]
+public struct Synchronizing
+{
+  public int player_index;
+  public int count;
+  public int total;
+}
+
+// struct { PlayerID player_index; } synchronized;
+[StructLayout(LayoutKind.Sequential)]
+public struct Synchronized
+{
+  public int player_index;
+}
+
+// struct { PlayerID player_index; } disconnected;
+[StructLayout(LayoutKind.Sequential)]
+public struct Disconnected
+{
+  public int player_index;
+}
+
+// struct { int frames_ahead; } timesync;
+[StructLayout(LayoutKind.Sequential)]
+public struct EventTimeSync
+{
+  public int frames_ahead;
+}
+
+// =======================================================================================
+// struct { PlayerID player_index; int disconnect_timeout; } connection_interrupted;
+[StructLayout(LayoutKind.Sequential)]
+public struct ConnectionInterrupted
+{
+  public int player_index;
+  public int disconnect_timeout;
+}
+
+// =======================================================================================
+// struct { PlayerID player_index; } connection_resumed;
+[StructLayout(LayoutKind.Sequential)]
+public struct ConnectionResumed
+{
+  public int player_index;
+}
+
+// =======================================================================================
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct EventChat
+{
+  public fixed sbyte text[GGPOConsts.MAX_GGPOCHAT_SIZE + 1];
+  public fixed sbyte username[GGPOConsts.MAX_NAME_SIZE + 1];
+
+  // -------------------------------------------------------------------------------------
+  public void SetText(string value)
   {
-    int len = 0;
-    while (len < maxLen && p[len] != 0)
+    fixed (sbyte* p = text)
     {
-      len++;
+      AnsiHelpers.WriteAnsiString(value, p, GGPOConsts.MAX_GGPOCHAT_SIZE + 1);
     }
-    return len;
+  }
+  // -------------------------------------------------------------------------------------
+  public void SetUsername(string value)
+  {
+    fixed (sbyte* p = text)
+    {
+      AnsiHelpers.WriteAnsiString(value, p, GGPOConsts.MAX_GGPOCHAT_SIZE + 1);
+    }
   }
 
-  // ------------------------------------------------------------------------------------
-  public static string PtrToAnsiString(sbyte* p, int maxLen)
-  {
-    int len = 0;
-    while (len < maxLen && p[len] != 0)
-    {
-      len++;
-    }
-    return Encoding.ASCII.GetString((byte*)p, len);
-  }
-
-  // ------------------------------------------------------------------------------------
-  public static void WriteAnsiString(string value, sbyte* dest, int capacity)
-  {
-    var bytes = Encoding.ASCII.GetBytes(value ?? string.Empty);
-    int n = Math.Min(bytes.Length, Math.Max(0, capacity - 1)); // leave room for NULL
-    for (int i = 0; i < n; i++)
-    {
-      dest[i] = (sbyte)bytes[i];
-    }
-
-    dest[n] = 0;
-    for (int i = n + 1; i < capacity; i++)
-    {
-      dest[i] = 0;
-    }
-  }
 }

@@ -3,6 +3,7 @@ using System.Net;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Net.Sockets;
+using System.Threading;
 
 namespace GGPOSharp;
 
@@ -85,7 +86,7 @@ public class GGPOEndpoint
 
   // NOTE: This needs to be passed in during initialization so that anything that uses the client can see the data....
   // OR!  We can just let them peer in and interrogate the client for the information! --> Probably a better plan!
-  ConnectStatus[] _local_connect_status = null; 
+  ConnectStatus[] _local_connect_status = null;
   ConnectStatus[] _peer_connect_status = new ConnectStatus[GGPOConsts.UDP_MSG_MAX_PLAYERS];
   // UdpMsg::connect_status _peer_connect_status[ProtoConsts.UDP_MSG_MAX_PLAYERS];
 
@@ -114,7 +115,7 @@ public class GGPOEndpoint
   public UInt16 _next_send_seq = 0;
   public UInt16 _next_recv_seq = 0;
 
-  TimeSync _timesync;
+  TimeSync _timesync = null!;
 
   /*
    * Event queue
@@ -156,6 +157,8 @@ public class GGPOEndpoint
     SyncState = new SyncData();
     RunningState = new RunningData();
 
+    _timesync = new TimeSync();
+
     // memset(_peer_connect_status, 0, sizeof(_peer_connect_status));
     //for (int i = 0; i < ARRAY_SIZE(_peer_connect_status); i++)
     //{
@@ -183,12 +186,37 @@ public class GGPOEndpoint
     // _playerName.SetValue(Options.PlayerName);
 
     this._local_connect_status = localConnectStatus_;
-    while(_magic_number == 0 ) {
+    while (_magic_number == 0)
+    {
       _magic_number = (UInt16)Random.Shared.Next();
     }
 
     // Begin the sync operation.....
     Synchronize();
+  }
+
+  // If we have an instance, we are initialized!
+  internal bool IsInitialized() { return true; }
+  internal bool IsSynchronized() { return _current_state == EClientState.Running; }
+  internal bool IsRunning() { return _current_state == EClientState.Running; }
+
+  // ----------------------------------------------------------------------------------------------------------
+  internal bool GetEvent(ref Event e)
+  {
+    if (_event_queue.Size == 0)
+    {
+      return false;
+    }
+    e = _event_queue.Front();
+    _event_queue.Pop();
+    return true;
+  }
+
+  // ------------------------------------------------------------------------------------------------
+  internal void Disconnect()
+  {
+    _current_state = EClientState.Disconnected;
+    _shutdown_timeout = (uint)(Clock.ElapsedMilliseconds + UDP_SHUTDOWN_TIMER);
   }
 
   // -------------------------------------------------------------------------------------
@@ -219,7 +247,7 @@ public class GGPOEndpoint
     // Get rid of our buffered input
     while (_pending_output.Size != 0 && _pending_output.Front().frame < msg.u.input_ack.ack_frame)
     {
-     Utils.Log($"Throwing away pending output frame {_pending_output.Front().frame}");
+      Utils.Log($"Throwing away pending output frame {_pending_output.Front().frame}");
       _last_acked_input = _pending_output.Front();
       _pending_output.Pop();
     }
@@ -263,7 +291,7 @@ public class GGPOEndpoint
     {
       if (_current_state != EClientState.Disconnected && !_disconnect_event_sent)
       {
-       Utils.Log("Disconnecting endpoint on remote request.\n");
+        Utils.Log("Disconnecting endpoint on remote request.\n");
         QueueEvent(new Event(EEventType.Disconnected));
         _disconnect_event_sent = true;
       }
@@ -363,13 +391,13 @@ public class GGPOEndpoint
 
               RunningState.last_input_packet_recv_time = (uint)Clock.ElapsedMilliseconds;
 
-             Utils.Log($"Sending frame {_last_received_input.frame} to emu queue {_queue} (<{desc}>).");
+              Utils.Log($"Sending frame {_last_received_input.frame} to emu queue {_queue} (<{desc}>).");
               QueueEvent(evt);
 
             }
             else
             {
-             Utils.Log($"Skipping past frame:({currentFrame}) current is {_last_received_input}.");
+              Utils.Log($"Skipping past frame:({currentFrame}) current is {_last_received_input}.");
             }
 
             /*
@@ -388,7 +416,7 @@ public class GGPOEndpoint
      */
     while (_pending_output.Size > 0 && _pending_output.Front().frame < msg.u.input.ack_frame)
     {
-     Utils.Log($"Throwing away pending output frame {_pending_output.Front().frame}");
+      Utils.Log($"Throwing away pending output frame {_pending_output.Front().frame}");
       _last_acked_input = _pending_output.Front();
       _pending_output.Pop();
     }
@@ -428,7 +456,7 @@ public class GGPOEndpoint
   // -------------------------------------------------------------------------------------
   public unsafe void SendMsg(ref UdpMsg msg)
   {
-   Utils.Log("send", ref msg);
+    Utils.Log("send", ref msg);
 
     _packets_sent++;
     _last_send_time = (uint)Clock.ElapsedMilliseconds;
@@ -456,12 +484,29 @@ public class GGPOEndpoint
   public void RunFrame()
   {
     DoPoll();
-    HandleEvents();
   }
 
-  // -------------------------------------------------------------------------------------
-  public void HandleEvents()
+  // ----------------------------------------------------------------------------------------------------------
+  internal void SendInput(ref GameInput input)
   {
+    if (_current_state == EClientState.Running)
+    {
+      /*
+       * Check to see if this is a good time to adjust for the rift...
+       */
+      _timesync.rollback_frame(ref input, _local_frame_advantage, _remote_frame_advantage);
+
+      /*
+       * Save this input packet
+       *
+       * XXX: This queue may fill up for spectators who do not ack input packets in a timely
+       * manner.  When this happens, we can either resize the queue (ug) or disconnect them
+       * (better, but still ug).  For the meantime, make this queue really big to decrease
+       * the odds of this happening...
+       */
+      _pending_output.Push(input);
+    }
+    SendPendingOutput();
   }
 
   // -------------------------------------------------------------------------------------
@@ -485,7 +530,7 @@ public class GGPOEndpoint
         next_interval = (SyncState.roundtrips_remaining == SYNC_PACKETS_COUNT) ? SYNC_FIRST_RETRY_INTERVAL : SYNC_RETRY_INTERVAL;
         if (_last_send_time > 0 && _last_send_time + next_interval < now)
         {
-         Utils.Log($"No luck syncing after {next_interval} ms... Re-queueing sync packet.");
+          Utils.Log($"No luck syncing after {next_interval} ms... Re-queueing sync packet.");
           SendSyncRequest();
         }
         break;
@@ -500,7 +545,7 @@ public class GGPOEndpoint
         // xxx: rig all this up with a timer wrapper
         if (RunningState.last_input_packet_recv_time == 0 || RunningState.last_input_packet_recv_time + RUNNING_RETRY_INTERVAL < now)
         {
-         Utils.Log($"Haven't exchanged packets in a while (last received:{_last_received_input.frame}  last sent:{_last_sent_input.frame}).  Resending.");
+          Utils.Log($"Haven't exchanged packets in a while (last received:{_last_received_input.frame}  last sent:{_last_sent_input.frame}).  Resending.");
           SendPendingOutput();
           RunningState.last_input_packet_recv_time = (uint)now;
         }
@@ -522,7 +567,7 @@ public class GGPOEndpoint
 
         if (_last_send_time != 0 && _last_send_time + KEEP_ALIVE_INTERVAL < now)
         {
-         Utils.Log("Sending keep alive packet\n");
+          Utils.Log("Sending keep alive packet\n");
 
           // NOTE : Check this for memory... 
           var msg = new UdpMsg(EMsgType.KeepAlive);
@@ -532,7 +577,7 @@ public class GGPOEndpoint
         if (_disconnect_timeout != 0 && _disconnect_notify_start != 0 &&
           !_disconnect_notify_sent && (_last_recv_time + _disconnect_notify_start < now))
         {
-         Utils.Log($"Endpoint has stopped receiving packets for {_disconnect_notify_start} ms.  Sending notification.");
+          Utils.Log($"Endpoint has stopped receiving packets for {_disconnect_notify_start} ms.  Sending notification.");
           Event e = new Event(EEventType.NetworkInterrupted);
           e.u.network_interrupted.disconnect_timeout = (int)(_disconnect_timeout - _disconnect_notify_start);
           QueueEvent(e);
@@ -543,7 +588,7 @@ public class GGPOEndpoint
         {
           if (!_disconnect_event_sent)
           {
-           Utils.Log($"Endpoint has stopped receiving packets for {_disconnect_timeout} ms.  Disconnecting.");
+            Utils.Log($"Endpoint has stopped receiving packets for {_disconnect_timeout} ms.  Disconnecting.");
             QueueEvent(new Event(EEventType.Disconnected));
             _disconnect_event_sent = true;
           }
@@ -578,7 +623,7 @@ public class GGPOEndpoint
     var pps = (float)_packets_sent * 1000 / (now - _stats_start_time);
     var totalKbs = total_bytes_sent / 1024.0;
 
-   Utils.Log($"Network Stats -- Bandwidth: {_kbps_sent:f2} KBps   Packets Sent: {_packets_sent} ({pps:f2} pps) KB Sent: {totalKbs:f2}    UDP Overhead: {udp_overhead:f2} pct.");
+    Utils.Log($"Network Stats -- Bandwidth: {_kbps_sent:f2} KBps   Packets Sent: {_packets_sent} ({pps:f2} pps) KB Sent: {totalKbs:f2}    UDP Overhead: {udp_overhead:f2} pct.");
     //_kbps_sent,
     //_packets_sent,
     //(float)_packets_sent * 1000 / (now - _stats_start_time),
@@ -678,83 +723,6 @@ public class GGPOEndpoint
     SendMsg(ref msg);
   }
 
-  // ----------------------------------------------------------------------------------------------------------
-  void SendInput(ref GameInput input, int playerIndex)
-  {
-    // TODO: I am going to combine the sync + rollback stuff into the client.
-    // I think that these responsibilities might be a bit too finely divided in the C++ version.
-    // I get that the spectate client doesn't need to sync, etc, but I feel like those changes
-    // are better handled in a single class vs. many.
-    //if (_sync.InRollback())
-    //{
-    //  return GGPO_ERRORCODE_IN_ROLLBACK;
-    //}
-    //if (_synchronizing)
-    //{
-    //  return GGPO_ERRORCODE_NOT_SYNCHRONIZED;
-    //}
-
-    //input.init(-1, (char*)values, isize);
-
-    //// Feed the input for the current frame into the synchronzation layer.
-    //if (!_sync.AddLocalInput(playerIndex, input))
-    //{
-    //  return GGPO_ERRORCODE_PREDICTION_THRESHOLD;
-    //}
-
-
-    //Log("setting local connect status for local player %d to %d", playerIndex, input.frame);
-    //_local_connect_status[playerIndex].last_frame = input.frame;
-
-    // NOTE:
-    // This is how C++ version does it.  each of the 'endpoints' is equivalent to
-    // this client class (GGPClient).  I want to encapsulate all of the responsibilities
-    // into this single client, and connect it to one or more remotes + add overrides / functors as
-    // needed.
-
-    //// Send the input to all the remote players.
-    //// NOTE: This queues input, and it gets pumped out later....
-    //// NOTE: In a two player game, only one of these endpoints has the 'udp' member set, and so
-    //// only one of them will actully do anything.....
-    //for (int i = 0; i < _num_players; i++)
-    //{
-    //  if (_endpoints[i].IsInitialized())
-    //  {
-    //    _endpoints[i].SendInput(input);
-    //  }
-    //}
-    if (input.frame == GameInput.NULL_FRAME) { return; }
-
-    _local_connect_status[playerIndex].last_frame = input.frame;
-
-
-    if (_current_state == EClientState.Running)
-    {
-      // NOTE: This assumes that we have a single connection to another player,
-      // which at time of writing is true.  If we want to add 4 player support,
-      // then we will need to give each of the 'endpoints' their own timesync, etc. data.
-      // ORRRRRR..... we can rename this thing to 'GGPOEndpoint' and then create another client
-      // that will manage mutliple endpoint connections..... 
-      // --> This is more in line with the C++ version, and would probably make life easier....
-      // --> We can still simplify the implementation if we do this toooo.....
-      /*
-       * Check to see if this is a good time to adjust for the rift...
-       */
-      _timesync.rollback_frame(ref input, _local_frame_advantage, _remote_frame_advantage);
-
-      /*
-       * Save this input packet
-       *
-       * XXX: This queue may fill up for spectators who do not ack input packets in a timely
-       * manner.  When this happens, we can either resize the queue (ug) or disconnect them
-       * (better, but still ug).  For the meantime, make this queue really big to decrease
-       * the odds of this happening...
-       */
-      _pending_output.Push(input);
-    }
-    SendPendingOutput();
-  }
-
   // ------------------------------------------------------------------------
   private void ReceiveMessages()
   {
@@ -775,7 +743,7 @@ public class GGPOEndpoint
       UdpMsg.FromBytes(ReceiveBuffer, ref msg, received);
 
       // Logging?
-     Utils.Log("MSG", ref msg);
+      Utils.Log("MSG", ref msg);
 
       // Now that we have the message we can do something with it....
       HandleMessage(ref msg, received);
@@ -810,7 +778,7 @@ public class GGPOEndpoint
   {
     if (_remote_magic_number != 0 && msg.header.magic != _remote_magic_number)
     {
-     Utils.Log($"Ignoring sync request from unknown endpoint ({msg.header.magic} != {_remote_magic_number}).");
+      Utils.Log($"Ignoring sync request from unknown endpoint ({msg.header.magic} != {_remote_magic_number}).");
       return false;
     }
     UdpMsg reply = new UdpMsg(EMsgType.SyncReply);
@@ -831,13 +799,13 @@ public class GGPOEndpoint
   {
     if (_current_state != EClientState.Syncing)
     {
-     Utils.Log("Ignoring SyncReply while not synching.");
+      Utils.Log("Ignoring SyncReply while not synching.");
       return msg.header.magic == _remote_magic_number;
     }
 
     if (msg.u.sync_reply.random_reply != SyncState.random)
     {
-     Utils.Log($"sync reply {msg.u.sync_reply.random_reply} != {SyncState.random}.  Keep looking...");
+      Utils.Log($"sync reply {msg.u.sync_reply.random_reply} != {SyncState.random}.  Keep looking...");
       return false;
     }
 
@@ -854,10 +822,10 @@ public class GGPOEndpoint
       _connected = true;
     }
 
-   Utils.Log($"Checking sync state ({SyncState.roundtrips_remaining} round trips remaining).");
+    Utils.Log($"Checking sync state ({SyncState.roundtrips_remaining} round trips remaining).");
     if (--SyncState.roundtrips_remaining == 0)
     {
-     Utils.Log("Synchronized!");
+      Utils.Log("Synchronized!");
 
       var e = new Event(EEventType.Synchronized);
       QueueEvent(e);
@@ -915,7 +883,7 @@ public class GGPOEndpoint
       if (_oop_percent != 0 && !_oo_packet.HasMessage && (Random.Shared.Next(100) < _oop_percent))
       {
         int delay = Random.Shared.Next(_send_latency * 10 + 1000);
-       Utils.Log($"creating rogue oop (seq: {entry.msg.header.sequence_number}  delay: {delay})");
+        Utils.Log($"creating rogue oop (seq: {entry.msg.header.sequence_number}  delay: {delay})");
         _oo_packet.queue_time = (int)Clock.ElapsedMilliseconds + delay;
         _oo_packet.msg = entry.msg;
         _oo_packet.dest_addr = entry.dest_addr;
@@ -946,7 +914,7 @@ public class GGPOEndpoint
 
       if (_oo_packet.HasMessage && _oo_packet.queue_time < (int)Clock.ElapsedMilliseconds)
       {
-       Utils.Log("sending rogue oop!");
+        Utils.Log("sending rogue oop!");
 
         SendMsgPacket(_oo_packet.msg);
         _oo_packet.MsgIndex = -1;
@@ -1062,6 +1030,7 @@ public class TimeSync
   public const int MIN_FRAME_ADVANTAGE = 3;
   public const int MAX_FRAME_ADVANTAGE = 9;
 
+  // NOTE: These are treated like circular buffers....
   protected int[] _local = new int[TimeSync.FRAME_WINDOW_SIZE];
   protected int[] _remote = new int[TimeSync.FRAME_WINDOW_SIZE];
   protected GameInput[] _last_inputs = new GameInput[MIN_UNIQUE_FRAMES];
@@ -1077,11 +1046,10 @@ public class TimeSync
   // -----------------------------------------------------------------------------------------------------
   public void rollback_frame(ref GameInput input, int localAdvantage, int remoteAdvantage)
   {
-    throw new NotSupportedException();
-    //// Remember the last frame and frame advantage
-    //_last_inputs[input.frame % ARRAY_SIZE(_last_inputs)] = input;
-    //_local[input.frame % ARRAY_SIZE(_local)] = localAdvantage;
-    //_remote[input.frame % ARRAY_SIZE(_remote)] = remoteAdvantage;
+    // Remember the last frame and frame advantage
+    _last_inputs[input.frame % MIN_UNIQUE_FRAMES] = input;
+    _local[input.frame % TimeSync.FRAME_WINDOW_SIZE] = localAdvantage;
+    _remote[input.frame % TimeSync.FRAME_WINDOW_SIZE] = remoteAdvantage;
   }
 
   // -----------------------------------------------------------------------------------------------------
@@ -1382,7 +1350,7 @@ public unsafe struct Event
     public SyncData synchronizing;
 
     [FieldOffset(0)]
-    public ConnectData connected;
+    public PlayerConnectData connected;
 
     [FieldOffset(0)]
     public NetworkInterruptedData network_interrupted;

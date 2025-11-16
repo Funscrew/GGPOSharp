@@ -13,11 +13,21 @@ namespace GGPOSharp
     [DllImport("winmm.dll", EntryPoint = "timeEndPeriod")]
     public static extern void TimeEndPeriod(int t);
 
-    static void Main(string[] args)
+    // ------------------------------------------------------------------------------------------------------
+    static unsafe void Main(string[] args)
     {
       Console.WriteLine("Welcome to GGPO Example Client!");
 
-      var ops = new GGPOClientOptions(0, "Screwie", Defaults.LOCAL_PORT);
+      var ops = new GGPOClientOptions(0, "Screwie", Defaults.LOCAL_PORT)
+      {
+        Callbacks = new GGPOSessionCallbacks()
+        {
+          free_buffer = OnFreeBuffer,
+          on_event = OnEvent,
+          rollback_frame = OnRollback
+        }
+      };
+
       var c = new GGPOClient(ops);
       c.AddRemote(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT);
       c.Lock();
@@ -31,6 +41,12 @@ namespace GGPOSharp
       double lastTime = double.MinValue;
       double frameTime = 1.0d / FPS;
 
+
+      // Some test input.  This mimics no buttons being pushed, and one DIP set
+      // for 3rd strike.
+      byte[] testInput = new byte[5];
+      testInput[1] = 1;
+
       int frameCount = 0;
       while (true)
       {
@@ -39,6 +55,9 @@ namespace GGPOSharp
         if (remainder <= 0.0d)
         {
           ++frameCount;
+
+          c.SyncInputs(testInput, testInput.Length);
+
           c.DoPoll();
           // double curFPS = frameCount / elapsed;
           //if (frameCount % 60 == 0) {
@@ -104,5 +123,24 @@ namespace GGPOSharp
 
     }
 
+    // ------------------------------------------------------------------------------------------------------
+    private static bool OnEvent(ref GGPOEvent arg)
+    {
+      Console.WriteLine($"There was an event: {arg.code}");
+      return true;
+    }
+
+    // ------------------------------------------------------------------------------------------------------
+    private static unsafe bool OnFreeBuffer(byte* arg)
+    {
+      Console.WriteLine("An indication to free a buffer happened!");
+      return true;
+    }
+
+    // ------------------------------------------------------------------------------------------------------
+    static void OnRollback(int frameCount)
+    {
+      Console.WriteLine($"A rollback of: {frameCount} frames was detected!");
+    }
   }
 }

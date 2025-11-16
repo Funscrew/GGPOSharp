@@ -256,7 +256,7 @@ class InputQueue
   }
 
   // ------------------------------------------------------------------------------------------
-  internal void AddInput(ref GameInput input)
+  internal void AddInput(in GameInput input)
   {
     int new_frame;
 
@@ -284,7 +284,8 @@ class InputQueue
      * frame to GameInput.NULL_FRAME for frames that get dropped (by
      * design).
      */
-    input.frame = new_frame;
+     throw new NotImplementedException();
+    // input.frame = new_frame;
   }
 
   // ------------------------------------------------------------------------------------------
