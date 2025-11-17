@@ -423,6 +423,13 @@ public class GGPOEndpoint
     return true;
   }
 
+  // -------------------------------------------------------------------------------------
+  internal int RecommendFrameDelay()
+  {
+    // XXX: require idle input should be a configuration parameter
+    return _timesync.recommend_frame_wait_duration(false);
+  }
+
 
 
   // -------------------------------------------------------------------------------------
@@ -767,6 +774,33 @@ public class GGPOEndpoint
     //// throw new NotImplementedException();
   }
 
+  // ----------------------------------------------------------------------------------------------------------
+  internal unsafe bool GetPeerConnectStatus(int id, int* frame)
+  {
+    *frame = _peer_connect_status[id].last_frame;
+    return !_peer_connect_status[id].disconnected;
+  }
+
+  // ------------------------------------------------------------------------
+  internal void SetLocalFrameNumber(int localFrame)
+  {
+    /*
+     * Estimate which frame the other guy is one by looking at the
+     * last frame they gave us plus some delta for the one-way packet
+     * trip time.
+     */
+    int remoteFrame = _last_received_input.frame + (_round_trip_time * 60 / 1000);
+
+    /*
+     * Our frame advantage is how many frames *behind* the other guy
+     * we are.  Counter-intuative, I know.  It's an advantage because
+     * it means they'll have to predict more often and our moves will
+     * pop more frequenetly.
+     */
+    _local_frame_advantage = remoteFrame - localFrame;
+  }
+
+
   // ------------------------------------------------------------------------
   private bool OnInvalid(ref UdpMsg msg, int msgLen)
   {
@@ -996,129 +1030,6 @@ public enum EClientState
   Running,
   Disconnected
 };
-
-
-//// ================================================================================================================
-//[StructLayout(LayoutKind.Explicit)]
-//public struct SyncRequest
-//{
-//  [FieldOffset(0)] public UInt32 RandomRequest;
-//  [FieldOffset(4)] public UInt16 RemoteMagicNumber;
-//  [FieldOffset(6)] public byte RemoteEndpoint;
-
-//  // --------------------------------------------------------------------------------------------------------------
-//  internal static void FromBytes(byte[] data, int startOffset, ref SyncRequest res)
-//  {
-//    res.RandomRequest = BitConverter.ToUInt32(data, startOffset);
-//    res.RemoteMagicNumber = BitConverter.ToUInt16(data, startOffset + sizeof(UInt32));
-//    res.RemoteEndpoint = data[startOffset + sizeof(UInt32) + sizeof(UInt16)];
-//  }
-//}
-
-//[StructLayout(LayoutKind.Explicit)]
-//public struct SyncReply
-//{
-//  [FieldOffset(0)]
-//}
-
-
-// ========================================================================================================
-public class TimeSync
-{
-  public const int FRAME_WINDOW_SIZE = 40;
-  public const int MIN_UNIQUE_FRAMES = 10;
-  public const int MIN_FRAME_ADVANTAGE = 3;
-  public const int MAX_FRAME_ADVANTAGE = 9;
-
-  // NOTE: These are treated like circular buffers....
-  protected int[] _local = new int[TimeSync.FRAME_WINDOW_SIZE];
-  protected int[] _remote = new int[TimeSync.FRAME_WINDOW_SIZE];
-  protected GameInput[] _last_inputs = new GameInput[MIN_UNIQUE_FRAMES];
-  protected int _next_prediction;
-
-  // -----------------------------------------------------------------------------------------------------
-  public TimeSync()
-  {
-    _next_prediction = FRAME_WINDOW_SIZE * 3;
-  }
-  // virtual ~TimeSync();
-
-  // -----------------------------------------------------------------------------------------------------
-  public void rollback_frame(ref GameInput input, int localAdvantage, int remoteAdvantage)
-  {
-    // Remember the last frame and frame advantage
-    _last_inputs[input.frame % MIN_UNIQUE_FRAMES] = input;
-    _local[input.frame % TimeSync.FRAME_WINDOW_SIZE] = localAdvantage;
-    _remote[input.frame % TimeSync.FRAME_WINDOW_SIZE] = remoteAdvantage;
-  }
-
-  // -----------------------------------------------------------------------------------------------------
-  public int recommend_frame_wait_duration(bool require_idle_input)
-  {
-    throw new NotSupportedException();
-
-    //// Average our local and remote frame advantages
-    //int i, sum = 0;
-    //float advantage, radvantage;
-    //for (i = 0; i < ARRAY_SIZE(_local); i++)
-    //{
-    //  sum += _local[i];
-    //}
-    //advantage = sum / (float)ARRAY_SIZE(_local);
-
-    //sum = 0;
-    //for (i = 0; i < ARRAY_SIZE(_remote); i++)
-    //{
-    //  sum += _remote[i];
-    //}
-    //radvantage = sum / (float)ARRAY_SIZE(_remote);
-
-    //static int count = 0;
-    //count++;
-
-    //// See if someone should take action.  The person furthest ahead
-    //// needs to slow down so the other user can catch up.
-    //// Only do this if both clients agree on who's ahead!!
-    //if (advantage >= radvantage)
-    //{
-    //  return 0;
-    //}
-
-    //// Both clients agree that we're the one ahead.  Split
-    //// the difference between the two to figure out how long to
-    //// sleep for.
-    //int sleep_frames = (int)(((radvantage - advantage) / 2) + 0.5);
-
-    //LogIt("iteration %d:  sleep frames is %d", count, sleep_frames);
-
-    //// Some things just aren't worth correcting for.  Make sure
-    //// the difference is relevant before proceeding.
-    //if (sleep_frames < MIN_FRAME_ADVANTAGE)
-    //{
-    //  return 0;
-    //}
-
-    //// Make sure our input had been "idle enough" before recommending
-    //// a sleep.  This tries to make the emulator sleep while the
-    //// user's input isn't sweeping in arcs (e.g. fireball motions in
-    //// Street Fighter), which could cause the player to miss moves.
-    //if (require_idle_input)
-    //{
-    //  for (i = 1; i < ARRAY_SIZE(_last_inputs); i++)
-    //  {
-    //    if (!_last_inputs[i].equal(_last_inputs[0], true))
-    //    {
-    //      LogIt("iteration %d:  rejecting due to input stuff at position %d...!!!", count, i);
-    //      return 0;
-    //    }
-    //  }
-    //}
-
-    //// Success!!! Recommend the number of frames to sleep and adjust
-    //return MIN(sleep_frames, MAX_FRAME_ADVANTAGE);
-  }
-
-}
 
 
 

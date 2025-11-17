@@ -3,6 +3,15 @@ A C# implementation of the GPPO code that I found, and how it was integrated int
 
 
 
+## Flow:
+Each frame gets + syncs inputs + messages.
+
+- If the simulation won't advance (for time reasons), run an idle routine.  This will run the polling + associated updates.
+- If it will advance, then 'IncrementFrame' can be called.
+--> This will exchange messages, add inputs + poll.....???
+
+
+
 ## Next Steps
 - Update C# topology so that the current 'GGPOClient' class becomes 'GGPOEndpoint'.  Make a proper 'client' class
 that can manage multiple endpoints (one for now (two players)) that will also be able to sync, etc. or whatever the
@@ -13,4 +22,3 @@ current version of the client is able to do.
 later.  Options to reverse L/R directions + replay time would be nice.  Consider how such a thing might work in
 terms of a game with more than two players... not to actually implement it, but so that we don't paint ourselves into
 a corner when it comes to creating other types of clients that might interact with more than two players.
- 

@@ -17,6 +17,8 @@ public static class GGPOConsts
   public const int MAX_PREDICTION_FRAMES = 8;
   public const int INPUT_QUEUE_LENGTH = 128;
   public const int DEFAULT_INPUT_SIZE = 4;
+
+  public const int RECOMMENDATION_INTERVAL = 240;
 }
 
 // ================================================================================================================

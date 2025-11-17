@@ -40,6 +40,8 @@ public class GGPOClient
   private string[] _PlayerNames = new string[GGPOConsts.UDP_MSG_MAX_PLAYERS];
   private GGPOSessionCallbacks _callbacks;
 
+  private int _next_recommended_sleep = 0;
+
   // ----------------------------------------------------------------------------------------
   public GGPOClient(GGPOClientOptions options_)
   {
@@ -98,7 +100,13 @@ public class GGPOClient
   }
 
   // ----------------------------------------------------------------------------------------
-  public void DoPoll()
+  internal void Idle()
+  {
+    DoPoll(1);
+  }
+
+  // ----------------------------------------------------------------------------------------
+  public void DoPoll(int timeout)
   {
     // Endpoints get updated first so that we can get events, inputs, etc.
     int len = _endpoints.Count;
@@ -111,63 +119,175 @@ public class GGPOClient
     // Handle events!
     PollUdpProtocolEvents();
 
+    if (!_synchronizing)
+    {
+      _sync.CheckSimulation(timeout);
 
-    //// Original, sync code, etc.
-    //if (!_synchronizing)
+      // notify all of our endpoints of their local frame number for their
+      // next connection quality report
+      int current_frame = _sync.GetFrameCount();
+
+      int epCount = _endpoints.Count;
+      for (int i = 0; i < epCount; i++)
+      {
+        _endpoints[i].SetLocalFrameNumber(current_frame);
+      }
+
+      int total_min_confirmed;
+      if (_endpoints.Count == 1)
+      {
+        // We are connected to one other player....
+        total_min_confirmed = Poll2Players(current_frame);
+      }
+      else
+      {
+        total_min_confirmed = PollNPlayers(current_frame);
+      }
+
+      Utils.Log("last confirmed frame in p2p backend is %d.", total_min_confirmed);
+      if (total_min_confirmed >= 0)
+      {
+        Utils.ASSERT(total_min_confirmed != int.MaxValue);
+
+        Utils.Log("setting confirmed frame in sync to %d.", total_min_confirmed);
+        _sync.SetLastConfirmedFrame(total_min_confirmed);
+      }
+
+      // send timesync notifications if now is the proper time
+      if (current_frame > _next_recommended_sleep)
+      {
+        int interval = 0;
+        for (int i = 0; i < _endpoints.Count; i++)
+        {
+          interval = Math.Max(interval, _endpoints[i].RecommendFrameDelay());
+        }
+
+        if (interval > 0)
+        {
+          GGPOEvent info = new GGPOEvent();
+          info.code = EEventCode.GGPO_EVENTCODE_TIMESYNC;
+          info.u.timesync.frames_ahead = interval;
+          _callbacks.on_event(ref info);
+          _next_recommended_sleep = current_frame + GGPOConsts.RECOMMENDATION_INTERVAL;
+        }
+      }
+
+      // NOTE: Not sure what that means.... we should use the timeout for the sleep value,
+      // or we should not sleep it here?
+      // XXX: this is obviously a farce...
+      if (timeout > 0)
+      {
+        Thread.Sleep(1);
+      }
+    }
+  }
+
+  // ----------------------------------------------------------------------------------------------------------
+  private unsafe int Poll2Players(int current_frame)
+  {
+    UInt16 i;
+
+    // discard confirmed frames as appropriate
+    int total_min_confirmed = int.MaxValue;
+    for (i = 0; i < _endpoints.Count; i++)
+    {
+      bool queue_connected = true;
+      if (_endpoints[i].IsRunning())
+      {
+        int ignore;
+        queue_connected = _endpoints[i].GetPeerConnectStatus(i, &ignore);
+      }
+      if (!_local_connect_status[i].disconnected)
+      {
+        total_min_confirmed = Math.Min(_local_connect_status[i].last_frame, total_min_confirmed);
+      }
+      Utils.Log("  local endp: connected = %d, last_received = %d, total_min_confirmed = %d.\n", !_local_connect_status[i].disconnected, _local_connect_status[i].last_frame, total_min_confirmed);
+      if (!queue_connected && !_local_connect_status[i].disconnected)
+      {
+        Utils.Log("disconnecting i %d by remote request.\n", i);
+        DisconnectPlayer(i, total_min_confirmed);
+      }
+      Utils.Log("  total_min_confirmed = %d.\n", total_min_confirmed);
+    }
+    return total_min_confirmed;
+  }
+
+
+  // ----------------------------------------------------------------------------------------------------------
+  private int PollNPlayers(int current_frame)
+  {
+    // I'm not really sure how we want to handle this in the future...
+    throw new NotSupportedException("Only two players are currently supported!");
+    //uint16 i, queue;
+    //int last_received;
+
+    //// discard confirmed frames as appropriate
+    //int total_min_confirmed = MAX_INT;
+    //for (queue = 0; queue < _num_players; queue++)
     //{
-    //  _sync.CheckSimulation(timeout);
-
-    //  // notify all of our endpoints of their local frame number for their
-    //  // next connection quality report
-    //  int current_frame = _sync.GetFrameCount();
-    //  for (int i = 0; i < _num_players; i++)
+    //  bool queue_connected = true;
+    //  int queue_min_confirmed = MAX_INT;
+    //  Utils.Log("considering playerIndex %d.\n", queue);
+    //  for (i = 0; i < _endpoints.Count; i++)
     //  {
-    //    _endpoints[i].SetLocalFrameNumber(current_frame);
+    //    // we're going to do a lot of logic here in consideration of endpoint i.
+    //    // keep accumulating the minimum confirmed point for all n*n packets and
+    //    // throw away the rest.
+    //    if (_endpoints[i].IsRunning())
+    //    {
+    //      bool connected = _endpoints[i].GetPeerConnectStatus((int)queue, &last_received);
+
+    //      queue_connected = queue_connected && connected;
+    //      queue_min_confirmed = Math.Min(last_received, queue_min_confirmed);
+    //      Utils.Log("  endpoint %d: connected = %d, last_received = %d, queue_min_confirmed = %d.\n", i, connected, last_received, queue_min_confirmed);
+    //    }
+    //    else
+    //    {
+    //      Utils.Log("  endpoint %d: ignoring... not running.\n", i);
+    //    }
     //  }
-
-    //  int total_min_confirmed;
-    //  if (_num_players <= 2)
+    //  // merge in our local status only if we're still connected!
+    //  if (!_local_connect_status[queue].disconnected)
     //  {
-    //    total_min_confirmed = Poll2Players(current_frame);
+    //    queue_min_confirmed = Math.Min(_local_connect_status[queue].last_frame, queue_min_confirmed);
+    //  }
+    //  Utils.Log("  local endp: connected = %d, last_received = %d, queue_min_confirmed = %d.\n", !_local_connect_status[queue].disconnected, _local_connect_status[queue].last_frame, queue_min_confirmed);
+
+    //  if (queue_connected)
+    //  {
+    //    total_min_confirmed = Math.Min(queue_min_confirmed, total_min_confirmed);
     //  }
     //  else
     //  {
-    //    total_min_confirmed = PollNPlayers(current_frame);
-    //  }
-
-    //  Log("last confirmed frame in p2p backend is %d.", total_min_confirmed);
-    //  if (total_min_confirmed >= 0)
-    //  {
-    //    ASSERT(total_min_confirmed != INT_MAX);
-
-    //    Log("setting confirmed frame in sync to %d.", total_min_confirmed);
-    //    _sync.SetLastConfirmedFrame(total_min_confirmed);
-    //  }
-
-    //  // send timesync notifications if now is the proper time
-    //  if (current_frame > _next_recommended_sleep)
-    //  {
-    //    int interval = 0;
-    //    for (int i = 0; i < _num_players; i++)
+    //    // check to see if this disconnect notification is further back than we've been before.  If
+    //    // so, we need to re-adjust.  This can happen when we detect our own disconnect at frame n
+    //    // and later receive a disconnect notification for frame n-1.
+    //    if (!_local_connect_status[queue].disconnected || _local_connect_status[queue].last_frame > queue_min_confirmed)
     //    {
-    //      interval = MAX(interval, _endpoints[i].RecommendFrameDelay());
-    //    }
-
-    //    if (interval > 0)
-    //    {
-    //      GGPOEvent info;
-    //      info.code = GGPO_EVENTCODE_TIMESYNC;
-    //      info.u.timesync.frames_ahead = interval;
-    //      _callbacks.on_event(&info);
-    //      _next_recommended_sleep = current_frame + RECOMMENDATION_INTERVAL;
+    //      Utils.Log("disconnecting playerIndex %d by remote request.\n", queue);
+    //      DisconnectPlayer(queue, queue_min_confirmed);
     //    }
     //  }
-    //  // XXX: this is obviously a farce...
-    //  if (timeout)
-    //  {
-    //    Sleep(1);
-    //  }
+    //  Utils.Log("  total_min_confirmed = %d.\n", total_min_confirmed);
     //}
+    //return total_min_confirmed;
+  }
+
+  // ----------------------------------------------------------------------------------------------------------
+  bool IncrementFrame()
+  {
+    Utils.Log("End of frame (%d)...", _sync.GetFrameCount());
+    _sync.IncrementFrame();
+    DoPoll(0);
+    PollSyncEvents();
+
+    return true;
+  }
+
+  // ----------------------------------------------------------------------------------------------------------
+  private void PollSyncEvents()
+  {
+    throw new NotImplementedException();
   }
 
   // ----------------------------------------------------------------------------------------
@@ -486,8 +606,6 @@ public class GGPOClient
   {
     IsLocked = true;
   }
-
-
 
 }
 

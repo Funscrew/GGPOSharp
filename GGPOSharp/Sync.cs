@@ -13,14 +13,15 @@ using System.Threading.Tasks;
 namespace GGPOSharp;
 
 // ================================================================================================
-// REFACTOR: InputSynchronizer
 internal class Sync
 {
   #region Internal Structures, etc.
 
   // ==============================================================================================
+  // NOTE: I'm not sure that having sync manage memory for the states is the best idea....
+  // I may change that both here, and in the c++ implementation.
   [StructLayout(LayoutKind.Sequential, Pack = 1)]
-  protected unsafe struct SavedFrame
+  public unsafe struct SavedFrame
   {
     public byte* buf;
     public int cbuf;
@@ -41,7 +42,7 @@ internal class Sync
   {
     // NOTE: We are going to have to do some memory stuff to get this data out correctly....
     // public SavedFrame[] frames = new SavedFrame[SyncConsts.MAX_PREDICTION_FRAMES + 2];
-    // public const int savedFrameStride = 4 + (sizeof(int) * 3);    // NOTE: This assumes that sizeof(byte*) is 8.
+    //public const int savedFrameStride = sizeof(byte*) + (sizeof(int) * 3);    // NOTE: This assumes that sizeof(byte*) is 8.
 
     //public fixed byte _SavedStateData[(SyncConsts.MAX_PREDICTION_FRAMES + 2) * savedFrameStride];
     //public int head = 0;
@@ -49,7 +50,7 @@ internal class Sync
     // TODO: Find a better way to deal with this / reduce garbage.  Maybe spans from a memory pool?
     public const int SAVED_FRAME_COUNT = GGPOConsts.MAX_PREDICTION_FRAMES + 2;
     public SavedFrame[] frames = new SavedFrame[SAVED_FRAME_COUNT];
-    public int head = 0;
+    public int head = 0; // Index of the saved frame data.
 
     public unsafe SavedState() { }
 
@@ -76,7 +77,6 @@ internal class Sync
   public Sync(ConnectStatus[] connect_status, SyncOptions config)
   {
     _local_connect_status = connect_status;
-    _input_queues = null;
 
     //  _local_connect_status(connect_status),
     //_input_queues(NULL)
@@ -135,7 +135,7 @@ internal class Sync
   //}
 
   // ------------------------------------------------------------------------------------------------------------------------
-  void SetLastConfirmedFrame(int frame)
+  internal void SetLastConfirmedFrame(int frame)
   {
     _last_confirmed_frame = frame;
     if (_last_confirmed_frame > 0)
@@ -153,7 +153,7 @@ internal class Sync
     int frames_behind = _curFrame - _last_confirmed_frame;
     if (_curFrame >= _max_prediction_frames && frames_behind >= _max_prediction_frames)
     {
-      Utils.Log("Rejecting input from emulator: reached prediction barrier.\n");
+      Utils.Log("Rejecting input from emulator: reached prediction barrier.");
       return false;
     }
 
@@ -162,7 +162,7 @@ internal class Sync
       SaveCurrentFrame();
     }
 
-    Utils.Log("Sending undelayed local frame %d to queue %d.\n", _curFrame, playerIndex);
+    Utils.Log("Sending undelayed local frame %d to queue %d.", _curFrame, playerIndex);
     input.frame = _curFrame;
     _input_queues[playerIndex].AddInput(ref input);
 
@@ -233,19 +233,18 @@ internal class Sync
   }
 
   // ------------------------------------------------------------------------------------------------------------------------
-  void CheckSimulation(int timeout)
+  internal unsafe void CheckSimulation(int timeout)
   {
-    throw new NotImplementedException();
-
-    //int seek_to;
-    //if (!CheckSimulationConsistency(&seek_to))
-    //{
-    //  AdjustSimulation(seek_to);
-    //}
+    // throw new NotImplementedException();
+    int seek_to;
+    if (!CheckSimulationConsistency(&seek_to))
+    {
+      AdjustSimulation(seek_to);
+    }
   }
 
   // ------------------------------------------------------------------------------------------------------------------------
-  void IncrementFrame()
+  internal void IncrementFrame()
   {
     _curFrame++;
     SaveCurrentFrame();
@@ -257,7 +256,7 @@ internal class Sync
     int prevFrame = _curFrame;
     int count = _curFrame - seek_to;   // This is assumed to be positive b/c we are rolling back to an earlier frame.  Therefore, _framecount is always > seek_to.
 
-    Utils.Log("Catching up\n");
+    Utils.Log("Catching up");
     _rollingback = true;
 
     /*
@@ -283,68 +282,65 @@ internal class Sync
 
     _rollingback = false;
 
-    Utils.Log("---\n");
+    Utils.Log("---");
   }
 
   // ------------------------------------------------------------------------------------------------------------------------
-  void LoadFrame(int frame)
+  internal unsafe void LoadFrame(int frame)
   {
-    throw new NotImplementedException();
+    // find the frame in question
+    if (frame == _curFrame)
+    {
+      Utils.Log("Skipping NOP.");
+      return;
+    }
 
-    //// find the frame in question
-    //if (frame == _curFrame)
-    //{
-    //  Utils.Log("Skipping NOP.\n");
-    //  return;
-    //}
+    // Move the head pointer back and load it up
+    _savedstate.head = FindSavedFrameIndex(frame);
+    SavedFrame state = _savedstate.frames[_savedstate.head];
 
-    //// Move the head pointer back and load it up
-    //_savedstate.head = FindSavedFrameIndex(frame);
-    //SavedFrame* state = _savedstate.frames + _savedstate.head;
+    Utils.Log("=== Loading frame info %d (size: %d  checksum: %08x).",
+        state.frame, state.cbuf, state.checksum);
 
-    //Utils.Log("=== Loading frame info %d (size: %d  checksum: %08x).\n",
-    //    state->frame, state->cbuf, state->checksum);
+    Utils.ASSERT(state.buf != null && state.cbuf != null);
+    _callbacks.load_game_state(&state.buf, state.cbuf);
 
-    //Utils.ASSERT(state->buf && state->cbuf);
-    //_callbacks.load_game_state(state->buf, state->cbuf);
-
-    //// Reset framecount and the head of the state ring-buffer to point in
-    //// advance of the current frame (as if we had just finished executing it).
-    //_curFrame = state->frame;
-    //_savedstate.head = (_savedstate.head + 1) % SavedState.SAVED_FRAME_COUNT;
+    // Reset framecount and the head of the state ring-buffer to point in
+    // advance of the current frame (as if we had just finished executing it).
+    _curFrame = state.frame;
+    _savedstate.head = (_savedstate.head + 1) % SavedState.SAVED_FRAME_COUNT;
   }
 
   // ------------------------------------------------------------------------------------------------------------------------
-  void SaveCurrentFrame()
+  internal unsafe void SaveCurrentFrame()
   {
-  throw new NotImplementedException();
-    ///*
-    // * See StateCompress for the real save feature implemented by FinalBurn.
-    // * Write everything into the head, then advance the head pointer.
-    // */
-    //SavedFrame* state = _savedstate.frames + _savedstate.head;
-    //if (state->buf)
-    //{
-    //  _callbacks.free_buffer(state->buf);
-    //  state->buf = NULL;
-    //}
-    //state->frame = _curFrame;
-    //_callbacks.save_game_state(&state->buf, &state->cbuf, &state->checksum, state->frame);
+    // throw new NotImplementedException();
+    //See StateCompress for the real save feature implemented by FinalBurn.
+    //Write everything into the head, then advance the head pointer.
+    SavedFrame state = _savedstate.frames[_savedstate.head];
+    // SavedFrame* state = _savedstate.frames + _savedstate.head;
+    if (state.buf != null)
+    {
+      _callbacks.free_buffer(state.buf);
+      state.buf = null;
+    }
+    state.frame = _curFrame;
+    _callbacks.save_game_state(&state.buf, &state.cbuf, &state.checksum, state.frame);
 
-    //Utils.Log("=== Saved frame info %d (size: %d  checksum: %08x).\n", state->frame, state->cbuf, state->checksum);
-    //_savedstate.head = (_savedstate.head + 1) % SavedState.SAVED_FRAME_COUNT;
+    Utils.Log("=== Saved frame info %d (size: %d  checksum: %08x).", state.frame, state.cbuf, state.checksum);
+    _savedstate.head = (_savedstate.head + 1) % SavedState.SAVED_FRAME_COUNT;
   }
 
   // ------------------------------------------------------------------------------------------
-  //SavedFrame& GetLastSavedFrame()
-  //{
-  //  int i = _savedstate.head - 1;
-  //  if (i < 0)
-  //  {
-  //    i = SavedState.SAVED_FRAME_COUNT - 1;
-  //  }
-  //  return _savedstate.frames[i];
-  //}
+  public void GetLastSavedFrame(ref SavedFrame frame)
+  {
+    int i = _savedstate.head - 1;
+    if (i < 0)
+    {
+      i = SavedState.SAVED_FRAME_COUNT - 1;
+    }
+    frame = _savedstate.frames[i];
+  }
 
 
   // ------------------------------------------------------------------------------------------
@@ -387,7 +383,7 @@ internal class Sync
     for (int i = 0; i < _config.num_players; i++)
     {
       int incorrect = _input_queues[i].GetFirstIncorrectFrame();
-      Utils.Log("considering incorrect frame %d reported by queue %d.\n", incorrect, i);
+      Utils.Log("considering incorrect frame %d reported by queue %d.", incorrect, i);
 
       if (incorrect != GameInput.NULL_FRAME && (first_incorrect == GameInput.NULL_FRAME || incorrect < first_incorrect))
       {
@@ -397,7 +393,7 @@ internal class Sync
 
     if (first_incorrect == GameInput.NULL_FRAME)
     {
-      Utils.Log("prediction ok.  proceeding.\n");
+      Utils.Log("prediction ok.  proceeding.");
       return true;
     }
     *seekTo = first_incorrect;
@@ -461,11 +457,27 @@ struct SyncEvent
 
 public unsafe delegate bool SessionPointerCallback<T>(T* arg);
 public delegate bool SessionRefCallback<T>(ref T arg);
+public unsafe delegate bool SaveStateCallback(byte** buffer, int* len, int* checksum, int frame);
+public unsafe delegate bool LoadStateCallback(byte** buffer, int len);
 
 // ================================================================================================
 public unsafe class GGPOSessionCallbacks
 {
-  public SessionRefCallback<GGPOEvent>? on_event = null;
-  public SessionPointerCallback<byte>? free_buffer = null;
-  public Action<int>? rollback_frame = null;
+
+  //save_game_state - The client should allocate a buffer, copy the
+  //entire contents of the current game state into it, and copy the
+  //length into the* len parameter.Optionally, the client can compute
+  //a checksum of the data and store it in the* checksum argument.
+  // NOTE: I think that going the checksum route is ideal for future development.
+  // I don't really like having the sync code manage this memory, not in
+  // C++ or in C#!
+  public SaveStateCallback save_game_state = default!;
+  public LoadStateCallback load_game_state = default!;
+
+  // bool (__cdecl* load_game_state) (unsigned char* buffer, int len);
+
+
+  public SessionRefCallback<GGPOEvent> on_event = default!;
+  public SessionPointerCallback<byte> free_buffer = default!;
+  public Action<int> rollback_frame = default!;
 }

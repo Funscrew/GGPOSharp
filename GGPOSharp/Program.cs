@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 
 namespace GGPOSharp
 {
+  // ========================================================================================================
   internal class Program
   {
     [DllImport("winmm.dll", EntryPoint = "timeBeginPeriod")]
@@ -24,7 +25,9 @@ namespace GGPOSharp
         {
           free_buffer = OnFreeBuffer,
           on_event = OnEvent,
-          rollback_frame = OnRollback
+          rollback_frame = OnRollback,
+          save_game_state = SaveGameState,
+          load_game_state = LoadGameState
         }
       };
 
@@ -58,7 +61,9 @@ namespace GGPOSharp
 
           c.SyncInputs(testInput, testInput.Length);
 
-          c.DoPoll();
+          // c.IN
+
+          c.DoPoll(0);
           // double curFPS = frameCount / elapsed;
           //if (frameCount % 60 == 0) {
           //  Console.WriteLine($"FPS:{curFPS:f2}");
@@ -67,6 +72,7 @@ namespace GGPOSharp
         }
         else
         {
+          c.Idle();
           // int sleepFor = (int)remainder * 1000;
           Thread.Sleep((int)(remainder * 1000.0d));
         }
@@ -121,6 +127,21 @@ namespace GGPOSharp
       //  /// string data = msg.ad
       //}
 
+    }
+
+    // ------------------------------------------------------------------------------------------------------
+    private static unsafe bool LoadGameState(byte** buffer, int len)
+    {
+      Console.WriteLine("no state to load...");
+      return true;
+    }
+
+    // ------------------------------------------------------------------------------------------------------
+    private static unsafe bool SaveGameState(byte** buffer, int* len, int* checksum, int frame)
+    {
+      Console.WriteLine("nothing to save....");
+      return true;
+      // throw new NotImplementedException();
     }
 
     // ------------------------------------------------------------------------------------------------------
