@@ -7,8 +7,16 @@ A C# implementation of the GPPO code that I found, and how it was integrated int
 Each frame gets + syncs inputs + messages.
 
 - If the simulation won't advance (for time reasons), run an idle routine.  This will run the polling + associated updates.
+
 - If it will advance, then 'IncrementFrame' can be called.
---> This will exchange messages, add inputs + poll.....???
+--> This does:
+1. Poll with no delay.
+2. Read local inputs
+3. --> add local inputs to client.
+4. Sync the inputs
+--> Callback for rollbacks, etc. will take place here.
+
+From here the 'game' can run its next frame since it has synced inputs for all players.
 
 
 

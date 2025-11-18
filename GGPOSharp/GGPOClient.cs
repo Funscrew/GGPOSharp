@@ -31,7 +31,7 @@ public class GGPOClient
   /// Are we currently processing a rollback?
   /// </summary>
   private bool InRollback = false;
-  private bool _synchronizing = true;
+  public bool _synchronizing { get; private set; } = true;
 
   private Sync _sync = null!;
 
@@ -63,6 +63,11 @@ public class GGPOClient
     _sync = new Sync(_local_connect_status, ops);
 
     _callbacks = Options.Callbacks;
+
+    // I'm implementing this out of a sense of tradition....
+    // Not really sure if this matters here, or if this is even the best place to
+    // fire this off.
+    _callbacks.begin_game(string.Empty);
   }
 
   // ----------------------------------------------------------------------------------------
@@ -274,7 +279,7 @@ public class GGPOClient
   }
 
   // ----------------------------------------------------------------------------------------------------------
-  bool IncrementFrame()
+  public bool IncrementFrame()
   {
     Utils.Log("End of frame (%d)...", _sync.GetFrameCount());
     _sync.IncrementFrame();
@@ -287,6 +292,19 @@ public class GGPOClient
   // ----------------------------------------------------------------------------------------------------------
   private void PollSyncEvents()
   {
+    SyncEvent e = new SyncEvent();
+    while (_sync.GetEvent(ref e))
+    {
+      OnSyncEvent(e);
+    }
+    return;
+  }
+
+  // ----------------------------------------------------------------------------------------------------------
+  // NOTE: Referefence implementation (p2p.cpp) does not implement this function
+  // either.  I think that this is more stuff that was left out or not needed....
+  private void OnSyncEvent(SyncEvent e)
+  {
     throw new NotImplementedException();
   }
 
@@ -295,7 +313,7 @@ public class GGPOClient
   /// Sync the inputs for all players for the current frame.
   /// This sends the local inputs, receives the remote ones, and intiates any rollbacks if needed.
   /// </summary>
-  public bool SyncInputs(in byte[] values, int isize)
+  public bool SyncInputs(in byte[] values, int isize, int playerCount)
   {
     if (_synchronizing) { return false; }
 
@@ -309,7 +327,7 @@ public class GGPOClient
 
     // NOTE: We aren't doing anything with the flags... I think the system is probably using the event codes
     // to playerIndex this kind of thing......
-    // _sync.SynchronizeInputs(input.data, isize * playerCount);
+    _sync.SynchronizeInputs(values, isize * playerCount);
 
     return true;
 
@@ -606,6 +624,7 @@ public class GGPOClient
   {
     IsLocked = true;
   }
+
 
 }
 

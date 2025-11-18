@@ -1102,7 +1102,7 @@ public unsafe struct GameInput
   // ------------------------------------------------------------------------------------------
   public void init(int iframe, byte[] ibits, int isize)
   {
-    init(frame, ibits, isize, 0);
+    init(iframe, ibits, isize, 0);
   }
 
   // ----------------------------------------------------------------------------------------

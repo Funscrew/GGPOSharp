@@ -2,6 +2,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
+using System.Text.Json.Serialization;
 
 namespace GGPOSharp
 {
@@ -23,6 +24,7 @@ namespace GGPOSharp
       {
         Callbacks = new GGPOSessionCallbacks()
         {
+          begin_game = OnBeginGame,
           free_buffer = OnFreeBuffer,
           on_event = OnEvent,
           rollback_frame = OnRollback,
@@ -43,41 +45,106 @@ namespace GGPOSharp
       const double FPS = 60.0d;
       double lastTime = double.MinValue;
       double frameTime = 1.0d / FPS;
-
+      double nextFrameTime = 0.0d;
 
       // Some test input.  This mimics no buttons being pushed, and one DIP set
       // for 3rd strike.
-      byte[] testInput = new byte[5];
+      // The rest of the array data is reserved for the rest of the player inputs.
+      byte[] testInput = new byte[5 * GGPOConsts.UDP_MSG_MAX_PLAYERS];
       testInput[1] = 1;
 
       int frameCount = 0;
       while (true)
       {
         double elapsed = sw.Elapsed.TotalSeconds;
-        double remainder = frameTime - (elapsed - lastTime);
-        if (remainder <= 0.0d)
+        if (elapsed < nextFrameTime)
         {
-          ++frameCount;
-
-          c.SyncInputs(testInput, testInput.Length);
-
-          // c.IN
-
-          c.DoPoll(0);
-          // double curFPS = frameCount / elapsed;
-          //if (frameCount % 60 == 0) {
-          //  Console.WriteLine($"FPS:{curFPS:f2}");
-          //}
-          lastTime = elapsed;
+          c.Idle();
         }
         else
         {
-          c.Idle();
-          // int sleepFor = (int)remainder * 1000;
-          Thread.Sleep((int)(remainder * 1000.0d));
+          // Send + receive inputs across the network.
+          if (!c._synchronizing)
+          {
+            bool syncOK = c.SyncInputs(testInput, 5, GGPOConsts.UDP_MSG_MAX_PLAYERS);
+
+            // Tell the client that we have moved ahead one frame.
+            if (syncOK)
+            {
+              c.IncrementFrame();
+            }
+          }
+
+          // TODO: Make a switch for this.
+          // We get the stats, and then we can splat them to the screen however
+          // we please.
+          // var stats = c.GetNetworkStats();
+          // OutputStats(stats);
+
+          // This is where we will increment the frame!
+          ++frameCount;
+          nextFrameTime += frameTime;
+
+          //double curFPS = frameCount / elapsed;
+          //if (frameCount % 60 == 0)
+          //{
+          //  Console.WriteLine($"FPS:{curFPS:f2}");
+          //}
         }
 
+        //double remainder = frameTime - (elapsed - lastTime);
+        //if (remainder <= 0.0d)
+        //{
+        //  ++frameCount;
+
+        //  c.SyncInputs(testInput, testInput.Length);
+
+        //  // c.IN
+
+        //  c.DoPoll(0);
+        //  // double curFPS = frameCount / elapsed;
+        //  //if (frameCount % 60 == 0) {
+        //  //  Console.WriteLine($"FPS:{curFPS:f2}");
+        //  //}
+        //  lastTime = elapsed;
+        //}
+        //else
+        //{
+        //  c.Idle();
+        //  // int sleepFor = (int)remainder * 1000;
+        //  Thread.Sleep((int)(remainder * 1000.0d));
+        //}
+
       }
+
+      //int frameCount = 0;
+      //while (true)
+      //{
+      //  double elapsed = sw.Elapsed.TotalSeconds;
+      //  double remainder = frameTime - (elapsed - lastTime);
+      //  if (remainder <= 0.0d)
+      //  {
+      //    ++frameCount;
+
+      //    c.SyncInputs(testInput, testInput.Length);
+
+      //    // c.IN
+
+      //    c.DoPoll(0);
+      //    // double curFPS = frameCount / elapsed;
+      //    //if (frameCount % 60 == 0) {
+      //    //  Console.WriteLine($"FPS:{curFPS:f2}");
+      //    //}
+      //    lastTime = elapsed;
+      //  }
+      //  else
+      //  {
+      //    c.Idle();
+      //    // int sleepFor = (int)remainder * 1000;
+      //    Thread.Sleep((int)(remainder * 1000.0d));
+      //  }
+
+      //}
 
       //TimeEndPeriod(1);
       //return;
@@ -127,6 +194,12 @@ namespace GGPOSharp
       //  /// string data = msg.ad
       //}
 
+    }
+
+    // ------------------------------------------------------------------------------------------------------
+    private static void OnBeginGame(string gameName)
+    {
+      Console.WriteLine("The game has started!");
     }
 
     // ------------------------------------------------------------------------------------------------------

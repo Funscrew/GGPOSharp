@@ -86,33 +86,6 @@ public struct ConnectStatus
   }
 }
 
-
-//[StructLayout(LayoutKind.Sequential, Pack = 1)]
-//public struct ConnectStatus
-//{
-//  // TODO: Replace with real fields. These are placeholders.
-//  public int Connected;     // e.g., 0/1
-//  public int LastFrame;     // e.g., last confirmed frame
-//}
-
-//// ================================================================================================================
-//// MINE:
-//[StructLayout(LayoutKind.Explicit)]
-//public struct SyncRequest
-//{
-//  [FieldOffset(0)] public UInt32 RandomRequest;
-//  [FieldOffset(4)] public UInt16 RemoteMagicNumber;
-//  [FieldOffset(6)] public byte RemoteEndpoint;
-
-//  // --------------------------------------------------------------------------------------------------------------
-//  internal static void FromBytes(byte[] data, int startOffset, ref SyncRequest res)
-//  {
-//    res.RandomRequest = BitConverter.ToUInt32(data, startOffset);
-//    res.RemoteMagicNumber = BitConverter.ToUInt16(data, startOffset + sizeof(UInt32));
-//    res.RemoteEndpoint = data[startOffset + sizeof(UInt32) + sizeof(UInt16)];
-//  }
-//}
-
 // ================================================================================================================
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct SyncRequest

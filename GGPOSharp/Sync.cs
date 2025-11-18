@@ -70,7 +70,7 @@ internal class Sync
 
   InputQueue[] _input_queues;
 
-  RingBuffer<Event> _event_queue = new RingBuffer<Event>(32);
+  RingBuffer<SyncEvent> _event_queue = new RingBuffer<SyncEvent>(32);
   ConnectStatus[] _local_connect_status = null!;
 
   // ----------------------------------------------------------------------------------------------
@@ -178,58 +178,61 @@ internal class Sync
   // ------------------------------------------------------------------------------------------------------------------------
   internal unsafe int GetConfirmedInputs(byte* values, int size, int frame)
   {
-    throw new NotImplementedException();
+    Utils.ASSERT(size >= _config.num_players * _config.input_size);
 
-    //int disconnect_flags = 0;
-    //char* output = (char*)values;
+    int disconnect_flags = 0;
+    byte* output = (byte*)values;
 
-    //Utils.ASSERT(size >= _config.num_players * _config.input_size);
-
-    //memset(output, 0, size);
-    //for (int i = 0; i < _config.num_players; i++)
-    //{
-    //  GameInput input;
-    //  if (_local_connect_status[i].disconnected && frame > _local_connect_status[i].last_frame)
-    //  {
-    //    disconnect_flags |= (1 << i);
-    //    input.erase();
-    //  }
-    //  else
-    //  {
-    //    _input_queues[i].GetConfirmedInput(frame, &input);
-    //  }
-    //  memcpy(output + (i * _config.input_size), input.bits, _config.input_size);
-    //}
-    //return disconnect_flags;
+    Utils.ClearMem(output, size);
+    // memset(output, 0, size);
+    for (int i = 0; i < _config.num_players; i++)
+    {
+      GameInput input= new GameInput();
+      if (_local_connect_status[i].disconnected && frame > _local_connect_status[i].last_frame)
+      {
+        disconnect_flags |= (1 << i);
+        input.erase();
+      }
+      else
+      {
+        _input_queues[i].GetConfirmedInput(frame, ref input);
+      }
+      
+      Utils.CopyMem(output + (i + _config.input_size), input.data, (uint)_config.input_size);
+      // memcpy(output + (i * _config.input_size), input.bits, _config.input_size);
+    }
+    return disconnect_flags;
   }
 
   // ------------------------------------------------------------------------------------------------------------------------
-  unsafe int SynchronizeInputs(byte* values, int totalSize)
+  internal unsafe int SynchronizeInputs(byte[] values, int totalSize)
   {
-    throw new NotImplementedException();
-    //int disconnect_flags = 0;
-    //char* output = (char*)values;
+    // Ensure a minimum amount of data so we don't overrun the buffer...
+    // Shouldn't we expect that totalSize is always the same... ??
+    Utils.ASSERT(totalSize >= _config.num_players * _config.input_size);
 
-    //// Ensure a minimum amount of data so we don't overrun the buffer...
-    //// Shouldn't we expect that totalSize is always the same... ??
-    //Utils.ASSERT(totalSize >= _config.num_players * _config.input_size);
+    int disconnect_flags = 0;
+    byte[] output = values;
 
-    //memset(output, 0, totalSize);
-    //for (int i = 0; i < _config.num_players; i++)
-    //{
-    //  GameInput input;
-    //  if (_local_connect_status[i].disconnected && _curFrame > _local_connect_status[i].last_frame)
-    //  {
-    //    disconnect_flags |= (1 << i);
-    //    input.erase();
-    //  }
-    //  else
-    //  {
-    //    _input_queues[i].GetInput(_curFrame, &input);
-    //  }
-    //  memcpy(output + (i * _config.input_size), input.bits, _config.input_size);
-    //}
-    //return disconnect_flags;
+    // memset(output, 0, totalSize);
+    for (int i = 0; i < _config.num_players; i++)
+    {
+      GameInput input = new GameInput();
+      if (_local_connect_status[i].disconnected && _curFrame > _local_connect_status[i].last_frame)
+      {
+        disconnect_flags |= (1 << i);
+        input.erase();
+      }
+      else
+      {
+        _input_queues[i].GetInput(_curFrame, ref input);
+      }
+      
+      // Copy the data directly.....
+      Utils.CopyMem(output ,(i * _config.input_size), input.data, (uint)_config.input_size);
+      // memcpy(output + (i * _config.input_size), input.bits, _config.input_size);
+    }
+    return disconnect_flags;
   }
 
   // ------------------------------------------------------------------------------------------------------------------------
@@ -418,7 +421,7 @@ internal class Sync
   }
 
   // ------------------------------------------------------------------------------------------
-  bool GetEvent(ref Event e)
+  internal bool GetEvent(ref SyncEvent e)
   {
     if (_event_queue.Size != 0)
     {
@@ -459,10 +462,12 @@ public unsafe delegate bool SessionPointerCallback<T>(T* arg);
 public delegate bool SessionRefCallback<T>(ref T arg);
 public unsafe delegate bool SaveStateCallback(byte** buffer, int* len, int* checksum, int frame);
 public unsafe delegate bool LoadStateCallback(byte** buffer, int len);
+public delegate void BeginGameCallback(string gameName);
 
 // ================================================================================================
 public unsafe class GGPOSessionCallbacks
 {
+  public BeginGameCallback begin_game = default!;
 
   //save_game_state - The client should allocate a buffer, copy the
   //entire contents of the current game state into it, and copy the

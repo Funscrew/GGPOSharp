@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace GGPOSharp;
 
@@ -70,5 +71,30 @@ public static class Utils
       }
       throw new InvalidOperationException(errMsg);
     }
+  }
+
+  // -------------------------------------------------------------------------------------
+  internal static unsafe void ClearMem(byte* output, int size)
+  {
+    // TODO: There is probably a more efficient way to do this....
+    for (int i = 0; i < size; i++)
+    {
+      output[i] = 0;
+    }
+  }
+
+  // -------------------------------------------------------------------------------------
+  internal unsafe static void CopyMem(byte[] dest, int destOffset, byte* src, uint size)
+  {
+    for (int i = 0; i < size; i++)
+    {
+      dest[destOffset + i] = src[i];
+    }
+  }
+
+  // -------------------------------------------------------------------------------------
+  internal static unsafe void CopyMem(void* dest, void* src, uint size)
+  {
+    Unsafe.CopyBlock(dest, src, size);
   }
 }
