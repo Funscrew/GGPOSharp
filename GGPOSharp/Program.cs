@@ -20,12 +20,14 @@ namespace GGPOSharp
     {
       Console.WriteLine("Welcome to GGPO Example Client!");
 
-      var ops = new GGPOClientOptions(0, "Screwie", Defaults.LOCAL_PORT)
+      const int PLAYER_ONE = 0;
+      const int PLAYER_TWO = 1;
+      var ops = new GGPOClientOptions(PLAYER_TWO, "Screwie", Defaults.LOCAL_PORT)
       {
         Callbacks = new GGPOSessionCallbacks()
         {
           begin_game = OnBeginGame,
-          free_buffer = OnFreeBuffer,
+          free_buffer = OnFreeGamestateBuffer,
           on_event = OnEvent,
           rollback_frame = OnRollback,
           save_game_state = SaveGameState,
@@ -33,8 +35,12 @@ namespace GGPOSharp
         }
       };
 
+
+
       var c = new GGPOClient(ops);
-      c.AddRemote(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT);
+      c.AddLocal("Screwie", PLAYER_TWO, null);
+      
+      c.AddRemote(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, PLAYER_ONE);
       c.Lock();
 
       // Game loop:
@@ -203,15 +209,33 @@ namespace GGPOSharp
     }
 
     // ------------------------------------------------------------------------------------------------------
-    private static unsafe bool LoadGameState(byte** buffer, int len)
+    private static unsafe bool OnFreeGamestateBuffer(byte* arg)
     {
-      Console.WriteLine("no state to load...");
+      // NOTE: We don't have to do anything here!
+      Console.WriteLine("An indication to free a buffer happened!");
       return true;
     }
 
     // ------------------------------------------------------------------------------------------------------
+    private static unsafe bool LoadGameState(byte** buffer, int len)
+    {
+      // NOTE: We don't attempt to load game state....
+      Console.WriteLine("no state to load...");
+      return true;
+    }
+
+    // This is just here so that we can have a non-zero game state....
+    // private static byte FAKE_STATE = 1;
+    // ------------------------------------------------------------------------------------------------------
     private static unsafe bool SaveGameState(byte** buffer, int* len, int* checksum, int frame)
     {
+      // NOTE: This is a FAKE buffer!
+      // We don't have a game state, but the system expects something non-zero!
+      // In the future I want there to be options for how the save / load, etc. handlers work....
+      *buffer = (byte*)0x1;
+      *len = 1;
+      *checksum = 0;
+
       Console.WriteLine("nothing to save....");
       return true;
       // throw new NotImplementedException();
@@ -224,12 +248,6 @@ namespace GGPOSharp
       return true;
     }
 
-    // ------------------------------------------------------------------------------------------------------
-    private static unsafe bool OnFreeBuffer(byte* arg)
-    {
-      Console.WriteLine("An indication to free a buffer happened!");
-      return true;
-    }
 
     // ------------------------------------------------------------------------------------------------------
     static void OnRollback(int frameCount)

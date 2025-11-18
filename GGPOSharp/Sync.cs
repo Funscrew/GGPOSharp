@@ -187,7 +187,7 @@ internal class Sync
     // memset(output, 0, size);
     for (int i = 0; i < _config.num_players; i++)
     {
-      GameInput input= new GameInput();
+      GameInput input = new GameInput();
       if (_local_connect_status[i].disconnected && frame > _local_connect_status[i].last_frame)
       {
         disconnect_flags |= (1 << i);
@@ -197,7 +197,7 @@ internal class Sync
       {
         _input_queues[i].GetConfirmedInput(frame, ref input);
       }
-      
+
       Utils.CopyMem(output + (i + _config.input_size), input.data, (uint)_config.input_size);
       // memcpy(output + (i * _config.input_size), input.bits, _config.input_size);
     }
@@ -227,9 +227,9 @@ internal class Sync
       {
         _input_queues[i].GetInput(_curFrame, ref input);
       }
-      
+
       // Copy the data directly.....
-      Utils.CopyMem(output ,(i * _config.input_size), input.data, (uint)_config.input_size);
+      Utils.CopyMem(output, (i * _config.input_size), input.data, (uint)_config.input_size);
       // memcpy(output + (i * _config.input_size), input.bits, _config.input_size);
     }
     return disconnect_flags;
@@ -305,7 +305,7 @@ internal class Sync
     Utils.Log("=== Loading frame info %d (size: %d  checksum: %08x).",
         state.frame, state.cbuf, state.checksum);
 
-    Utils.ASSERT(state.buf != null && state.cbuf != null);
+    Utils.ASSERT(state.buf != null && state.cbuf > 0);
     _callbacks.load_game_state(&state.buf, state.cbuf);
 
     // Reset framecount and the head of the state ring-buffer to point in
@@ -320,18 +320,21 @@ internal class Sync
     // throw new NotImplementedException();
     //See StateCompress for the real save feature implemented by FinalBurn.
     //Write everything into the head, then advance the head pointer.
-    SavedFrame state = _savedstate.frames[_savedstate.head];
-    // SavedFrame* state = _savedstate.frames + _savedstate.head;
-    if (state.buf != null)
+    fixed (SavedFrame* state = &_savedstate.frames[_savedstate.head])
     {
-      _callbacks.free_buffer(state.buf);
-      state.buf = null;
-    }
-    state.frame = _curFrame;
-    _callbacks.save_game_state(&state.buf, &state.cbuf, &state.checksum, state.frame);
+      // SavedFrame state = _savedstate.frames[_savedstate.head];
+      // SavedFrame* state = _savedstate.frames + _savedstate.head;
+      if (state->buf != null)
+      {
+        _callbacks.free_buffer(state->buf);
+        state->buf = null;
+      }
+      state->frame = _curFrame;
+      _callbacks.save_game_state(&state->buf, &state->cbuf, &state->checksum, state->frame);
 
-    Utils.Log("=== Saved frame info %d (size: %d  checksum: %08x).", state.frame, state.cbuf, state.checksum);
-    _savedstate.head = (_savedstate.head + 1) % SavedState.SAVED_FRAME_COUNT;
+      Utils.Log("=== Saved frame info %d (size: %d  checksum: %08x).", state->frame, state->cbuf, state->checksum);
+      _savedstate.head = (_savedstate.head + 1) % SavedState.SAVED_FRAME_COUNT;
+    }
   }
 
   // ------------------------------------------------------------------------------------------

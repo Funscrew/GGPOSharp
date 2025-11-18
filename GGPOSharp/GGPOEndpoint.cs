@@ -86,7 +86,9 @@ public class GGPOEndpoint
 
   // NOTE: This needs to be passed in during initialization so that anything that uses the client can see the data....
   // OR!  We can just let them peer in and interrogate the client for the information! --> Probably a better plan!
-  ConnectStatus[] _local_connect_status = null;
+  // NOTE: I'm not a super fan of how the local / peer connect statuses are represented....
+  // There is a bit of a disconnect between the player index and the index of *_connect_status*
+  ConnectStatus[] _local_connect_status = null!;
   ConnectStatus[] _peer_connect_status = new ConnectStatus[GGPOConsts.UDP_MSG_MAX_PLAYERS];
   // UdpMsg::connect_status _peer_connect_status[ProtoConsts.UDP_MSG_MAX_PLAYERS];
 
@@ -182,7 +184,7 @@ public class GGPOEndpoint
     //_oop_percent = Platform::GetConfigInt(L"ggpo.oop.percent");
 
     // memset(_playerName, 0, MAX_NAME_SIZE);
-    _playerName = Client.PlayerName; // Options.PlayerName;
+    _playerName = Options.PlayerName; /**/; // Options.PlayerName;
     // _playerName.SetValue(Options.PlayerName);
 
     this._local_connect_status = localConnectStatus_;
@@ -490,7 +492,7 @@ public class GGPOEndpoint
   // NOTE: This is like 'OnLoopPoll' from the C++ version....
   public void RunFrame()
   {
-    DoPoll();
+    OnLoopPoll();
   }
 
   // ----------------------------------------------------------------------------------------------------------
@@ -517,8 +519,11 @@ public class GGPOEndpoint
   }
 
   // -------------------------------------------------------------------------------------
-  public void DoPoll()
+  // REFACTOR: Rename to 'DoPoll' or 'Poll' or whatever.
+  public void OnLoopPoll()
   {
+    if (Options.IsLocal) { return; }
+
     // Receive messages here!
     ReceiveMessages();
 
@@ -763,15 +768,6 @@ public class GGPOEndpoint
   {
     var handler = this.MsgHandlers[(int)msg.header.type];
     handler(ref msg, msgLen);
-
-    //throw new Exception("please finish me!");
-    //// We will use an array of function pointers.....
-    //switch (msg.header.type)
-    //{
-    //  default:
-    //    Debug.WriteLine($"No support for message type: {msg.header.type}!");
-    //}
-    //// throw new NotImplementedException();
   }
 
   // ----------------------------------------------------------------------------------------------------------
@@ -1289,6 +1285,21 @@ public unsafe struct Event
 /// </summary>
 public class GGPOEndpointOptions
 {
+  /// <summary>
+  /// Is this endpoint a local player?
+  /// </summary>
+  public bool IsLocal { get; set; } = false;
+
+  /// <summary>
+  /// Index of the player that this endpoint represents.
+  /// </summary>
+  public int PlayerIndex { get; set; } = -1;
+
+  /// <summary>
+  /// Name of the player.  This is only used for local players.
+  /// </summary>
+  public string? PlayerName { get; set; } = null;
+
   public string RemoteHost { get; set; } = Defaults.REMOTE_HOST;
   public int RemotePort { get; set; } = Defaults.REMOTE_PORT;
 

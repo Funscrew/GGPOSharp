@@ -20,8 +20,6 @@ public class GGPOClient
   private List<GGPOEndpoint> _endpoints = new List<GGPOEndpoint>();
   internal UdpBlaster UdpClient = null!;
 
-  public string PlayerName { get { return Options.LocalPlayerName; } }
-
   /// <summary>
   /// Indicates that the client is officially started, and no new connections can be added.
   /// </summary>
@@ -52,6 +50,10 @@ public class GGPOClient
     UdpClient = new UdpBlaster(Options.LocalPort);
 
     _local_connect_status = new ConnectStatus[GGPOConsts.UDP_MSG_MAX_PLAYERS];
+    for (int i = 0; i < GGPOConsts.UDP_MSG_MAX_PLAYERS; i++)
+    {
+      _local_connect_status[i].last_frame = -1;
+    }
 
     var ops = new SyncOptions()
     {
@@ -84,15 +86,34 @@ public class GGPOClient
   }
 
   // ----------------------------------------------------------------------------------------
-  public GGPOEndpoint AddRemote(string remoteHost, int remotePort, TestOptions? testOptions = null)
+  /// <summary>
+  /// Add a local player!
+  /// </summary>
+  public GGPOEndpoint AddLocal(string playerName, int playerIndex, TestOptions? testOptions = null)
   {
-    if (IsLocked)
+    CheckLocked();
+    var ops = new GGPOEndpointOptions()
     {
-      throw new InvalidOperationException("New connections are not allowed at this time!");
-    }
+      PlayerIndex = playerIndex,
+      PlayerName = playerName,
+      IsLocal = true,
+      TestOptions = testOptions ?? new TestOptions()
+    };
+    var res = new GGPOEndpoint(this, ops, _local_connect_status);
+
+    this._endpoints.Add(res);
+    return res;
+  }
+
+  // ----------------------------------------------------------------------------------------
+  public GGPOEndpoint AddRemote(string remoteHost, int remotePort, int playerIndex ,TestOptions? testOptions = null)
+  {
+    CheckLocked();
 
     var ops = new GGPOEndpointOptions()
     {
+      IsLocal = false,
+      PlayerIndex = playerIndex,
       RemoteHost = remoteHost,
       RemotePort = remotePort,
       TestOptions = testOptions ?? new TestOptions()
@@ -102,6 +123,14 @@ public class GGPOClient
     this._endpoints.Add(res);
 
     return res;
+  }
+
+  private void CheckLocked()
+  {
+    if (IsLocked)
+    {
+      throw new InvalidOperationException("New connections are not allowed at this time!");
+    }
   }
 
   // ----------------------------------------------------------------------------------------
@@ -139,7 +168,7 @@ public class GGPOClient
       }
 
       int total_min_confirmed;
-      if (_endpoints.Count == 1)
+      if (_endpoints.Count == 2)
       {
         // We are connected to one other player....
         total_min_confirmed = Poll2Players(current_frame);
