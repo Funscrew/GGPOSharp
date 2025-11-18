@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Net.Sockets;
 using System.Threading;
+using System;
 
 namespace GGPOSharp;
 
@@ -198,7 +199,8 @@ public class GGPOEndpoint
   }
 
   // If we have an instance, we are initialized!
-  internal bool IsInitialized() { return true; }
+  // NOTE: In the C++ version, only remote endpoints counted as being initialized.
+  internal bool IsInitialized() { return !Options.IsLocal; }
   internal bool IsSynchronized() { return _current_state == EClientState.Running; }
   internal bool IsRunning() { return _current_state == EClientState.Running; }
 
@@ -488,13 +490,6 @@ public class GGPOEndpoint
 
   }
 
-  // -------------------------------------------------------------------------------------
-  // NOTE: This is like 'OnLoopPoll' from the C++ version....
-  public void RunFrame()
-  {
-    OnLoopPoll();
-  }
-
   // ----------------------------------------------------------------------------------------------------------
   internal void SendInput(ref GameInput input)
   {
@@ -766,8 +761,53 @@ public class GGPOEndpoint
   // ------------------------------------------------------------------------
   private void HandleMessage(ref UdpMsg msg, int msgLen)
   {
+    // filter out messages that don't match what we expect
+    UInt16 seq = msg.header.sequence_number;
+    if (msg.header.type != EMsgType.SyncRequest && msg.header.type != EMsgType.SyncReply)
+    {
+      if (msg.header.magic != _remote_magic_number)
+      {
+        Utils.Log("recv rejecting", msg);
+        return;
+      }
+
+      // filter out out-of-order packets
+      UInt16 skipped = (UInt16)((int)seq - (int)_next_recv_seq);
+      // Log("checking sequence number . next - seq : %d - %d = %d\n", seq, _next_recv_seq, skipped);
+      if (skipped > MAX_SEQ_DISTANCE)
+      {
+        Utils.Log("dropping out of order packet (seq: %d, last seq:%d)\n", seq, _next_recv_seq);
+        return;
+      }
+    }
+
+    _next_recv_seq = seq;
+    Utils.Log("recv", msg);
+    if ((int)msg.header.type >= MsgHandlers.Length)
+    {
+      OnInvalid(ref msg, msgLen);
+    }
+    //else
+    //{
+    //  handled = (this.* (msgHandlers[msg.header.type]))(msg, len);
+    //}
+
     var handler = this.MsgHandlers[(int)msg.header.type];
-    handler(ref msg, msgLen);
+    bool handled = handler(ref msg, msgLen);
+
+    if (handled)
+    {
+      _last_recv_time = (uint)Clock.ElapsedMilliseconds;
+      if (_disconnect_notify_sent && _current_state == EClientState.Running)
+      {
+        QueueEvent(new Event(EEventType.NetworkResumed)); // Event(Event::NetworkResumed));
+        _disconnect_notify_sent = false;
+      }
+    }
+
+
+
+
   }
 
   // ----------------------------------------------------------------------------------------------------------

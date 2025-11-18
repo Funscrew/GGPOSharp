@@ -89,6 +89,7 @@ public class GGPOClient
   /// <summary>
   /// Add a local player!
   /// </summary>
+  [Obsolete("We may not actually need this, and I hope that we don't!")]
   public GGPOEndpoint AddLocal(string playerName, int playerIndex, TestOptions? testOptions = null)
   {
     CheckLocked();
@@ -146,7 +147,7 @@ public class GGPOClient
     int len = _endpoints.Count;
     for (int i = 0; i < len; i++)
     {
-      _endpoints[i].RunFrame();
+      _endpoints[i].OnLoopPoll();
     }
 
     // Now we can handle the results of the endpoint updates (events, etc.)
@@ -168,7 +169,7 @@ public class GGPOClient
       }
 
       int total_min_confirmed;
-      if (_endpoints.Count == 2)
+      if (_endpoints.Count == 1)
       {
         // We are connected to one other player....
         total_min_confirmed = Poll2Players(current_frame);

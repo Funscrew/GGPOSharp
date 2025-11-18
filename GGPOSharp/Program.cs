@@ -15,10 +15,21 @@ namespace GGPOSharp
     [DllImport("winmm.dll", EntryPoint = "timeEndPeriod")]
     public static extern void TimeEndPeriod(int t);
 
+    static GGPOClient Client = null!;
+
+    // Some test input.  This mimics no buttons being pushed, and one DIP set
+    // for 3rd strike.
+    // The rest of the array data is reserved for the rest of the player inputs.
+    static byte[] TestInput = new byte[5 * GGPOConsts.UDP_MSG_MAX_PLAYERS];
+
+      
     // ------------------------------------------------------------------------------------------------------
     static unsafe void Main(string[] args)
     {
       Console.WriteLine("Welcome to GGPO Example Client!");
+
+      // This is the input that we will send with every frame, for now.
+      TestInput[1] = 1;
 
       const int PLAYER_ONE = 0;
       const int PLAYER_TWO = 1;
@@ -37,11 +48,12 @@ namespace GGPOSharp
 
 
 
-      var c = new GGPOClient(ops);
-      c.AddLocal("Screwie", PLAYER_TWO, null);
+      Client = new GGPOClient(ops);
       
-      c.AddRemote(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, PLAYER_ONE);
-      c.Lock();
+      //c.AddLocal("Screwie", PLAYER_TWO, null);
+      
+      Client.AddRemote(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, PLAYER_ONE);
+      Client.Lock();
 
       // Game loop:
       // No, this isn't meant to be a sophisticated timing scenario, just get us in the ballpark...
@@ -53,11 +65,6 @@ namespace GGPOSharp
       double frameTime = 1.0d / FPS;
       double nextFrameTime = 0.0d;
 
-      // Some test input.  This mimics no buttons being pushed, and one DIP set
-      // for 3rd strike.
-      // The rest of the array data is reserved for the rest of the player inputs.
-      byte[] testInput = new byte[5 * GGPOConsts.UDP_MSG_MAX_PLAYERS];
-      testInput[1] = 1;
 
       int frameCount = 0;
       while (true)
@@ -65,21 +72,12 @@ namespace GGPOSharp
         double elapsed = sw.Elapsed.TotalSeconds;
         if (elapsed < nextFrameTime)
         {
-          c.Idle();
+          Client.Idle();
         }
         else
         {
           // Send + receive inputs across the network.
-          if (!c._synchronizing)
-          {
-            bool syncOK = c.SyncInputs(testInput, 5, GGPOConsts.UDP_MSG_MAX_PLAYERS);
-
-            // Tell the client that we have moved ahead one frame.
-            if (syncOK)
-            {
-              c.IncrementFrame();
-            }
-          }
+          RunFrame(Client, TestInput);
 
           // TODO: Make a switch for this.
           // We get the stats, and then we can splat them to the screen however
@@ -203,6 +201,21 @@ namespace GGPOSharp
     }
 
     // ------------------------------------------------------------------------------------------------------
+    private static void RunFrame(GGPOClient c, byte[] testInput)
+    {
+      if (!c._synchronizing)
+      {
+        bool syncOK = c.SyncInputs(testInput, 5, GGPOConsts.UDP_MSG_MAX_PLAYERS);
+
+        // Tell the client that we have moved ahead one frame.
+        if (syncOK)
+        {
+          c.IncrementFrame();
+        }
+      }
+    }
+
+    // ------------------------------------------------------------------------------------------------------
     private static void OnBeginGame(string gameName)
     {
       Console.WriteLine("The game has started!");
@@ -250,9 +263,12 @@ namespace GGPOSharp
 
 
     // ------------------------------------------------------------------------------------------------------
-    static void OnRollback(int frameCount)
+    static void OnRollback(int flags)
     {
-      Console.WriteLine($"A rollback of: {frameCount} frames was detected!");
+      // We run the next frame on rollback, or it all gets fucked!
+      RunFrame(Client, TestInput);
+
+      Console.WriteLine($"A rollback was detected!");
     }
   }
 }
