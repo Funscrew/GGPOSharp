@@ -59,7 +59,7 @@ public class GGPOClient
     {
       callbacks = Options.Callbacks,
       input_size = Options.InputSize,
-      num_players = Options.MaxPlayerCount,
+      num_players = 2, //Options.MaxPlayerCount,
       num_prediction_frames = GGPOConsts.MAX_PREDICTION_FRAMES
     };
     _sync = new Sync(_local_connect_status, ops);
@@ -224,23 +224,37 @@ public class GGPOClient
 
     // discard confirmed frames as appropriate
     int total_min_confirmed = int.MaxValue;
+
+    // We want to get the min frame for the 'local' player.
+    // TODO: At some point I really think that adding local players as a distinct endpoint is the way to go.
+    int lpi = this.Options.PlayerIndex;
+    if (!_local_connect_status[lpi].disconnected)
+    {
+      total_min_confirmed = Math.Min(_local_connect_status[lpi].last_frame, total_min_confirmed);
+    }
+
+
     for (i = 0; i < _endpoints.Count; i++)
     {
+      GGPOEndpoint ep = _endpoints[i];
+      int epi = ep.PlayerIndex;
+
+      // We only care if the queue is connected so that we can maybe disconnect it.
       bool queue_connected = true;
-      if (_endpoints[i].IsRunning())
+      if (ep.IsRunning())
       {
         int ignore;
-        queue_connected = _endpoints[i].GetPeerConnectStatus(i, &ignore);
+        queue_connected = ep.GetPeerConnectStatus(i, &ignore);
       }
-      if (!_local_connect_status[i].disconnected)
+      if (!_local_connect_status[epi].disconnected)
       {
-        total_min_confirmed = Math.Min(_local_connect_status[i].last_frame, total_min_confirmed);
+        total_min_confirmed = Math.Min(_local_connect_status[epi].last_frame, total_min_confirmed);
       }
       Utils.Log("  local endp: connected = %d, last_received = %d, total_min_confirmed = %d.\n", !_local_connect_status[i].disconnected, _local_connect_status[i].last_frame, total_min_confirmed);
-      if (!queue_connected && !_local_connect_status[i].disconnected)
+      if (!queue_connected && !_local_connect_status[epi].disconnected)
       {
         Utils.Log("disconnecting i %d by remote request.\n", i);
-        DisconnectPlayer(i, total_min_confirmed);
+        DisconnectPlayer(epi, total_min_confirmed);
       }
       Utils.Log("  total_min_confirmed = %d.\n", total_min_confirmed);
     }
@@ -358,6 +372,7 @@ public class GGPOClient
     // NOTE: We aren't doing anything with the flags... I think the system is probably using the event codes
     // to playerIndex this kind of thing......
     _sync.SynchronizeInputs(values, isize * playerCount);
+    
 
     return true;
 

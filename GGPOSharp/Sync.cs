@@ -377,7 +377,6 @@ internal class Sync
     for (int i = 0; i < _config.num_players; i++)
     {
       _input_queues[i] = new InputQueue(i, _config.input_size);
-      // _input_queues[i].Init(i, _config.input_size);
     }
     return true;
   }

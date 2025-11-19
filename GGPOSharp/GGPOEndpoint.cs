@@ -132,6 +132,7 @@ public class GGPOEndpoint
   // Buffer for receiving messages.  We use this one so we don't have to allocate bytes every frame.
   private byte[] ReceiveBuffer = new byte[8192];
 
+  public int PlayerIndex { get { return Options.PlayerIndex; } }
 
   // -------------------------------------------------------------------------------------
   public GGPOEndpoint(GGPOClient client_, GGPOEndpointOptions ops_, ConnectStatus[] localConnectStatus_)
@@ -147,6 +148,7 @@ public class GGPOEndpoint
     MsgHandlers[(byte)EMsgType.ChatCommand] = OnChat;
 
     Options = ops_;
+    ValidateOptions();
     Client = client_;
 
     RemoteIP = new IPEndPoint(IPAddress.Parse(Options.RemoteHost), Options.RemotePort);
@@ -196,6 +198,15 @@ public class GGPOEndpoint
 
     // Begin the sync operation.....
     Synchronize();
+  }
+
+  // ----------------------------------------------------------------------------------------------------------
+  private void ValidateOptions()
+  {
+    if (PlayerIndex < 0 || PlayerIndex > 8)
+    {
+      throw new InvalidOperationException("invalid player index!");
+    }
   }
 
   // If we have an instance, we are initialized!
