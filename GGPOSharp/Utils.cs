@@ -7,7 +7,7 @@ namespace GGPOSharp;
 // =======================================================================================
 public static class Utils
 {
-  public static bool IsLoggingEnabled = true;
+  public static bool IsLoggingEnabled = false;
 
   private static FileStream? MsgLogFile = null;
 
@@ -36,6 +36,8 @@ public static class Utils
   // REFACTOR / NOTE:
   internal unsafe static void Log(string msgType, ref UdpMsg msg)
   {
+    return;
+
     if (msgType == "send" && msg.header.type == EMsgType.Input)
     {
       fixed (byte* pb = msg.u.input.bits)

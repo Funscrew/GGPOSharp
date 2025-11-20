@@ -355,7 +355,7 @@ public class GGPOClient
   /// Sync the inputs for all players for the current frame.
   /// This sends the local inputs, receives the remote ones, and intiates any rollbacks if needed.
   /// </summary>
-  public bool SyncInputs(in byte[] values, int isize, int playerCount)
+  public bool SyncInput(in byte[] values, int isize, int maxPlayers)
   {
     if (_synchronizing) { return false; }
 
@@ -369,7 +369,7 @@ public class GGPOClient
 
     // NOTE: We aren't doing anything with the flags... I think the system is probably using the event codes
     // to playerIndex this kind of thing......
-    _sync.SynchronizeInputs(values, isize * playerCount);
+    _sync.SynchronizeInputs(values, isize * maxPlayers);
     
 
     return true;

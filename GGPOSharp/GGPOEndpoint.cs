@@ -658,11 +658,13 @@ public class GGPOEndpoint
   private unsafe void SendPendingOutput()
   {
     UdpMsg msg = new UdpMsg(EMsgType.Input);
-//    int i = 0;
-    int j = 0;
     int offset = 0;
 
     GameInput last;
+
+    // This assert is checking consts.  Probably don't need to do this each time....
+    // Can probably do it on program init....
+    Utils.ASSERT((GameInput.GAMEINPUT_MAX_BYTES * GameInput.GAMEINPUT_MAX_PLAYERS * 8) < (1 << BitVector.BITVECTOR_NIBBLE_SIZE));
 
 
     if (_pending_output.Size != 0)
@@ -676,30 +678,31 @@ public class GGPOEndpoint
 
       Utils.ASSERT(last.frame == -1 || last.frame + 1 == msg.u.input.start_frame);
 
-      // TODO: Review this.  Seems like a lot of extra work to save a byte or two, maybe....
-      // Who knows tho.....
-      for (j = 0; j < _pending_output.Size; j++)
+      // This is the 'compression'.
+      // I'm thinking at some point we let the end user decide how they want to do it?
+      // Anyway, for now, what this does is it takes all of the pending outputs,
+      // and squishes all of the bits into a single vector of bytes....
+      // It does a delta compression, which I am really interested in getting some
+      // stats on.  I feel like for a fighting game, there can be many situations where
+      // the 'compressed' size is bigger than the input size....
+      for (int i = 0; i < _pending_output.Size; i++)
       {
         // TODO: This is a copy of the data.... We may want to fix that....
-        GameInput current = _pending_output[j]; // .Item(j);
+        GameInput current = _pending_output[i]; // .Item(j);
 
         // Only update the message if the data is different.
         // if (memcmp(current.bits, last.bits, current.size) != 0)
         if (!Utils.MemMatches(current.data, last.data, current.size))
         {
-
-          // This assert is checking consts.  Probably don't need to do this each time....
-          Utils.ASSERT((GameInput.GAMEINPUT_MAX_BYTES * GameInput.GAMEINPUT_MAX_PLAYERS * 8) < (1 << BitVector.BITVECTOR_NIBBLE_SIZE));
-
-          for (int i = 0; i < current.size * 8; i++)
+          for (int j = 0; j < current.size * 8; j++)
           {
-            Utils.ASSERT(i < (1 << BitVector.BITVECTOR_NIBBLE_SIZE));
+            Utils.ASSERT(j < (1 << BitVector.BITVECTOR_NIBBLE_SIZE));
 
-            if (current.value(i) != last.value(i))
+            if (current.value(j) != last.value(j))
             {
               BitVector.SetBit(msg.u.input.bits, ref offset);
               // (current.value(i) ? BitVector.SetBit : BitVector.ClearBit)(bits, &offset);
-              if (current.value(i))
+              if (current.value(j))
               {
                 BitVector.SetBit(bits, ref offset);
               }
@@ -707,10 +710,11 @@ public class GGPOEndpoint
               {
                 BitVector.ClearBit(bits, ref offset);
               }
-              BitVector.WriteNibblet(bits, i, ref offset);
+              BitVector.WriteNibblet(bits, j, ref offset);
             }
           }
         }
+
         BitVector.ClearBit(msg.u.input.bits, ref offset);
         last = _last_sent_input = current;
       }

@@ -20,9 +20,10 @@ namespace GGPOSharp
     // Some test input.  This mimics no buttons being pushed, and one DIP set
     // for 3rd strike.
     // The rest of the array data is reserved for the rest of the player inputs.
-    static byte[] TestInput = new byte[5 * GGPOConsts.UDP_MSG_MAX_PLAYERS];
+    const int INPUT_SIZE = 5;
+    static byte[] TestInput = new byte[INPUT_SIZE * GGPOConsts.UDP_MSG_MAX_PLAYERS];
+    static byte[] InputSwap = new byte[INPUT_SIZE * GGPOConsts.UDP_MSG_MAX_PLAYERS];
 
-      
     // ------------------------------------------------------------------------------------------------------
     static unsafe void Main(string[] args)
     {
@@ -47,7 +48,7 @@ namespace GGPOSharp
 
 
       // This is the input that we will send with every frame, for now.
-      TestInput[1] = 1;
+      // TestInput[1] = 1;
 
       const int PLAYER_ONE = 0;
       const int PLAYER_TWO = 1;
@@ -67,9 +68,9 @@ namespace GGPOSharp
 
 
       Client = new GGPOClient(ops);
-      
+
       Client.AddLocal("Screwie", PLAYER_TWO, null);
-      
+
       Client.AddRemote(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, PLAYER_ONE);
       Client.Lock();
 
@@ -94,143 +95,62 @@ namespace GGPOSharp
         }
         else
         {
+          // This is so we send the correct data each time.
+          // Following the FC example, we write our inputs at the p1 address
+          // and it will pass it on to the correct input queue.
+          for (int i = 0; i < INPUT_SIZE; i++)
+          {
+            TestInput[0] = 0;
+          }
+          TestInput[1] = 1;
+
           // Send + receive inputs across the network.
-          RunFrame(Client, TestInput);
+          // NOTE: The bytes in TestInput will be overwritten during this process!  This is
+          // by design!  For emulators, etc. it is convenient to always use the p1 control scheme,
+          // even if you are repping p2!
+          bool synced = RunFrame(Client, TestInput);
+
+          // TODO: What do we do here?  
+          // For now, I am going to reset the inputs that we send to the other player.
+          // Of course, I will have their inputs too, but at this point I want to think about
+          // how we might capture + replay that data according to our first challenge!
+          if (synced)
+          {
+            // We can read in the inputs from here...?
+            // Technically, this would be enough to record inputs for a game as if we are synced, we havea  complete frame.
+            // Of course, we would want to do that inside of the actual client somewhere....
+          }
 
           // TODO: Make a switch for this.
           // We get the stats, and then we can splat them to the screen however
           // we please.
           // var stats = c.GetNetworkStats();
           // OutputStats(stats);
+          // NOTE: --> This is happening internally anyway.....
 
           // This is where we will increment the frame!
           ++frameCount;
           nextFrameTime += frameTime;
-
-          //double curFPS = frameCount / elapsed;
-          //if (frameCount % 60 == 0)
-          //{
-          //  Console.WriteLine($"FPS:{curFPS:f2}");
-          //}
         }
 
-        //double remainder = frameTime - (elapsed - lastTime);
-        //if (remainder <= 0.0d)
-        //{
-        //  ++frameCount;
-
-        //  c.SyncInputs(testInput, testInput.Length);
-
-        //  // c.IN
-
-        //  c.DoPoll(0);
-        //  // double curFPS = frameCount / elapsed;
-        //  //if (frameCount % 60 == 0) {
-        //  //  Console.WriteLine($"FPS:{curFPS:f2}");
-        //  //}
-        //  lastTime = elapsed;
-        //}
-        //else
-        //{
-        //  c.Idle();
-        //  // int sleepFor = (int)remainder * 1000;
-        //  Thread.Sleep((int)(remainder * 1000.0d));
-        //}
-
       }
-
-      //int frameCount = 0;
-      //while (true)
-      //{
-      //  double elapsed = sw.Elapsed.TotalSeconds;
-      //  double remainder = frameTime - (elapsed - lastTime);
-      //  if (remainder <= 0.0d)
-      //  {
-      //    ++frameCount;
-
-      //    c.SyncInputs(testInput, testInput.Length);
-
-      //    // c.IN
-
-      //    c.DoPoll(0);
-      //    // double curFPS = frameCount / elapsed;
-      //    //if (frameCount % 60 == 0) {
-      //    //  Console.WriteLine($"FPS:{curFPS:f2}");
-      //    //}
-      //    lastTime = elapsed;
-      //  }
-      //  else
-      //  {
-      //    c.Idle();
-      //    // int sleepFor = (int)remainder * 1000;
-      //    Thread.Sleep((int)(remainder * 1000.0d));
-      //  }
-
-      //}
-
-      //TimeEndPeriod(1);
-      //return;
-
-      //// OPTIONS:
-      //const int LISTEN_PORT = 7001;
-      //const int REMOTE_PORT = 7000;
-      //Console.WriteLine("Waiting for incoming data...");
-
-      //var client = new UdpClient(LISTEN_PORT);
-      //var remote = new IPEndPoint(IPAddress.Any, REMOTE_PORT);
-
-      //string useHost = args[0];
-      //var remoteHost = new IPEndPoint(IPAddress.Parse(useHost), REMOTE_PORT);
-      //// NOTE: If we don't call this, then we can't connect!
-      //client.Connect(remoteHost);
-
-      //while (true)
-      //{
-      //  // if (client.Available > 0) {
-      //  byte[] data = client.Receive(ref remote);
-
-      //  UdpMsg msg = new UdpMsg();
-      //  UdpMsg.FromBytes(data, ref msg);
-      //  Console.WriteLine($"Received content: {data.Length} bytes long....");
-
-      //  // Handle the message.  What we get + how we handle depends on the current state....
-      //  switch (msg.header.type)
-      //  {
-      //  case EMsgType.SyncRequest:
-      //    Console.WriteLine("We received a sync request!");
-      //  break;
-      //    default:
-      //      throw new InvalidOperationException($"Unsupported message type: {msg.header.type}");
-      //  }
-      //  // msg.Header.Type == EMsgType.SyncRequest;
-
-      //  // NOTE: We are assuming that we are in sync mode......
-      //  // Let's send a message back....
-      //  UdpMsg reply = new UdpMsg();
-      //  byte[] toSend = new byte[32];
-
-      //  reply.ToBytes(toSend, out int length);
-
-      //  client.Send(toSend, length);
-
-      //  /// string data = msg.ad
-      //}
-
     }
 
     // ------------------------------------------------------------------------------------------------------
-    private static void RunFrame(GGPOClient c, byte[] testInput)
+    private static bool RunFrame(GGPOClient c, byte[] testInput)
     {
       if (!c._synchronizing)
       {
-        bool syncOK = c.SyncInputs(testInput, 5, GGPOConsts.UDP_MSG_MAX_PLAYERS);
+        bool syncOK = c.SyncInput(testInput, INPUT_SIZE, GGPOConsts.UDP_MSG_MAX_PLAYERS);
 
         // Tell the client that we have moved ahead one frame.
         if (syncOK)
         {
           c.IncrementFrame();
         }
+        return syncOK;
       }
+      return false;
     }
 
     // ------------------------------------------------------------------------------------------------------
