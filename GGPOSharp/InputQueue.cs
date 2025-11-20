@@ -112,7 +112,7 @@ class InputQueue
       frame = Math.Min(frame, _last_frame_requested);
     }
 
-    Utils.Log($"discarding confirmed frames up to {frame} (last_added:{_last_added_frame} length:{_length} [head:{_head} tail:{_tail}]).");
+    Utils.Log($"discarding confirmed frames up to {frame} (last_added:{_last_added_frame} length:{_length} [head:{_head} tail:{_tail}]).", false);
     // frame, _last_added_frame, _length, _head, _tail);
     if (frame >= _last_added_frame)
     {
@@ -122,14 +122,14 @@ class InputQueue
     {
       int offset = frame - _inputs[_tail].frame + 1;
 
-      Utils.Log($"difference of {offset} frames.");
+      Utils.Log($"difference of {offset} frames.", false);
       Utils.ASSERT(offset >= 0);
 
       _tail = (_tail + offset) % GGPOConsts.INPUT_QUEUE_LENGTH;
       _length -= offset;
     }
 
-    Utils.Log($"after discarding, new tail is {_tail} (frame:{_inputs[_tail].frame}).");
+    Utils.Log($"after discarding, new tail is {_tail} (frame:{_inputs[_tail].frame}).", false);
     Utils.ASSERT(_length >= 0);
   }
 

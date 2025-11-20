@@ -398,7 +398,7 @@ internal class Sync
 
     if (first_incorrect == GameInput.NULL_FRAME)
     {
-      Utils.Log("prediction ok.  proceeding.");
+      Utils.Log("prediction ok.  proceeding.", false);
       return true;
     }
     *seekTo = first_incorrect;

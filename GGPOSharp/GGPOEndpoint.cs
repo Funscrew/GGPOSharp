@@ -406,13 +406,13 @@ public class GGPOEndpoint
 
               RunningState.last_input_packet_recv_time = (uint)Clock.ElapsedMilliseconds;
 
-              Utils.Log($"Sending frame {_last_received_input.frame} to emu queue {_queue} (<{desc}>).");
+              Utils.Log($"Sending frame {_last_received_input.frame} to emu queue {_queue} (<{desc}>).", false);
               QueueEvent(evt);
 
             }
             else
             {
-              Utils.Log($"Skipping past frame:({currentFrame}) current is {_last_received_input}.");
+              Utils.Log($"Skipping past frame:({currentFrame}) current is {_last_received_input}." , false);
             }
 
             /*
@@ -431,7 +431,7 @@ public class GGPOEndpoint
      */
     while (_pending_output.Size > 0 && _pending_output.Front().frame < msg.u.input.ack_frame)
     {
-      Utils.Log($"Throwing away pending output frame {_pending_output.Front().frame}");
+      Utils.Log($"Throwing away pending output frame {_pending_output.Front().frame}", false);
       _last_acked_input = _pending_output.Front();
       _pending_output.Pop();
     }
@@ -453,6 +453,8 @@ public class GGPOEndpoint
   /// </summary>
   public void Synchronize()
   {
+    if (Options.IsLocal) { return; }
+
     if (_current_state != EClientState.Disconnected)
     {
       throw new InvalidOperationException("Invalid state to begin synchronize operations.");
@@ -478,7 +480,6 @@ public class GGPOEndpoint
   // -------------------------------------------------------------------------------------
   public unsafe void SendMsg(ref UdpMsg msg)
   {
-    Utils.Log("send", ref msg);
 
     _packets_sent++;
     _last_send_time = (uint)Clock.ElapsedMilliseconds;
@@ -487,6 +488,7 @@ public class GGPOEndpoint
     msg.header.magic = _magic_number;
     msg.header.sequence_number = _next_send_seq++;
 
+    Utils.Log("send", ref msg);
 
     _send_queue.Push(new QueueEntry()
     {
@@ -504,6 +506,8 @@ public class GGPOEndpoint
   // ----------------------------------------------------------------------------------------------------------
   internal void SendInput(ref GameInput input)
   {
+    if (Options.IsLocal) { return; }
+
     if (_current_state == EClientState.Running)
     {
       /*
@@ -654,7 +658,7 @@ public class GGPOEndpoint
   private unsafe void SendPendingOutput()
   {
     UdpMsg msg = new UdpMsg(EMsgType.Input);
-    int i = 0;
+//    int i = 0;
     int j = 0;
     int offset = 0;
 
@@ -687,7 +691,7 @@ public class GGPOEndpoint
           // This assert is checking consts.  Probably don't need to do this each time....
           Utils.ASSERT((GameInput.GAMEINPUT_MAX_BYTES * GameInput.GAMEINPUT_MAX_PLAYERS * 8) < (1 << BitVector.BITVECTOR_NIBBLE_SIZE));
 
-          for (i = 0; i < current.size * 8; i++)
+          for (int i = 0; i < current.size * 8; i++)
           {
             Utils.ASSERT(i < (1 << BitVector.BITVECTOR_NIBBLE_SIZE));
 
@@ -725,9 +729,9 @@ public class GGPOEndpoint
     // Let's just proceed like we always have this data for now....
     //    if (_local_connect_status)  
     //    {
-    for (int pci = 0; i < GGPOConsts.UDP_MSG_MAX_PLAYERS; i++)
+    for (int i = 0; i < GGPOConsts.UDP_MSG_MAX_PLAYERS; i++)
     {
-      msg.u.input.SetPeerConnectStatus(pci, _local_connect_status[pci]);
+      msg.u.input.SetPeerConnectStatus(i, _local_connect_status[i]);
     }
     // memcpy(msg.u.input.peer_connect_status, _local_connect_status, sizeof(UdpMsg::connect_status) * UDP_MSG_MAX_PLAYERS);
     //    }
@@ -761,7 +765,11 @@ public class GGPOEndpoint
       UdpMsg.FromBytes(ReceiveBuffer, ref msg, received);
 
       // Logging?
-      Utils.Log("MSG", ref msg);
+      //if (msg.header.type == EMsgType.Input && msg.header.magic == 0)
+      //{
+      //  int x = 10;
+      //}
+      Utils.Log("recv", ref msg);
 
       // Now that we have the message we can do something with it....
       HandleMessage(ref msg, received);
@@ -772,6 +780,7 @@ public class GGPOEndpoint
   // ------------------------------------------------------------------------
   private void HandleMessage(ref UdpMsg msg, int msgLen)
   {
+    
     // filter out messages that don't match what we expect
     UInt16 seq = msg.header.sequence_number;
     if (msg.header.type != EMsgType.SyncRequest && msg.header.type != EMsgType.SyncReply)
@@ -798,10 +807,6 @@ public class GGPOEndpoint
     {
       OnInvalid(ref msg, msgLen);
     }
-    //else
-    //{
-    //  handled = (this.* (msgHandlers[msg.header.type]))(msg, len);
-    //}
 
     var handler = this.MsgHandlers[(int)msg.header.type];
     bool handled = handler(ref msg, msgLen);

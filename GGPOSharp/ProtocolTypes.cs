@@ -399,6 +399,8 @@ public struct UdpMsg
 
   // public ConnectStatus connect_status;
   public MessageHeader header;
+
+  // REFACTOR: Give the union, and the member name actual names!  Refactor in CPP version too!
   public U u;   // The actual data we care about....
 
   public UdpMsg() { }

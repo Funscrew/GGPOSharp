@@ -28,6 +28,24 @@ namespace GGPOSharp
     {
       Console.WriteLine("Welcome to GGPO Example Client!");
 
+
+      //// What is up with the connect status data....?
+      //var msg = new InputMsg();
+
+      //ConnectStatus test = new ConnectStatus();
+      //test.last_frame = 123;
+      //test.disconnected = false;
+
+      //int lf = test.last_frame;
+
+      //msg.SetPeerConnectStatus(0, test);
+
+      //ConnectStatus cs2 = msg.GetPeerConnectStatus(0);
+      //int lastHere = cs2.last_frame;
+
+      //int x = 10;
+
+
       // This is the input that we will send with every frame, for now.
       TestInput[1] = 1;
 
@@ -50,7 +68,7 @@ namespace GGPOSharp
 
       Client = new GGPOClient(ops);
       
-      //c.AddLocal("Screwie", PLAYER_TWO, null);
+      Client.AddLocal("Screwie", PLAYER_TWO, null);
       
       Client.AddRemote(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, PLAYER_ONE);
       Client.Lock();

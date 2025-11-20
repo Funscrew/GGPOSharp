@@ -89,7 +89,6 @@ public class GGPOClient
   /// <summary>
   /// Add a local player!
   /// </summary>
-  [Obsolete("We may not actually need this, and I hope that we don't!")]
   public GGPOEndpoint AddLocal(string playerName, int playerIndex, TestOptions? testOptions = null)
   {
     CheckLocked();
@@ -144,8 +143,8 @@ public class GGPOClient
   public void DoPoll(int timeout)
   {
     // Endpoints get updated first so that we can get events, inputs, etc.
-    int len = _endpoints.Count;
-    for (int i = 0; i < len; i++)
+    int epCount = _endpoints.Count;
+    for (int i = 0; i < epCount; i++)
     {
       _endpoints[i].OnLoopPoll();
     }
@@ -162,14 +161,13 @@ public class GGPOClient
       // next connection quality report
       int current_frame = _sync.GetFrameCount();
 
-      int epCount = _endpoints.Count;
       for (int i = 0; i < epCount; i++)
       {
         _endpoints[i].SetLocalFrameNumber(current_frame);
       }
 
       int total_min_confirmed;
-      if (_endpoints.Count == 1)
+      if (_endpoints.Count == 2)
       {
         // We are connected to one other player....
         total_min_confirmed = Poll2Players(current_frame);
@@ -225,13 +223,13 @@ public class GGPOClient
     // discard confirmed frames as appropriate
     int total_min_confirmed = int.MaxValue;
 
-    // We want to get the min frame for the 'local' player.
-    // TODO: At some point I really think that adding local players as a distinct endpoint is the way to go.
-    int lpi = this.Options.PlayerIndex;
-    if (!_local_connect_status[lpi].disconnected)
-    {
-      total_min_confirmed = Math.Min(_local_connect_status[lpi].last_frame, total_min_confirmed);
-    }
+    //// We want to get the min frame for the 'local' player.
+    //// TODO: At some point I really think that adding local players as a distinct endpoint is the way to go.
+    //int lpi = this.Options.PlayerIndex;
+    //if (!_local_connect_status[lpi].disconnected)
+    //{
+    //  total_min_confirmed = Math.Min(_local_connect_status[lpi].last_frame, total_min_confirmed);
+    //}
 
 
     for (i = 0; i < _endpoints.Count; i++)
@@ -401,7 +399,7 @@ public class GGPOClient
     if (!_sync.AddLocalInput(Options.PlayerIndex, ref input))
     {
       // return GGPO_ERRORCODE_PREDICTION_THRESHOLD;
-      Utils.Log("Prediction threshold met!");
+      Utils.Log("Prediction threshold met!", false);
       return false;
     }
 
@@ -450,9 +448,11 @@ public class GGPOClient
     for (UInt16 i = 0; i < _endpoints.Count; i++)
     {
       var ep = _endpoints[i];
+
+      // NOTE: Local players aren't really going to have events because they don't poll or receive messages.
       while (ep.GetEvent(ref evt))
       {
-        OnUdpProtocolPeerEvent(ref evt, i);
+        OnUdpProtocolPeerEvent(ref evt, (UInt16)ep.PlayerIndex);
       }
     }
 
@@ -497,6 +497,7 @@ public class GGPOClient
   // ----------------------------------------------------------------------------------------------------------
   bool DisconnectPlayer(UInt16 playerIndex)
   {
+    // REFACTOR:  We can skip the assignment here.....
     UInt16 queue = playerIndex;
     //	GGPOErrorCode result;
 
@@ -518,12 +519,13 @@ public class GGPOClient
       // xxx: we should be tracking who the local player is, but for now assume
       // that if the endpoint is not initalized, this must be the local player.
       Utils.Log("Disconnecting local player %d at frame %d by user request.", queue, _local_connect_status[queue].last_frame);
-      int epLen = _endpoints.Count;
-      for (UInt16 i = 0; i < epLen; i++)
+      int epCount = _endpoints.Count;
+      for (UInt16 i = 0; i < epCount; i++)
       {
-        if (_endpoints[i].IsInitialized())
+        var ep = _endpoints[i];
+        if (ep.IsInitialized())
         {
-          DisconnectPlayer(i, current_frame);
+          DisconnectPlayer(ep.PlayerIndex, current_frame);
         }
       }
     }
@@ -643,8 +645,11 @@ public class GGPOClient
       for (i = 0; i < epLen; i++)
       {
         var ep = _endpoints[i];
+        int epi = ep.PlayerIndex;
         // xxx: IsInitialized() must go... we're actually using it as a proxy for "represents the local player"
-        if (ep.IsInitialized() && !ep.IsSynchronized() && !_local_connect_status[i].disconnected)
+        if (ep.IsInitialized() && 
+            !ep.IsSynchronized() && 
+            !_local_connect_status[epi].disconnected)
         {
           return;
         }

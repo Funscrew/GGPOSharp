@@ -18,14 +18,18 @@ Each frame gets + syncs inputs + messages.
 
 From here the 'game' can run its next frame since it has synced inputs for all players.
 
+NOTE: Any received message is rejected unless the sync event has completed.  This sets the internal 'remote magic' number
+value to that of the sync.  Since all messages have this value (and it is the same) we can reject any non-sync related messages.
+
+
+## Bugs
+- Sending an input from FC will cause a crash.  See udp_proto.cpp:624 for notes on what the cause is, and how we might go about fixing it.
+
+- BUG: We are not sending the local player name.
+- BUG: The quality report is full of bad numbers.
 
 
 ## Next Steps
-- BUG: The client will blow up (reliably, at the same place) if it is started before fs-fbneo.  Connecting in the other direction seems to be fine....
-- BUG: We are not sending the local player name.
-- BUG: It seems that the sync codes that are sent / received don't line up with fs-fbneo for some reason.  They do eventually, but I want to investigate.
---> This is by design, so YAY!
-
 - Make a 'replay client'  This thing will just take the inputs from the other player, and replay them a fixed time
 later.  Options to reverse L/R directions + replay time would be nice.  Consider how such a thing might work in
 terms of a game with more than two players... not to actually implement it, but so that we don't paint ourselves into
@@ -35,3 +39,5 @@ a corner when it comes to creating other types of clients that might interact wi
 want to be sure that there isn't a bunch of garbage creation / collection.  Ideally we could pare it down to zero.
 
 - Do some testing with OO (out of order) packets.  I'm still not clear on how GGPO handles this, if at all.
+
+

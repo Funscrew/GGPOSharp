@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace GGPOSharp;
 
@@ -7,6 +8,22 @@ namespace GGPOSharp;
 public static class Utils
 {
   public static bool IsLoggingEnabled = true;
+
+  private static FileStream? MsgLogFile = null;
+
+  // ------------------------------------------------------------------------
+  static Utils()
+  {
+    // TEMP: I am just going to slap some data to disk so we can figure out some issues....
+    string msgLogPath = "msglog.txt";
+    if (File.Exists(msgLogPath))
+    {
+      File.Delete(msgLogPath);
+    }
+    MsgLogFile = File.OpenWrite(msgLogPath);
+
+
+  }
 
   // ------------------------------------------------------------------------
   internal static void LogEvent(string v, Event evt)
@@ -17,9 +34,38 @@ public static class Utils
 
   // ------------------------------------------------------------------------
   // REFACTOR / NOTE:
-  internal static void Log(string msgType, ref UdpMsg msg)
+  internal unsafe static void Log(string msgType, ref UdpMsg msg)
   {
-    Debug.WriteLine("implement this logging!");
+    if (msgType == "send" && msg.header.type == EMsgType.Input)
+    {
+      fixed (byte* pb = msg.u.input.bits)
+      {
+
+        //int bits = msg.u.input.num_bits;
+        //string bitString = string.Empty;
+        //for (int i = 0; i < bits; i++)
+        //{
+        //  int curByte = i / 8;
+        //  int bitVal = (msg.u.input.bits[curByte] >> i) & 0x1;
+        //  bitString += bitVal == 1 ? "1" : "0";
+        //}
+
+        var peerData = new List<string>();
+        for (int i = 0;i< GGPOConsts.UDP_MSG_MAX_PLAYERS; i++) {
+          ConnectStatus cs =  msg.u.input.GetPeerConnectStatus(i);
+          peerData.Add(cs.last_frame.ToString());
+        }
+        string peerVal = string.Join(":", peerData);
+
+        string nextLine = $"input: {msg.u.input.start_frame} - {msg.u.input.num_bits} - ({peerVal}) {Environment.NewLine}";
+
+        byte[] msgBuffer = Encoding.UTF8.GetBytes(nextLine);
+        MsgLogFile.Write(msgBuffer, 0, msgBuffer.Length);
+        MsgLogFile.Flush();
+
+        // Debug.WriteLine("implement this logging!");
+      }
+    }
   }
 
   // ------------------------------------------------------------------------
@@ -37,10 +83,13 @@ public static class Utils
   // to format those strings, and then they get nuked!  I want to change this so that we
   // call into the same type of function that the C++ uses (probably sprintf) so that
   // we only do the work IF we are actually going to do something with the data!
-  internal static void Log(string msg)
+  internal static void Log(string msg, bool display = true)
   {
     // TODO: Hand this off to a real logging facility....
-    Console.WriteLine(msg);
+    if (display)
+    {
+      Console.WriteLine(msg);
+    }
   }
 
 
