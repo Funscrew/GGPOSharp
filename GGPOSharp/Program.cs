@@ -29,30 +29,9 @@ namespace GGPOSharp
     {
       Console.WriteLine("Welcome to GGPO Example Client!");
 
-
-      //// What is up with the connect status data....?
-      //var msg = new InputMsg();
-
-      //ConnectStatus test = new ConnectStatus();
-      //test.last_frame = 123;
-      //test.disconnected = false;
-
-      //int lf = test.last_frame;
-
-      //msg.SetPeerConnectStatus(0, test);
-
-      //ConnectStatus cs2 = msg.GetPeerConnectStatus(0);
-      //int lastHere = cs2.last_frame;
-
-      //int x = 10;
-
-
-      // This is the input that we will send with every frame, for now.
-      // TestInput[1] = 1;
-
       const int PLAYER_ONE = 0;
       const int PLAYER_TWO = 1;
-      var ops = new GGPOClientOptions(PLAYER_TWO, "Screwie", Defaults.LOCAL_PORT)
+      var ops = new GGPOClientOptions(PLAYER_ONE, "Screwie", Defaults.LOCAL_PORT)
       {
         Callbacks = new GGPOSessionCallbacks()
         {
@@ -69,9 +48,9 @@ namespace GGPOSharp
 
       Client = new GGPOClient(ops);
 
-      Client.AddLocal("Screwie", PLAYER_TWO, null);
+      Client.AddLocal("Screwie", PLAYER_ONE, null);
 
-      Client.AddRemote(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, PLAYER_ONE);
+      Client.AddRemote(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, PLAYER_TWO);
       Client.Lock();
 
       // Game loop:

@@ -23,10 +23,9 @@ value to that of the sync.  Since all messages have this value (and it is the sa
 
 
 ## Bugs
-- Sending an input from FC will cause a crash.  See udp_proto.cpp:624 for notes on what the cause is, and how we might go about fixing it.
-
-- BUG: We are not sending the local player name.
-- BUG: The quality report is full of bad numbers.
+- BUG: We are not sending the local player name to the remote. (it is being set twice...)
+- BUG: We are double-setting the local player number during client init.
+--> This is actually more of a quality thing....
 
 
 ## Next Steps
