@@ -471,36 +471,6 @@ public struct UdpMsg
 
   }
 
-
-
-  //// --------------------------------------------------------------------------------------------------------------
-  //public static unsafe void FromBytes(byte[] data, ref UdpMsg res, int len)
-  //{
-  //  // NEW:  Unsafe style!
-  //  // This is cool b/c we don't have to get too worried about the struct definitions / write interop code...
-  //  if (data == null) throw new ArgumentNullException(nameof(data));
-  //  if (data.Length > sizeof(UdpMsg)) throw new ArgumentException("Too much data for UdpMsg", nameof(data));
-
-  //  fixed (byte* pSrc = data)
-  //  {
-  //    res = *(UdpMsg*)pSrc;
-  //  }
-
-  //  // OLD:
-  //  //res.header.magic = BitConverter.ToUInt16(data, 0);
-  //  //res.header.sequence_number = BitConverter.ToUInt16(data, sizeof(UInt16));
-  //  //res.header.type = (EMsgType)data[sizeof(UInt16) * 2];
-
-  //  //switch (res.header.type)
-  //  //{
-  //  //  case EMsgType.SyncRequest:
-  //  //    SyncRequest.FromBytes(data, SIZE_OF_MESSAGE_HEADER, ref res.u.sync_request);
-  //  //    break;
-
-  //  //  default:
-  //  //    throw new InvalidOperationException($"The header type: {res.header.type} is not supported!");
-  //  //}
-  //}
   public static unsafe void FromBytes(byte[] data, ref UdpMsg res, int len)
   {
     if (data == null) throw new ArgumentNullException(nameof(data));
@@ -522,24 +492,7 @@ public struct UdpMsg
     res = *(UdpMsg*)buffer;
   }
 
-  //// --------------------------------------------------------------------------------------------------------------
-  //public static unsafe void ToBytes(in UdpMsg msg, byte[] dst, int copySize)
-  //{
-  //  // NOTE: whatever calls this code needs a way to make sure that we aren't
-  //  // always going to send the full size of the message.  Many times, the payload can be
-  //  // smaller than sizeof(UdpMsg) especially when there isn't chat data, etc.
-  //  // throw new Exception();
-
-  //  if (dst is null) { throw new ArgumentNullException(nameof(dst)); }
-  //  if (dst.Length < sizeof(UdpMsg)) { throw new ArgumentException($"Too short for {nameof(UdpMsg)}", nameof(dst)); }
-
-  //  // NOTE: We might even come up with a way to only copy the bytes we need.
-  //  // --> copySize
-  //  fixed (byte* pDst = dst)
-  //  {
-  //    *(UdpMsg*)pDst = msg;
-  //  }
-  //}
+  // --------------------------------------------------------------------------------------------------------------
   public static unsafe void ToBytes(in UdpMsg msg, byte[] dest, int len)
   {
     if (dest == null) throw new ArgumentNullException(nameof(dest));

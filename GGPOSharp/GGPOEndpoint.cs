@@ -249,7 +249,7 @@ public class GGPOEndpoint
     }
     // strcpy_s(evt.u.chat.text, textlen + 1, msg->u.chat.text);
 
-    //Log("Sending frame %d to emu queue %d (%s).\n", _last_received_input.frame, _queue, desc);
+    //Log("Sending frame %d to emu queue %d (%s).", _last_received_input.frame, _queue, desc);
     QueueEvent(evt);
 
 
@@ -262,7 +262,7 @@ public class GGPOEndpoint
     // Get rid of our buffered input
     while (_pending_output.Size != 0 && _pending_output.Front().frame < msg.u.input_ack.ack_frame)
     {
-      Utils.Log($"Throwing away pending output frame {_pending_output.Front().frame}");
+      Utils.Log("Throwing away pending output frame %d", _pending_output.Front().frame);
       _last_acked_input = _pending_output.Front();
       _pending_output.Pop();
     }
@@ -306,7 +306,7 @@ public class GGPOEndpoint
     {
       if (_current_state != EClientState.Disconnected && !_disconnect_event_sent)
       {
-        Utils.Log("Disconnecting endpoint on remote request.\n");
+        Utils.Log("Disconnecting endpoint on remote request.");
         QueueEvent(new Event(EEventType.Disconnected));
         _disconnect_event_sent = true;
       }
@@ -406,13 +406,13 @@ public class GGPOEndpoint
 
               RunningState.last_input_packet_recv_time = (uint)Clock.ElapsedMilliseconds;
 
-              Utils.Log($"Sending frame {_last_received_input.frame} to emu queue {_queue} (<{desc}>).", false);
+              Utils.Log("Sending frame %d to emu queue %d (%d).", _last_received_input.frame, _queue, desc);
               QueueEvent(evt);
 
             }
             else
             {
-              Utils.Log($"Skipping past frame:({currentFrame}) current is {_last_received_input}." , false);
+              Utils.Log("Skipping past frame:(%d) current is %d.", currentFrame, _last_received_input.frame);
             }
 
             /*
@@ -431,7 +431,7 @@ public class GGPOEndpoint
      */
     while (_pending_output.Size > 0 && _pending_output.Front().frame < msg.u.input.ack_frame)
     {
-      Utils.Log($"Throwing away pending output frame {_pending_output.Front().frame}", false);
+      Utils.Log("Throwing away pending output frame %d", _pending_output.Front().frame);
       _last_acked_input = _pending_output.Front();
       _pending_output.Pop();
     }
@@ -544,30 +544,22 @@ public class GGPOEndpoint
 
     switch (_current_state)
     {
-      //case EClientState.Disconnected:
-      //  break;
-
       case EClientState.Syncing:
         // do sync timeout + resend stuff here....
         next_interval = (SyncState.roundtrips_remaining == SYNC_PACKETS_COUNT) ? SYNC_FIRST_RETRY_INTERVAL : SYNC_RETRY_INTERVAL;
         if (_last_send_time > 0 && _last_send_time + next_interval < now)
         {
-          Utils.Log($"No luck syncing after {next_interval} ms... Re-queueing sync packet.");
+          Utils.Log("No luck syncing after %d ms... Re-queueing sync packet.", next_interval);
           SendSyncRequest();
         }
         break;
-
-      //// NOTE: This state never gets tripped!
-      //case EClientState.Synchronzied:
-      //  int x = 10;
-      //  break;
 
       case EClientState.Running:
 
         // xxx: rig all this up with a timer wrapper
         if (RunningState.last_input_packet_recv_time == 0 || RunningState.last_input_packet_recv_time + RUNNING_RETRY_INTERVAL < now)
         {
-          Utils.Log($"Haven't exchanged packets in a while (last received:{_last_received_input.frame}  last sent:{_last_sent_input.frame}).  Resending.");
+          Utils.Log("Haven't exchanged packets in a while (last received:%d  last sent:%d).  Resending.", _last_received_input.frame, _last_sent_input.frame);
           SendPendingOutput();
           RunningState.last_input_packet_recv_time = (uint)now;
         }
@@ -589,7 +581,7 @@ public class GGPOEndpoint
 
         if (_last_send_time != 0 && _last_send_time + KEEP_ALIVE_INTERVAL < now)
         {
-          Utils.Log("Sending keep alive packet\n");
+          Utils.Log("Sending keep alive packet");
 
           // NOTE : Check this for memory... 
           var msg = new UdpMsg(EMsgType.KeepAlive);
@@ -599,7 +591,7 @@ public class GGPOEndpoint
         if (_disconnect_timeout != 0 && _disconnect_notify_start != 0 &&
           !_disconnect_notify_sent && (_last_recv_time + _disconnect_notify_start < now))
         {
-          Utils.Log($"Endpoint has stopped receiving packets for {_disconnect_notify_start} ms.  Sending notification.");
+          Utils.Log("Endpoint has stopped receiving packets for %d ms.  Sending notification.", _disconnect_notify_start);
           Event e = new Event(EEventType.NetworkInterrupted);
           e.u.network_interrupted.disconnect_timeout = (int)(_disconnect_timeout - _disconnect_notify_start);
           QueueEvent(e);
@@ -610,7 +602,7 @@ public class GGPOEndpoint
         {
           if (!_disconnect_event_sent)
           {
-            Utils.Log($"Endpoint has stopped receiving packets for {_disconnect_timeout} ms.  Disconnecting.");
+            Utils.Log("Endpoint has stopped receiving packets for %d ms.  Disconnecting.", _disconnect_timeout);
             QueueEvent(new Event(EEventType.Disconnected));
             _disconnect_event_sent = true;
           }
@@ -645,12 +637,12 @@ public class GGPOEndpoint
     var pps = (float)_packets_sent * 1000 / (now - _stats_start_time);
     var totalKbs = total_bytes_sent / 1024.0;
 
-    Utils.Log($"Network Stats -- Bandwidth: {_kbps_sent:f2} KBps   Packets Sent: {_packets_sent} ({pps:f2} pps) KB Sent: {totalKbs:f2}    UDP Overhead: {udp_overhead:f2} pct.");
-    //_kbps_sent,
-    //_packets_sent,
-    //(float)_packets_sent * 1000 / (now - _stats_start_time),
-    //total_bytes_sent / 1024.0,
-    //udp_overhead);
+    Utils.Log("Network Stats -- Bandwidth: %.2f KBps   Packets Sent: %5d (%.2f pps)   KB Sent: %.2f    UDP Overhead: %.2f pct.",
+    _kbps_sent,
+    _packets_sent,
+    (float)_packets_sent * 1000 / (now - _stats_start_time),
+    total_bytes_sent / 1024.0,
+    udp_overhead);
   }
 
   // ------------------------------------------------------------------------
@@ -784,7 +776,7 @@ public class GGPOEndpoint
   // ------------------------------------------------------------------------
   private void HandleMessage(ref UdpMsg msg, int msgLen)
   {
-    
+
     // filter out messages that don't match what we expect
     UInt16 seq = msg.header.sequence_number;
     if (msg.header.type != EMsgType.SyncRequest && msg.header.type != EMsgType.SyncReply)
@@ -797,10 +789,10 @@ public class GGPOEndpoint
 
       // filter out out-of-order packets
       UInt16 skipped = (UInt16)((int)seq - (int)_next_recv_seq);
-      // Log("checking sequence number . next - seq : %d - %d = %d\n", seq, _next_recv_seq, skipped);
+      // Log("checking sequence number . next - seq : %d - %d = %d", seq, _next_recv_seq, skipped);
       if (skipped > MAX_SEQ_DISTANCE)
       {
-        Utils.Log("dropping out of order packet (seq: %d, last seq:%d)\n", seq, _next_recv_seq);
+        Utils.Log("dropping out of order packet (seq: %d, last seq:%d)", seq, _next_recv_seq);
         return;
       }
     }
@@ -868,7 +860,7 @@ public class GGPOEndpoint
   {
     if (_remote_magic_number != 0 && msg.header.magic != _remote_magic_number)
     {
-      Utils.Log($"Ignoring sync request from unknown endpoint ({msg.header.magic} != {_remote_magic_number}).");
+      Utils.Log("Ignoring sync request from unknown endpoint (%d != %d).", msg.header.magic, _remote_magic_number);
       return false;
     }
     UdpMsg reply = new UdpMsg(EMsgType.SyncReply);
@@ -895,7 +887,7 @@ public class GGPOEndpoint
 
     if (msg.u.sync_reply.random_reply != SyncState.random)
     {
-      Utils.Log($"sync reply {msg.u.sync_reply.random_reply} != {SyncState.random}.  Keep looking...");
+      Utils.Log("sync reply %d != %d.  Keep looking...", msg.u.sync_reply.random_reply, SyncState.random);
       return false;
     }
 
@@ -912,7 +904,7 @@ public class GGPOEndpoint
       _connected = true;
     }
 
-    Utils.Log($"Checking sync state ({SyncState.roundtrips_remaining} round trips remaining).");
+    Utils.Log("Checking sync state (%d round trips remaining).", SyncState.roundtrips_remaining);
     if (--SyncState.roundtrips_remaining == 0)
     {
       Utils.Log("Synchronized!");
@@ -973,7 +965,7 @@ public class GGPOEndpoint
       if (_oop_percent != 0 && !_oo_packet.HasMessage && (Random.Shared.Next(100) < _oop_percent))
       {
         int delay = Random.Shared.Next(_send_latency * 10 + 1000);
-        Utils.Log($"creating rogue oop (seq: {entry.msg.header.sequence_number}  delay: {delay})");
+        Utils.Log("creating rogue oop (seq: %d  delay: %d)", entry.msg.header.sequence_number, delay);
         _oo_packet.queue_time = (int)Clock.ElapsedMilliseconds + delay;
         _oo_packet.msg = entry.msg;
         _oo_packet.dest_addr = entry.dest_addr;
@@ -1193,30 +1185,8 @@ public unsafe struct GameInput
   {
     // NOTE: I am not porting this as it is just some expensive logging messages
     // that can be handled in a better way, both in C++ and here.
-    //Debug.WriteLine
-    //// NOTE: The C++ version of this code sort of 
-    //Utils.ASSERT(size > 0);   // Not sure why size would ever be zero... ?
-    //int remaining = buf_size;
-    //if (show_frame)
-    //{
-    //  remaining -= sprintf_s(buf, buf_size, $"(frame:{frame} size:{size} ");
-    //}
-    //else
-    //{
-    //  remaining -= sprintf_s(buf, buf_size, "(size:%d ", size);
-    //}
 
-    //for (int i = 0; i < size * 8; i++)
-    //{
-    //  char[] buf2 = new char[16];
-    //  if (value(i))
-    //  {
-    //    int c = sprintf_s(buf2, ARRAY_SIZE(buf2), "%2d ", i);
-    //    strncat_s(buf, remaining, buf2, ARRAY_SIZE(buf2));
-    //    remaining -= c;
-    //  }
-    //}
-    //strncat_s(buf, remaining, ")", 1);
+    // Refer to C++ version for original code.
   }
 
   // ----------------------------------------------------------------------------------------
@@ -1225,11 +1195,11 @@ public unsafe struct GameInput
     bool bitsonly = true;
     if (!bitsonly && frame != other.frame)
     {
-      Utils.Log($"frames don't match: {frame}, {other.frame}");
+      Utils.Log("frames don't match: %d, %d", frame, other.frame);
     }
     if (size != other.size)
     {
-      Utils.Log($"sizes don't match: {size}, {other.size}");
+      Utils.Log("sizes don't match: %d, %d", size, other.size);
     }
 
     bool memMatch = false;

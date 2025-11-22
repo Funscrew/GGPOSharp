@@ -248,13 +248,13 @@ public class GGPOClient
       {
         total_min_confirmed = Math.Min(_local_connect_status[epi].last_frame, total_min_confirmed);
       }
-      Utils.Log("  local endp: connected = %d, last_received = %d, total_min_confirmed = %d.\n", !_local_connect_status[i].disconnected, _local_connect_status[i].last_frame, total_min_confirmed);
+      Utils.Log("  local endp: connected = %d, last_received = %d, total_min_confirmed = %d.", !_local_connect_status[i].disconnected, _local_connect_status[i].last_frame, total_min_confirmed);
       if (!queue_connected && !_local_connect_status[epi].disconnected)
       {
-        Utils.Log("disconnecting i %d by remote request.\n", i);
+        Utils.Log("disconnecting i %d by remote request.", i);
         DisconnectPlayer(epi, total_min_confirmed);
       }
-      Utils.Log("  total_min_confirmed = %d.\n", total_min_confirmed);
+      Utils.Log("  total_min_confirmed = %d.", total_min_confirmed);
     }
     return total_min_confirmed;
   }
@@ -274,7 +274,7 @@ public class GGPOClient
     //{
     //  bool queue_connected = true;
     //  int queue_min_confirmed = MAX_INT;
-    //  Utils.Log("considering playerIndex %d.\n", queue);
+    //  Utils.Log("considering playerIndex %d.", queue);
     //  for (i = 0; i < _endpoints.Count; i++)
     //  {
     //    // we're going to do a lot of logic here in consideration of endpoint i.
@@ -286,11 +286,11 @@ public class GGPOClient
 
     //      queue_connected = queue_connected && connected;
     //      queue_min_confirmed = Math.Min(last_received, queue_min_confirmed);
-    //      Utils.Log("  endpoint %d: connected = %d, last_received = %d, queue_min_confirmed = %d.\n", i, connected, last_received, queue_min_confirmed);
+    //      Utils.Log("  endpoint %d: connected = %d, last_received = %d, queue_min_confirmed = %d.", i, connected, last_received, queue_min_confirmed);
     //    }
     //    else
     //    {
-    //      Utils.Log("  endpoint %d: ignoring... not running.\n", i);
+    //      Utils.Log("  endpoint %d: ignoring... not running.", i);
     //    }
     //  }
     //  // merge in our local status only if we're still connected!
@@ -298,7 +298,7 @@ public class GGPOClient
     //  {
     //    queue_min_confirmed = Math.Min(_local_connect_status[queue].last_frame, queue_min_confirmed);
     //  }
-    //  Utils.Log("  local endp: connected = %d, last_received = %d, queue_min_confirmed = %d.\n", !_local_connect_status[queue].disconnected, _local_connect_status[queue].last_frame, queue_min_confirmed);
+    //  Utils.Log("  local endp: connected = %d, last_received = %d, queue_min_confirmed = %d.", !_local_connect_status[queue].disconnected, _local_connect_status[queue].last_frame, queue_min_confirmed);
 
     //  if (queue_connected)
     //  {
@@ -311,11 +311,11 @@ public class GGPOClient
     //    // and later receive a disconnect notification for frame n-1.
     //    if (!_local_connect_status[queue].disconnected || _local_connect_status[queue].last_frame > queue_min_confirmed)
     //    {
-    //      Utils.Log("disconnecting playerIndex %d by remote request.\n", queue);
+    //      Utils.Log("disconnecting playerIndex %d by remote request.", queue);
     //      DisconnectPlayer(queue, queue_min_confirmed);
     //    }
     //  }
-    //  Utils.Log("  total_min_confirmed = %d.\n", total_min_confirmed);
+    //  Utils.Log("  total_min_confirmed = %d.", total_min_confirmed);
     //}
     //return total_min_confirmed;
   }

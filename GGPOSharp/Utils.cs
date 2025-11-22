@@ -28,7 +28,7 @@ public static class Utils
   // ------------------------------------------------------------------------
   internal static void LogEvent(string v, Event evt)
   {
-    Debug.WriteLine("implement this logging!");
+    // Debug.WriteLine("implement this logging!");
     // throw new NotImplementedException();
   }
 
@@ -85,10 +85,10 @@ public static class Utils
   // to format those strings, and then they get nuked!  I want to change this so that we
   // call into the same type of function that the C++ uses (probably sprintf) so that
   // we only do the work IF we are actually going to do something with the data!
-  internal static void Log(string msg, bool display = true)
+  internal static void Log(string msg)
   {
     // TODO: Hand this off to a real logging facility....
-    if (display)
+    if (Utils.IsLoggingEnabled)
     {
       Console.WriteLine(msg);
     }

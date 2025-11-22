@@ -92,7 +92,7 @@ class InputQueue
   // ------------------------------------------------------------------------------------------
   internal int GetLastConfirmedFrame()
   {
-    Utils.Log($"returning last confirmed frame {_last_added_frame}.");
+    Utils.Log("returning last confirmed frame %d.", _last_added_frame);
     return _last_added_frame;
   }
 
@@ -112,7 +112,7 @@ class InputQueue
       frame = Math.Min(frame, _last_frame_requested);
     }
 
-    Utils.Log($"discarding confirmed frames up to {frame} (last_added:{_last_added_frame} length:{_length} [head:{_head} tail:{_tail}]).", false);
+    Utils.Log("discarding confirmed frames up to %d (last_added:%d length:%d [head:%d tail:%d]).", frame, _last_added_frame, _length, _head, _tail);
     // frame, _last_added_frame, _length, _head, _tail);
     if (frame >= _last_added_frame)
     {
@@ -122,14 +122,14 @@ class InputQueue
     {
       int offset = frame - _inputs[_tail].frame + 1;
 
-      Utils.Log($"difference of {offset} frames.", false);
+      Utils.Log("difference of %d frames.", offset);
       Utils.ASSERT(offset >= 0);
 
       _tail = (_tail + offset) % GGPOConsts.INPUT_QUEUE_LENGTH;
       _length -= offset;
     }
 
-    Utils.Log($"after discarding, new tail is {_tail} (frame:{_inputs[_tail].frame}).", false);
+    Utils.Log("after discarding, new tail is %d (frame:%d).", _tail, _inputs[_tail].frame);
     Utils.ASSERT(_length >= 0);
   }
 
@@ -138,7 +138,7 @@ class InputQueue
   {
     Utils.ASSERT(_first_incorrect_frame == GameInput.NULL_FRAME || frame <= _first_incorrect_frame);
 
-    Utils.Log($"resetting all prediction errors back to frame {frame}.");
+    Utils.Log("resetting all prediction errors back to frame %d.", frame);
 
     /*
      * There's nothing really to do other than reset our prediction
@@ -170,7 +170,7 @@ class InputQueue
   // ------------------------------------------------------------------------------------------
   internal bool GetInput(int requested_frame, ref GameInput input)
   {
-    Utils.Log($"requesting input frame {requested_frame}.");
+    Utils.Log("requesting input frame %d.", requested_frame);
 
     /*
      * No one should ever try to grab any input when we have a prediction
@@ -207,7 +207,7 @@ class InputQueue
         // Is this equivalent of the 'OLD' version?
         input = _inputs[offset];
 
-        Utils.Log("returning confirmed frame number {0}.", input.frame);
+        Utils.Log("returning confirmed frame number %d.", input.frame);
         return true;
       }
 
@@ -228,8 +228,7 @@ class InputQueue
       }
       else
       {
-        Utils.Log("basing new prediction frame from previously added frame (queue entry:%d, frame:%d).",
-              PREVIOUS_FRAME(_head), _inputs[PREVIOUS_FRAME(_head)].frame);
+        Utils.Log("basing new prediction frame from previously added frame (queue entry:%d, frame:%d).", PREVIOUS_FRAME(_head), _inputs[PREVIOUS_FRAME(_head)].frame);
         _prediction = _inputs[PREVIOUS_FRAME(_head)];
       }
       _prediction.frame++;
