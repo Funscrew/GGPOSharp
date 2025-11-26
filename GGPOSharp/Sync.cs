@@ -153,7 +153,7 @@ internal class Sync
     int frames_behind = _curFrame - _last_confirmed_frame;
     if (_curFrame >= _max_prediction_frames && frames_behind >= _max_prediction_frames)
     {
-      Utils.Log("Rejecting input from emulator: reached prediction barrier.");
+      GGPOUtils.Log("Rejecting input from emulator: reached prediction barrier.");
       return false;
     }
 
@@ -162,7 +162,7 @@ internal class Sync
       SaveCurrentFrame();
     }
 
-    Utils.Log("Sending undelayed local frame %d to queue %d.", _curFrame, playerIndex);
+    GGPOUtils.Log("Sending undelayed local frame %d to queue %d.", _curFrame, playerIndex);
     input.frame = _curFrame;
     _input_queues[playerIndex].AddInput(ref input);
 
@@ -178,12 +178,12 @@ internal class Sync
   // ------------------------------------------------------------------------------------------------------------------------
   internal unsafe int GetConfirmedInputs(byte* values, int size, int frame)
   {
-    Utils.ASSERT(size >= _config.num_players * _config.input_size);
+    GGPOUtils.ASSERT(size >= _config.num_players * _config.input_size);
 
     int disconnect_flags = 0;
     byte* output = (byte*)values;
 
-    Utils.ClearMem(output, size);
+    GGPOUtils.ClearMem(output, size);
     // memset(output, 0, size);
     for (int i = 0; i < _config.num_players; i++)
     {
@@ -198,7 +198,7 @@ internal class Sync
         _input_queues[i].GetConfirmedInput(frame, ref input);
       }
 
-      Utils.CopyMem(output + (i + _config.input_size), input.data, (uint)_config.input_size);
+      GGPOUtils.CopyMem(output + (i + _config.input_size), input.data, (uint)_config.input_size);
       // memcpy(output + (i * _config.input_size), input.bits, _config.input_size);
     }
     return disconnect_flags;
@@ -209,7 +209,7 @@ internal class Sync
   {
     // Ensure a minimum amount of data so we don't overrun the buffer...
     // Shouldn't we expect that totalSize is always the same... ??
-    Utils.ASSERT(totalSize >= _config.num_players * _config.input_size);
+    GGPOUtils.ASSERT(totalSize >= _config.num_players * _config.input_size);
 
     int disconnect_flags = 0;
     byte[] output = values;
@@ -229,7 +229,7 @@ internal class Sync
       }
 
       // Copy the data directly.....
-      Utils.CopyMem(output, (i * _config.input_size), input.data, (uint)_config.input_size);
+      GGPOUtils.CopyMem(output, (i * _config.input_size), input.data, (uint)_config.input_size);
       // memcpy(output + (i * _config.input_size), input.bits, _config.input_size);
     }
     return disconnect_flags;
@@ -259,14 +259,14 @@ internal class Sync
     int prevFrame = _curFrame;
     int count = _curFrame - seek_to;   // This is assumed to be positive b/c we are rolling back to an earlier frame.  Therefore, _framecount is always > seek_to.
 
-    Utils.Log("Catching up");
+    GGPOUtils.Log("Catching up");
     _rollingback = true;
 
     /*
      * Flush our input queue and load the last frame.
      */
     LoadFrame(seek_to);
-    Utils.ASSERT(_curFrame == seek_to);
+    GGPOUtils.ASSERT(_curFrame == seek_to);
 
     // Now that we have updated _framecount to seek_to, it will be == to (oldFrameCount - count).
 
@@ -281,11 +281,11 @@ internal class Sync
     }
 
     // NOTE: This assert will fail if _framecount is not correctly incremented in the above for loop.  rollback_frame should increment it!
-    Utils.ASSERT(_curFrame == prevFrame);
+    GGPOUtils.ASSERT(_curFrame == prevFrame);
 
     _rollingback = false;
 
-    Utils.Log("---");
+    GGPOUtils.Log("---");
   }
 
   // ------------------------------------------------------------------------------------------------------------------------
@@ -294,7 +294,7 @@ internal class Sync
     // find the frame in question
     if (frame == _curFrame)
     {
-      Utils.Log("Skipping NOP.");
+      GGPOUtils.Log("Skipping NOP.");
       return;
     }
 
@@ -302,10 +302,10 @@ internal class Sync
     _savedstate.head = FindSavedFrameIndex(frame);
     SavedFrame state = _savedstate.frames[_savedstate.head];
 
-    Utils.Log("=== Loading frame info %d (size: %d  checksum: %08x).",
+    GGPOUtils.Log("=== Loading frame info %d (size: %d  checksum: %08x).",
         state.frame, state.cbuf, state.checksum);
 
-    Utils.ASSERT(state.buf != null && state.cbuf > 0);
+    GGPOUtils.ASSERT(state.buf != null && state.cbuf > 0);
     _callbacks.load_game_state(&state.buf, state.cbuf);
 
     // Reset framecount and the head of the state ring-buffer to point in
@@ -332,7 +332,7 @@ internal class Sync
       state->frame = _curFrame;
       _callbacks.save_game_state(&state->buf, &state->cbuf, &state->checksum, state->frame);
 
-      Utils.Log("=== Saved frame info %d (size: %d  checksum: %08x).", state->frame, state->cbuf, state->checksum);
+      GGPOUtils.Log("=== Saved frame info %d (size: %d  checksum: %08x).", state->frame, state->cbuf, state->checksum);
       _savedstate.head = (_savedstate.head + 1) % SavedState.SAVED_FRAME_COUNT;
     }
   }
@@ -362,7 +362,7 @@ internal class Sync
     }
     if (i == count)
     {
-      Utils.ASSERT(false);
+      GGPOUtils.ASSERT(false);
     }
     return i;
   }
@@ -388,7 +388,7 @@ internal class Sync
     for (int i = 0; i < _config.num_players; i++)
     {
       int incorrect = _input_queues[i].GetFirstIncorrectFrame();
-      Utils.Log("considering incorrect frame %d reported by queue %d.", incorrect, i);
+      GGPOUtils.Log("considering incorrect frame %d reported by queue %d.", incorrect, i);
 
       if (incorrect != GameInput.NULL_FRAME && (first_incorrect == GameInput.NULL_FRAME || incorrect < first_incorrect))
       {
@@ -398,7 +398,7 @@ internal class Sync
 
     if (first_incorrect == GameInput.NULL_FRAME)
     {
-      Utils.Log("prediction ok.  proceeding.", false);
+      GGPOUtils.Log("prediction ok.  proceeding.", false);
       return true;
     }
     *seekTo = first_incorrect;

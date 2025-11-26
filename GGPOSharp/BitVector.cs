@@ -29,7 +29,7 @@ public static class BitVector
   public unsafe static void WriteNibblet(byte* vector, int nibble, ref int offset)
   {
     // Replace with your ASSERT(...) if you have a custom macro.
-    Utils.ASSERT(nibble < (1 << BITVECTOR_NIBBLE_SIZE));
+    GGPOUtils.ASSERT(nibble < (1 << BITVECTOR_NIBBLE_SIZE));
 
     for (int i = 0; i < BITVECTOR_NIBBLE_SIZE; i++)
     {

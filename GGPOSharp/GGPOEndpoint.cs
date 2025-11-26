@@ -123,7 +123,7 @@ public class GGPOEndpoint
   /*
    * Event queue
    */
-  RingBuffer<Event> _event_queue = new RingBuffer<Event>(64);
+  RingBuffer<UdpEvent> _event_queue = new RingBuffer<UdpEvent>(64);
 
   // Your name.  This will be exchanged with other peers on sync.
   string _playerName = null!; //new char[ProtoConsts.MAX_NAME_SIZE];
@@ -216,7 +216,7 @@ public class GGPOEndpoint
   internal bool IsRunning() { return _current_state == EClientState.Running; }
 
   // ----------------------------------------------------------------------------------------------------------
-  internal bool GetEvent(ref Event e)
+  internal bool GetEvent(ref UdpEvent e)
   {
     if (_event_queue.Size == 0)
     {
@@ -237,7 +237,7 @@ public class GGPOEndpoint
   // -------------------------------------------------------------------------------------
   private unsafe bool OnChat(ref UdpMsg msg, int msgLen)
   {
-    var evt = new Event(EEventType.ChatCommand);
+    var evt = new UdpEvent(EEventType.ChatCommand);
     // evt.u.input.input = _last_received_input;
     //_last_received_input.desc(desc, ARRAY_SIZE(desc));
 
@@ -262,7 +262,7 @@ public class GGPOEndpoint
     // Get rid of our buffered input
     while (_pending_output.Size != 0 && _pending_output.Front().frame < msg.u.input_ack.ack_frame)
     {
-      Utils.Log("Throwing away pending output frame %d", _pending_output.Front().frame);
+      GGPOUtils.Log("Throwing away pending output frame %d", _pending_output.Front().frame);
       _last_acked_input = _pending_output.Front();
       _pending_output.Pop();
     }
@@ -306,8 +306,8 @@ public class GGPOEndpoint
     {
       if (_current_state != EClientState.Disconnected && !_disconnect_event_sent)
       {
-        Utils.Log("Disconnecting endpoint on remote request.");
-        QueueEvent(new Event(EEventType.Disconnected));
+        GGPOUtils.Log("Disconnecting endpoint on remote request.");
+        QueueEvent(new UdpEvent(EEventType.Disconnected));
         _disconnect_event_sent = true;
       }
     }
@@ -321,7 +321,7 @@ public class GGPOEndpoint
       for (int i = 0; i < _peer_connect_status.Length; i++)
       {
         var remote_status = msg.u.input.GetPeerConnectStatus(i);
-        Utils.ASSERT(remote_status.last_frame >= _peer_connect_status[i].last_frame);
+        GGPOUtils.ASSERT(remote_status.last_frame >= _peer_connect_status[i].last_frame);
 
         _peer_connect_status[i].disconnected = _peer_connect_status[i].disconnected || remote_status.disconnected;
         _peer_connect_status[i].last_frame = Math.Max(_peer_connect_status[i].last_frame, remote_status.last_frame);
@@ -376,7 +376,7 @@ public class GGPOEndpoint
                 }
               }
             }
-            Utils.ASSERT(offset <= numBits);
+            GGPOUtils.ASSERT(offset <= numBits);
 
             /*
              * Now if we want to use these inputs, go ahead and send them to
@@ -387,14 +387,14 @@ public class GGPOEndpoint
               /*
                * Move forward 1 frame in the stream.
                */
-              Utils.ASSERT(currentFrame == _last_received_input.frame + 1);
+              GGPOUtils.ASSERT(currentFrame == _last_received_input.frame + 1);
               _last_received_input.frame = currentFrame;
 
               /*
                * Send the event to the emualtor
                */
               // UdpProtocol::Event evt(UdpProtocol::Event::Input);
-              var evt = new Event(EEventType.Input);
+              var evt = new UdpEvent(EEventType.Input);
               evt.u.input = _last_received_input;
 
               // NOTE: This is expensive loggin that we are not going to support in the C# version.  It
@@ -406,13 +406,13 @@ public class GGPOEndpoint
 
               RunningState.last_input_packet_recv_time = (uint)Clock.ElapsedMilliseconds;
 
-              Utils.Log("Sending frame %d to emu queue %d (%d).", _last_received_input.frame, _queue, desc);
+              GGPOUtils.Log("Sending frame %d to emu queue %d (%d).", _last_received_input.frame, _queue, desc);
               QueueEvent(evt);
 
             }
             else
             {
-              Utils.Log("Skipping past frame:(%d) current is %d.", currentFrame, _last_received_input.frame);
+              GGPOUtils.Log("Skipping past frame:(%d) current is %d.", currentFrame, _last_received_input.frame);
             }
 
             /*
@@ -424,14 +424,14 @@ public class GGPOEndpoint
       }
     }
 
-    Utils.ASSERT(_last_received_input.frame >= last_received_frame_number);
+    GGPOUtils.ASSERT(_last_received_input.frame >= last_received_frame_number);
 
     /*
      * Get rid of our buffered input
      */
     while (_pending_output.Size > 0 && _pending_output.Front().frame < msg.u.input.ack_frame)
     {
-      Utils.Log("Throwing away pending output frame %d", _pending_output.Front().frame);
+      GGPOUtils.Log("Throwing away pending output frame %d", _pending_output.Front().frame);
       _last_acked_input = _pending_output.Front();
       _pending_output.Pop();
     }
@@ -488,7 +488,7 @@ public class GGPOEndpoint
     msg.header.magic = _magic_number;
     msg.header.sequence_number = _next_send_seq++;
 
-    Utils.Log("send", ref msg);
+    GGPOUtils.Log("send", ref msg);
 
     _send_queue.Push(new QueueEntry()
     {
@@ -549,7 +549,7 @@ public class GGPOEndpoint
         next_interval = (SyncState.roundtrips_remaining == SYNC_PACKETS_COUNT) ? SYNC_FIRST_RETRY_INTERVAL : SYNC_RETRY_INTERVAL;
         if (_last_send_time > 0 && _last_send_time + next_interval < now)
         {
-          Utils.Log("No luck syncing after %d ms... Re-queueing sync packet.", next_interval);
+          GGPOUtils.Log("No luck syncing after %d ms... Re-queueing sync packet.", next_interval);
           SendSyncRequest();
         }
         break;
@@ -559,7 +559,7 @@ public class GGPOEndpoint
         // xxx: rig all this up with a timer wrapper
         if (RunningState.last_input_packet_recv_time == 0 || RunningState.last_input_packet_recv_time + RUNNING_RETRY_INTERVAL < now)
         {
-          Utils.Log("Haven't exchanged packets in a while (last received:%d  last sent:%d).  Resending.", _last_received_input.frame, _last_sent_input.frame);
+          GGPOUtils.Log("Haven't exchanged packets in a while (last received:%d  last sent:%d).  Resending.", _last_received_input.frame, _last_sent_input.frame);
           SendPendingOutput();
           RunningState.last_input_packet_recv_time = (uint)now;
         }
@@ -581,7 +581,7 @@ public class GGPOEndpoint
 
         if (_last_send_time != 0 && _last_send_time + KEEP_ALIVE_INTERVAL < now)
         {
-          Utils.Log("Sending keep alive packet");
+          GGPOUtils.Log("Sending keep alive packet");
 
           // NOTE : Check this for memory... 
           var msg = new UdpMsg(EMsgType.KeepAlive);
@@ -591,8 +591,8 @@ public class GGPOEndpoint
         if (_disconnect_timeout != 0 && _disconnect_notify_start != 0 &&
           !_disconnect_notify_sent && (_last_recv_time + _disconnect_notify_start < now))
         {
-          Utils.Log("Endpoint has stopped receiving packets for %d ms.  Sending notification.", _disconnect_notify_start);
-          Event e = new Event(EEventType.NetworkInterrupted);
+          GGPOUtils.Log("Endpoint has stopped receiving packets for %d ms.  Sending notification.", _disconnect_notify_start);
+          UdpEvent e = new UdpEvent(EEventType.NetworkInterrupted);
           e.u.network_interrupted.disconnect_timeout = (int)(_disconnect_timeout - _disconnect_notify_start);
           QueueEvent(e);
           _disconnect_notify_sent = true;
@@ -602,8 +602,8 @@ public class GGPOEndpoint
         {
           if (!_disconnect_event_sent)
           {
-            Utils.Log("Endpoint has stopped receiving packets for %d ms.  Disconnecting.", _disconnect_timeout);
-            QueueEvent(new Event(EEventType.Disconnected));
+            GGPOUtils.Log("Endpoint has stopped receiving packets for %d ms.  Disconnecting.", _disconnect_timeout);
+            QueueEvent(new UdpEvent(EEventType.Disconnected));
             _disconnect_event_sent = true;
           }
         }
@@ -637,7 +637,7 @@ public class GGPOEndpoint
     var pps = (float)_packets_sent * 1000 / (now - _stats_start_time);
     var totalKbs = total_bytes_sent / 1024.0;
 
-    Utils.Log("Network Stats -- Bandwidth: %.2f KBps   Packets Sent: %5d (%.2f pps)   KB Sent: %.2f    UDP Overhead: %.2f pct.",
+    GGPOUtils.Log("Network Stats -- Bandwidth: %.2f KBps   Packets Sent: %5d (%.2f pps)   KB Sent: %.2f    UDP Overhead: %.2f pct.",
     _kbps_sent,
     _packets_sent,
     (float)_packets_sent * 1000 / (now - _stats_start_time),
@@ -656,7 +656,7 @@ public class GGPOEndpoint
 
     // This assert is checking consts.  Probably don't need to do this each time....
     // Can probably do it on program init....
-    Utils.ASSERT((GameInput.GAMEINPUT_MAX_BYTES * GameInput.GAMEINPUT_MAX_PLAYERS * 8) < (1 << BitVector.BITVECTOR_NIBBLE_SIZE));
+    GGPOUtils.ASSERT((GameInput.GAMEINPUT_MAX_BYTES * GameInput.GAMEINPUT_MAX_PLAYERS * 8) < (1 << BitVector.BITVECTOR_NIBBLE_SIZE));
 
 
     if (_pending_output.Size != 0)
@@ -668,7 +668,7 @@ public class GGPOEndpoint
       msg.u.input.start_frame = (uint)_pending_output.Front().frame;
       msg.u.input.input_size = (byte)_pending_output.Front().size;
 
-      Utils.ASSERT(last.frame == -1 || last.frame + 1 == msg.u.input.start_frame);
+      GGPOUtils.ASSERT(last.frame == -1 || last.frame + 1 == msg.u.input.start_frame);
 
       // This is the 'compression'.
       // I'm thinking at some point we let the end user decide how they want to do it?
@@ -684,11 +684,11 @@ public class GGPOEndpoint
 
         // Only update the message if the data is different.
         // if (memcmp(current.bits, last.bits, current.size) != 0)
-        if (!Utils.MemMatches(current.data, last.data, current.size))
+        if (!GGPOUtils.MemMatches(current.data, last.data, current.size))
         {
           for (int j = 0; j < current.size * 8; j++)
           {
-            Utils.ASSERT(j < (1 << BitVector.BITVECTOR_NIBBLE_SIZE));
+            GGPOUtils.ASSERT(j < (1 << BitVector.BITVECTOR_NIBBLE_SIZE));
 
             if (current.value(j) != last.value(j))
             {
@@ -736,7 +736,7 @@ public class GGPOEndpoint
     //  memset(msg.u.input.peer_connect_status, 0, sizeof(UdpMsg::connect_status) * UDP_MSG_MAX_PLAYERS);
     //}
 
-    Utils.ASSERT(offset < GGPOConsts.MAX_COMPRESSED_BITS);
+    GGPOUtils.ASSERT(offset < GGPOConsts.MAX_COMPRESSED_BITS);
 
     SendMsg(ref msg);
   }
@@ -765,7 +765,7 @@ public class GGPOEndpoint
       //{
       //  int x = 10;
       //}
-      Utils.Log("recv", ref msg);
+      GGPOUtils.Log("recv", ref msg);
 
       // Now that we have the message we can do something with it....
       HandleMessage(ref msg, received);
@@ -783,7 +783,7 @@ public class GGPOEndpoint
     {
       if (msg.header.magic != _remote_magic_number)
       {
-        Utils.Log("recv rejecting", msg);
+        GGPOUtils.Log("recv rejecting", msg);
         return;
       }
 
@@ -792,13 +792,13 @@ public class GGPOEndpoint
       // Log("checking sequence number . next - seq : %d - %d = %d", seq, _next_recv_seq, skipped);
       if (skipped > MAX_SEQ_DISTANCE)
       {
-        Utils.Log("dropping out of order packet (seq: %d, last seq:%d)", seq, _next_recv_seq);
+        GGPOUtils.Log("dropping out of order packet (seq: %d, last seq:%d)", seq, _next_recv_seq);
         return;
       }
     }
 
     _next_recv_seq = seq;
-    Utils.Log("recv", msg);
+    GGPOUtils.Log("recv", msg);
     if ((int)msg.header.type >= MsgHandlers.Length)
     {
       OnInvalid(ref msg, msgLen);
@@ -812,7 +812,7 @@ public class GGPOEndpoint
       _last_recv_time = (uint)Clock.ElapsedMilliseconds;
       if (_disconnect_notify_sent && _current_state == EClientState.Running)
       {
-        QueueEvent(new Event(EEventType.NetworkResumed)); // Event(Event::NetworkResumed));
+        QueueEvent(new UdpEvent(EEventType.NetworkResumed)); // Event(Event::NetworkResumed));
         _disconnect_notify_sent = false;
       }
     }
@@ -860,7 +860,7 @@ public class GGPOEndpoint
   {
     if (_remote_magic_number != 0 && msg.header.magic != _remote_magic_number)
     {
-      Utils.Log("Ignoring sync request from unknown endpoint (%d != %d).", msg.header.magic, _remote_magic_number);
+      GGPOUtils.Log("Ignoring sync request from unknown endpoint (%d != %d).", msg.header.magic, _remote_magic_number);
       return false;
     }
     UdpMsg reply = new UdpMsg(EMsgType.SyncReply);
@@ -881,19 +881,19 @@ public class GGPOEndpoint
   {
     if (_current_state != EClientState.Syncing)
     {
-      Utils.Log("Ignoring SyncReply while not synching.");
+      GGPOUtils.Log("Ignoring SyncReply while not synching.");
       return msg.header.magic == _remote_magic_number;
     }
 
     if (msg.u.sync_reply.random_reply != SyncState.random)
     {
-      Utils.Log("sync reply %d != %d.  Keep looking...", msg.u.sync_reply.random_reply, SyncState.random);
+      GGPOUtils.Log("sync reply %d != %d.  Keep looking...", msg.u.sync_reply.random_reply, SyncState.random);
       return false;
     }
 
     if (!_connected)
     {
-      var evt = new Event(EEventType.Connected);
+      var evt = new UdpEvent(EEventType.Connected);
 
       // TODO: A direct copy from sbyte in the future!
       string pn = msg.u.sync_reply.GetPlayerName();
@@ -904,12 +904,12 @@ public class GGPOEndpoint
       _connected = true;
     }
 
-    Utils.Log("Checking sync state (%d round trips remaining).", SyncState.roundtrips_remaining);
+    GGPOUtils.Log("Checking sync state (%d round trips remaining).", SyncState.roundtrips_remaining);
     if (--SyncState.roundtrips_remaining == 0)
     {
-      Utils.Log("Synchronized!");
+      GGPOUtils.Log("Synchronized!");
 
-      var e = new Event(EEventType.Synchronized);
+      var e = new UdpEvent(EEventType.Synchronized);
       QueueEvent(e);
       _current_state = EClientState.Running;
       _last_received_input.frame = -1;
@@ -917,7 +917,7 @@ public class GGPOEndpoint
     }
     else
     {
-      var evt = new Event(EEventType.Synchronizing);
+      var evt = new UdpEvent(EEventType.Synchronizing);
       evt.u.synchronizing.total = SYNC_PACKETS_COUNT;
       evt.u.synchronizing.count = SYNC_PACKETS_COUNT - (int)SyncState.roundtrips_remaining;
       QueueEvent(evt);
@@ -927,9 +927,9 @@ public class GGPOEndpoint
   }
 
   // ------------------------------------------------------------------------
-  private void QueueEvent(in Event evt)
+  private void QueueEvent(in UdpEvent evt)
   {
-    Utils.LogEvent("Queuing event", evt);
+    GGPOUtils.LogEvent("Queuing event", evt);
     _event_queue.Push(evt);
   }
 
@@ -965,7 +965,7 @@ public class GGPOEndpoint
       if (_oop_percent != 0 && !_oo_packet.HasMessage && (Random.Shared.Next(100) < _oop_percent))
       {
         int delay = Random.Shared.Next(_send_latency * 10 + 1000);
-        Utils.Log("creating rogue oop (seq: %d  delay: %d)", entry.msg.header.sequence_number, delay);
+        GGPOUtils.Log("creating rogue oop (seq: %d  delay: %d)", entry.msg.header.sequence_number, delay);
         _oo_packet.queue_time = (int)Clock.ElapsedMilliseconds + delay;
         _oo_packet.msg = entry.msg;
         _oo_packet.dest_addr = entry.dest_addr;
@@ -996,7 +996,7 @@ public class GGPOEndpoint
 
       if (_oo_packet.HasMessage && _oo_packet.queue_time < (int)Clock.ElapsedMilliseconds)
       {
-        Utils.Log("sending rogue oop!");
+        GGPOUtils.Log("sending rogue oop!");
 
         SendMsgPacket(_oo_packet.msg);
         _oo_packet.MsgIndex = -1;
@@ -1115,7 +1115,7 @@ public unsafe struct GameInput
   // ------------------------------------------------------------------------------------------
   public void init(int iframe, byte[] ibits, int isize, int offset)
   {
-    Utils.ASSERT(isize < GAMEINPUT_MAX_BYTES);
+    GGPOUtils.ASSERT(isize < GAMEINPUT_MAX_BYTES);
 
     frame = iframe;
     size = isize;
@@ -1195,27 +1195,27 @@ public unsafe struct GameInput
     bool bitsonly = true;
     if (!bitsonly && frame != other.frame)
     {
-      Utils.Log("frames don't match: %d, %d", frame, other.frame);
+      GGPOUtils.Log("frames don't match: %d, %d", frame, other.frame);
     }
     if (size != other.size)
     {
-      Utils.Log("sizes don't match: %d, %d", size, other.size);
+      GGPOUtils.Log("sizes don't match: %d, %d", size, other.size);
     }
 
     bool memMatch = false;
     fixed (byte* p = data)
     fixed (byte* p2 = other.data)
     {
-      memMatch = Utils.MemMatches(p, p2, size);
+      memMatch = GGPOUtils.MemMatches(p, p2, size);
     }
 
     if (!memMatch)
     {
-      Utils.Log("bits don't match");
+      GGPOUtils.Log("bits don't match");
     }
 
     // NOTE: Because of this assert, we don't need to check the condition: size==other.size
-    Utils.ASSERT(size != 0 && other.size != 0);
+    GGPOUtils.ASSERT(size != 0 && other.size != 0);
     return (bitsonly || frame == other.frame) &&
            size == other.size &&
            memMatch;
@@ -1259,14 +1259,14 @@ public enum EEventType
 
 // ================================================================================================
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-public unsafe struct Event
+public unsafe struct UdpEvent
 {
 
   // ----------------------------------------------------------------------------------------------
-  public Event() { }
+  public UdpEvent() { }
 
   // ----------------------------------------------------------------------------------------------
-  public Event(EEventType eventType_)
+  public UdpEvent(EEventType eventType_)
   {
     type = eventType_;
   }

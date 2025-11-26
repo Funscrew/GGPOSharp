@@ -5,14 +5,14 @@ using System.Text;
 namespace GGPOSharp;
 
 // =======================================================================================
-public static class Utils
+public static class GGPOUtils
 {
   public static bool IsLoggingEnabled = false;
 
   private static FileStream? MsgLogFile = null;
 
   // ------------------------------------------------------------------------
-  static Utils()
+  static GGPOUtils()
   {
     // TEMP: I am just going to slap some data to disk so we can figure out some issues....
     string msgLogPath = "msglog.txt";
@@ -26,7 +26,7 @@ public static class Utils
   }
 
   // ------------------------------------------------------------------------
-  internal static void LogEvent(string v, Event evt)
+  internal static void LogEvent(string v, UdpEvent evt)
   {
     // Debug.WriteLine("implement this logging!");
     // throw new NotImplementedException();
@@ -88,7 +88,7 @@ public static class Utils
   internal static void Log(string msg)
   {
     // TODO: Hand this off to a real logging facility....
-    if (Utils.IsLoggingEnabled)
+    if (GGPOUtils.IsLoggingEnabled)
     {
       Console.WriteLine(msg);
     }

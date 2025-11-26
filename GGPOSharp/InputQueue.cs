@@ -92,7 +92,7 @@ class InputQueue
   // ------------------------------------------------------------------------------------------
   internal int GetLastConfirmedFrame()
   {
-    Utils.Log("returning last confirmed frame %d.", _last_added_frame);
+    GGPOUtils.Log("returning last confirmed frame %d.", _last_added_frame);
     return _last_added_frame;
   }
 
@@ -105,14 +105,14 @@ class InputQueue
   // ------------------------------------------------------------------------------------------
   internal void DiscardConfirmedFrames(int frame)
   {
-    Utils.ASSERT(frame >= 0);
+    GGPOUtils.ASSERT(frame >= 0);
 
     if (_last_frame_requested != GameInput.NULL_FRAME)
     {
       frame = Math.Min(frame, _last_frame_requested);
     }
 
-    Utils.Log("discarding confirmed frames up to %d (last_added:%d length:%d [head:%d tail:%d]).", frame, _last_added_frame, _length, _head, _tail);
+    GGPOUtils.Log("discarding confirmed frames up to %d (last_added:%d length:%d [head:%d tail:%d]).", frame, _last_added_frame, _length, _head, _tail);
     // frame, _last_added_frame, _length, _head, _tail);
     if (frame >= _last_added_frame)
     {
@@ -122,23 +122,23 @@ class InputQueue
     {
       int offset = frame - _inputs[_tail].frame + 1;
 
-      Utils.Log("difference of %d frames.", offset);
-      Utils.ASSERT(offset >= 0);
+      GGPOUtils.Log("difference of %d frames.", offset);
+      GGPOUtils.ASSERT(offset >= 0);
 
       _tail = (_tail + offset) % GGPOConsts.INPUT_QUEUE_LENGTH;
       _length -= offset;
     }
 
-    Utils.Log("after discarding, new tail is %d (frame:%d).", _tail, _inputs[_tail].frame);
-    Utils.ASSERT(_length >= 0);
+    GGPOUtils.Log("after discarding, new tail is %d (frame:%d).", _tail, _inputs[_tail].frame);
+    GGPOUtils.ASSERT(_length >= 0);
   }
 
   // ------------------------------------------------------------------------------------------
   internal void ResetPrediction(int frame)
   {
-    Utils.ASSERT(_first_incorrect_frame == GameInput.NULL_FRAME || frame <= _first_incorrect_frame);
+    GGPOUtils.ASSERT(_first_incorrect_frame == GameInput.NULL_FRAME || frame <= _first_incorrect_frame);
 
-    Utils.Log("resetting all prediction errors back to frame %d.", frame);
+    GGPOUtils.Log("resetting all prediction errors back to frame %d.", frame);
 
     /*
      * There's nothing really to do other than reset our prediction
@@ -152,7 +152,7 @@ class InputQueue
   // ------------------------------------------------------------------------------------------
   internal bool GetConfirmedInput(int requested_frame, ref GameInput input)
   {
-    Utils.ASSERT(_first_incorrect_frame == GameInput.NULL_FRAME || requested_frame < _first_incorrect_frame);
+    GGPOUtils.ASSERT(_first_incorrect_frame == GameInput.NULL_FRAME || requested_frame < _first_incorrect_frame);
     int offset = requested_frame % GGPOConsts.INPUT_QUEUE_LENGTH;
     if (_inputs[offset].frame != requested_frame)
     {
@@ -170,14 +170,14 @@ class InputQueue
   // ------------------------------------------------------------------------------------------
   internal bool GetInput(int requested_frame, ref GameInput input)
   {
-    Utils.Log("requesting input frame %d.", requested_frame);
+    GGPOUtils.Log("requesting input frame %d.", requested_frame);
 
     /*
      * No one should ever try to grab any input when we have a prediction
      * error.  Doing so means that we're just going further down the wrong
      * path. Utils.ASSERT this to verify that it's true.
      */
-    Utils.ASSERT(_first_incorrect_frame == GameInput.NULL_FRAME);
+    GGPOUtils.ASSERT(_first_incorrect_frame == GameInput.NULL_FRAME);
 
     /*
      * Remember the last requested frame number for later.  We'll need
@@ -185,7 +185,7 @@ class InputQueue
      */
     _last_frame_requested = requested_frame;
 
-    Utils.ASSERT(requested_frame >= _inputs[_tail].frame);
+    GGPOUtils.ASSERT(requested_frame >= _inputs[_tail].frame);
 
     if (_prediction.frame == GameInput.NULL_FRAME)
     {
@@ -198,7 +198,7 @@ class InputQueue
       if (offset < _length)
       {
         offset = (offset + _tail) % GGPOConsts.INPUT_QUEUE_LENGTH;
-        Utils.ASSERT(_inputs[offset].frame == requested_frame);
+        GGPOUtils.ASSERT(_inputs[offset].frame == requested_frame);
 
         // OLD:
         // *input = _inputs[offset];
@@ -207,7 +207,7 @@ class InputQueue
         // Is this equivalent of the 'OLD' version?
         input = _inputs[offset];
 
-        Utils.Log("returning confirmed frame number %d.", input.frame);
+        GGPOUtils.Log("returning confirmed frame number %d.", input.frame);
         return true;
       }
 
@@ -218,23 +218,23 @@ class InputQueue
        */
       if (requested_frame == 0)
       {
-        Utils.Log("basing new prediction frame from nothing, you're client wants frame 0.");
+        GGPOUtils.Log("basing new prediction frame from nothing, you're client wants frame 0.");
         _prediction.erase();
       }
       else if (_last_added_frame == GameInput.NULL_FRAME)
       {
-        Utils.Log("basing new prediction frame from nothing, since we have no frames yet.");
+        GGPOUtils.Log("basing new prediction frame from nothing, since we have no frames yet.");
         _prediction.erase();
       }
       else
       {
-        Utils.Log("basing new prediction frame from previously added frame (queue entry:%d, frame:%d).", PREVIOUS_FRAME(_head), _inputs[PREVIOUS_FRAME(_head)].frame);
+        GGPOUtils.Log("basing new prediction frame from previously added frame (queue entry:%d, frame:%d).", PREVIOUS_FRAME(_head), _inputs[PREVIOUS_FRAME(_head)].frame);
         _prediction = _inputs[PREVIOUS_FRAME(_head)];
       }
       _prediction.frame++;
     }
 
-    Utils.ASSERT(_prediction.frame >= 0);
+    GGPOUtils.ASSERT(_prediction.frame >= 0);
 
     /*
      * If we've made it this far, we must be predicting.  Go ahead and
@@ -249,7 +249,7 @@ class InputQueue
     input = _prediction;
 
     input.frame = requested_frame;
-    Utils.Log("returning prediction frame number %d (%d).", input.frame, _prediction.frame);
+    GGPOUtils.Log("returning prediction frame number %d (%d).", input.frame, _prediction.frame);
 
     return false;
   }
@@ -259,13 +259,13 @@ class InputQueue
   {
     int new_frame;
 
-    Utils.Log("adding input frame number %d to queue.", input.frame);
+    GGPOUtils.Log("adding input frame number %d to queue.", input.frame);
 
     /*
      * These next two lines simply verify that inputs are passed in 
      * sequentially by the user, regardless of frame delay.
      */
-    Utils.ASSERT(_last_user_added_frame == GameInput.NULL_FRAME || input.frame == _last_user_added_frame + 1);
+    GGPOUtils.ASSERT(_last_user_added_frame == GameInput.NULL_FRAME || input.frame == _last_user_added_frame + 1);
     _last_user_added_frame = input.frame;
 
     /*
@@ -290,13 +290,13 @@ class InputQueue
   // ------------------------------------------------------------------------------------------
   void AddDelayedInputToQueue(in GameInput input, int frame_number)
   {
-    Utils.Log("adding delayed input frame number %d to queue.", frame_number);
+    GGPOUtils.Log("adding delayed input frame number %d to queue.", frame_number);
 
-    Utils.ASSERT(input.size == _prediction.size);
+    GGPOUtils.ASSERT(input.size == _prediction.size);
 
-    Utils.ASSERT(_last_added_frame == GameInput.NULL_FRAME || frame_number == _last_added_frame + 1);
+    GGPOUtils.ASSERT(_last_added_frame == GameInput.NULL_FRAME || frame_number == _last_added_frame + 1);
 
-    Utils.ASSERT(frame_number == 0 || _inputs[PREVIOUS_FRAME(_head)].frame == frame_number - 1);
+    GGPOUtils.ASSERT(frame_number == 0 || _inputs[PREVIOUS_FRAME(_head)].frame == frame_number - 1);
 
     /*
      * Add the frame to the back of the queue
@@ -311,7 +311,7 @@ class InputQueue
 
     if (_prediction.frame != GameInput.NULL_FRAME)
     {
-      Utils.ASSERT(frame_number == _prediction.frame);
+      GGPOUtils.ASSERT(frame_number == _prediction.frame);
 
       /*
        * We've been predicting...  See if the inputs we've gotten match
@@ -321,7 +321,7 @@ class InputQueue
        */
       if (_first_incorrect_frame == GameInput.NULL_FRAME && !_prediction.equal(input))
       {
-        Utils.Log("frame %d does not match prediction.  marking error.", frame_number);
+        GGPOUtils.Log("frame %d does not match prediction.  marking error.", frame_number);
         _first_incorrect_frame = frame_number;
       }
 
@@ -333,7 +333,7 @@ class InputQueue
        */
       if (_prediction.frame == _last_frame_requested && _first_incorrect_frame == GameInput.NULL_FRAME)
       {
-        Utils.Log("prediction is correct!  dumping out of prediction mode.");
+        GGPOUtils.Log("prediction is correct!  dumping out of prediction mode.");
         _prediction.frame = GameInput.NULL_FRAME;
       }
       else
@@ -341,13 +341,13 @@ class InputQueue
         _prediction.frame++;
       }
     }
-    Utils.ASSERT(_length <= GGPOConsts.INPUT_QUEUE_LENGTH);
+    GGPOUtils.ASSERT(_length <= GGPOConsts.INPUT_QUEUE_LENGTH);
   }
 
   // ------------------------------------------------------------------------------------------
   int AdvanceQueueHead(int frame)
   {
-    Utils.Log("advancing queue head to frame %d.", frame);
+    GGPOUtils.Log("advancing queue head to frame %d.", frame);
 
     int expected_frame = _first_frame ? 0 : _inputs[PREVIOUS_FRAME(_head)].frame + 1;
 
@@ -360,7 +360,7 @@ class InputQueue
        * time we shoved a frame into the system.  In this case, there's
        * no room on the queue.  Toss it.
        */
-      Utils.Log("Dropping input frame %d (expected next frame to be %d).",
+      GGPOUtils.Log("Dropping input frame %d (expected next frame to be %d).",
            frame, expected_frame);
       return GameInput.NULL_FRAME;
     }
@@ -373,7 +373,7 @@ class InputQueue
        * last frame in the queue several times in order to fill the space
        * left.
        */
-      Utils.Log("Adding padding frame %d to account for change in frame delay.", expected_frame);
+      GGPOUtils.Log("Adding padding frame %d to account for change in frame delay.", expected_frame);
 
       // REVIEW: Can we get a ref to this input?
       // GameInput& last_frame = _inputs[PREVIOUS_FRAME(_head)];
@@ -383,7 +383,7 @@ class InputQueue
       expected_frame++;
     }
 
-    Utils.ASSERT(frame == 0 || frame == _inputs[PREVIOUS_FRAME(_head)].frame + 1);
+    GGPOUtils.ASSERT(frame == 0 || frame == _inputs[PREVIOUS_FRAME(_head)].frame + 1);
     return frame;
   }
 
