@@ -32,7 +32,7 @@ namespace GGPOSharp
       // TODO: Copy the CLI command from fs-fbneo for this....
       var logOps = new GGPOLogOptions()
       {
-        LogToFile = true,
+        LogToFile = false,
         FilePath = "ggpo-log.txt",
         ActiveCategories = $"{LogCategories.MESSAGE}"
       };

@@ -87,7 +87,7 @@ namespace GGPOSharp
     }
 
     // ------------------------------------------------------------------------------------------
-    public int Send(byte[] buffer, int size, ref EndPoint remoteEndPoint)
+    public int Send(byte[] buffer, int size,  SocketAddress remoteEndPoint)
     {
       if (buffer == null)
       {
@@ -103,7 +103,9 @@ namespace GGPOSharp
       // In reality, we will use the network family that we initialize this with!
       // TODO: This is probably making garbage....
       //  EndPoint ep = remoteEndPoint; // ForceIPv6(remoteEndPoint);
-      int sent = Socket.SendTo(buffer, 0, size, SocketFlags.None, remoteEndPoint);
+      var span = new ReadOnlySpan<byte>(buffer, 0, size); 
+      int sent = Socket.SendTo(span, SocketFlags.None, remoteEndPoint); 
+      //int sent = Socket.SendTo(buffer, 0, size, SocketFlags.None, remoteEndPoint);
       return sent;
     }
 

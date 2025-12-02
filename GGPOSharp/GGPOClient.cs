@@ -537,8 +537,7 @@ public class GGPOClient
 
     _endpoints[playerIndex].Disconnect();
 
-    Utils.LogIt(LogCategories.ENDPOINT, "Changing player: %d local connect status for last frame from %d to %d on disconnect request (current: %d).",
-        playerIndex, _local_connect_status[playerIndex].last_frame, syncto, framecount);
+    Utils.LogIt(LogCategories.ENDPOINT, "Changing player: %d local connect status for last frame from %d to %d on disconnect request (current: %d).", playerIndex, _local_connect_status[playerIndex].last_frame, syncto, framecount);
 
     _local_connect_status[playerIndex].disconnected = true;
     _local_connect_status[playerIndex].last_frame = syncto;

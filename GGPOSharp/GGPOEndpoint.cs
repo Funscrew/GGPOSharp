@@ -69,7 +69,8 @@ public class GGPOEndpoint
   private int LocalPort;
   private int RemotePort;
   private IPEndPoint RemoteIP;
-  private EndPoint UseRemote;
+  private EndPoint RemoteEP;
+  private SocketAddress UseRemote;
 
   private GGPOEndpointOptions Options = null!;
 
@@ -152,7 +153,8 @@ public class GGPOEndpoint
     Client = client_;
 
     RemoteIP = new IPEndPoint(IPAddress.Parse(Options.RemoteHost), Options.RemotePort);
-    UseRemote = RemoteIP;
+    RemoteEP = RemoteIP;
+    UseRemote = RemoteIP.Serialize();
 
     _last_sent_input.init(-1, null, 1);
     _last_received_input.init(-1, null, 1);
@@ -738,7 +740,7 @@ public class GGPOEndpoint
     {
       // Get the next message.....
       // byte[] data = Client.Receive
-      int received = Client.UdpClient.Receive(ReceiveBuffer, ref UseRemote);
+      int received = Client.UdpClient.Receive(ReceiveBuffer, ref RemoteEP);
       if (received == 0)
       {
         break;
@@ -990,6 +992,8 @@ public class GGPOEndpoint
 
   }
 
+  private byte[] _SendBuffer = new byte[4200];
+
   // ------------------------------------------------------------------------
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
   private void SendMsgPacket(in UdpMsg msg)
@@ -998,13 +1002,13 @@ public class GGPOEndpoint
 
     // NOTE: This should be at class level so we don't make too much garbage...
     // Or we could use a span?
-    byte[] toSend = new byte[4200];
-    UdpMsg.ToBytes(msg, toSend, packetSize);
+    // byte[] toSend = new byte[4200];
+    UdpMsg.ToBytes(msg, _SendBuffer, packetSize);
     // Client.Send(toSend, packetSize);
 
 
     // Client.Send(toSend, packetSize, Remote);
-    Client.UdpClient.Send(toSend, packetSize, ref UseRemote);
+    Client.UdpClient.Send(_SendBuffer, packetSize, UseRemote);
   }
 
 
