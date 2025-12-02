@@ -494,7 +494,7 @@ public class GGPOEndpoint
 
       // NOTE: This is a BIG copy, so we will find a different way to handle it in the future.
       // probably index into a fixed size array.
-      // msg = msg,
+      msg = msg,
     });
 
     Utils.LogMsg(EMsgDirection.Send, ref msg);

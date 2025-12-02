@@ -29,6 +29,16 @@ namespace GGPOSharp
     {
       Console.WriteLine("Welcome to GGPO Example Client!");
 
+      // TODO: Copy the CLI command from fs-fbneo for this....
+      var logOps = new GGPOLogOptions()
+      {
+        LogToFile = true,
+        FilePath = "ggpo-log.txt",
+        ActiveCategories = $"{LogCategories.MESSAGE}"
+      };
+      Utils.InitLogging(logOps);
+
+
       const int PLAYER_ONE = 0;
       const int PLAYER_TWO = 1;
       var ops = new GGPOClientOptions(PLAYER_ONE, "Screwie", Defaults.LOCAL_PORT)

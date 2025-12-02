@@ -384,7 +384,6 @@ public struct U
   [FieldOffset(0)] public Chat chat;
 }
 
-// If you have a containing message type with the union named "u" (like in your C++):
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct Message
 {
@@ -471,6 +470,7 @@ public struct UdpMsg
 
   }
 
+  // -------------------------------------------------------------------------------------------------------------
   public static unsafe void FromBytes(byte[] data, ref UdpMsg res, int len)
   {
     if (data == null) throw new ArgumentNullException(nameof(data));

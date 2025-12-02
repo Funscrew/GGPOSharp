@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace GGPOSharp;
@@ -27,6 +28,8 @@ public static class Utils
   private static bool IsLogActive = false;
   private static FileStream? LogStream = null;
 
+  private static Stopwatch Clock = Stopwatch.StartNew();
+
   // ------------------------------------------------------------------------
   internal static void InitLogging(GGPOLogOptions options_)
   {
@@ -40,10 +43,11 @@ public static class Utils
       // Write the init message...
       // TODO: Maybe we could add some more information about the current GGPO settings?  delay, etc.?
       WriteString(LogStream, "# GGPO-LOG\n");
-      WriteString(LogStream, "# VERSION:% d\n", LOG_VERSION);
+      WriteString(LogStream, "# VERSION:%d\n", LOG_VERSION);
 
       int len = LogOptions.ActiveCategories.Length;
       WriteString(LogStream, "# ACTIVE: %s\n", len == 0 ? "[ALL]" : LogOptions.ActiveCategories);
+      WriteString(LogStream, "# START:%d\n", Clock.ElapsedMilliseconds);
     }
   }
 
@@ -77,9 +81,9 @@ public static class Utils
   {
     if (!IsLogActive || !IsCategoryActive(category)) { return; }
 
-    int time = 1;
+    long time = Clock.ElapsedMilliseconds;
     string msg = $"{time}|{category}|{string.Format(fmt, args)}\n";
-    WriteString(LogStream!, fmt, args);
+    WriteString(LogStream!, msg);
   }
 
   // ------------------------------------------------------------------------
