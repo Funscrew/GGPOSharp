@@ -69,6 +69,78 @@ public static class Utils
     }
   }
 
+  #region Logging Overloads
+
+  // ------------------------------------------------------------------------
+  // A bunch of overaloaded versions of the logging so that we don't create garbage when calling logging functions, but log/categoey is disabled.
+  internal static void LogIt(string category, string fmt)
+  {
+    if (!IsLogActive || !IsCategoryActive(category)) { return; }
+    LogIt_Internal(category, fmt);
+  }
+
+  // ------------------------------------------------------------------------
+  // A bunch of overaloaded versions of the logging so that we don't create garbage when calling logging functions, but log/categoey is disabled.
+  internal static void LogIt(string category, string fmt, int val1)
+  {
+    if (!IsLogActive || !IsCategoryActive(category)) { return; }
+    LogIt_Internal(category, fmt, val1);
+  }
+
+  // ------------------------------------------------------------------------
+  // A bunch of overaloaded versions of the logging so that we don't create garbage when calling logging functions, but log/categoey is disabled.
+  internal static void LogIt(string category, string fmt, uint val1)
+  {
+    if (!IsLogActive || !IsCategoryActive(category)) { return; }
+    LogIt_Internal(category, fmt, val1);
+  }
+
+  // ------------------------------------------------------------------------
+  internal static void LogIt(string category, string fmt, int val1, int val2)
+  {
+    if (!IsLogActive || !IsCategoryActive(category)) { return; }
+    LogIt_Internal(category, fmt, val1, val2);
+  }
+
+  // ------------------------------------------------------------------------
+  internal static void LogIt(string category, string fmt, uint val1, uint val2)
+  {
+    if (!IsLogActive || !IsCategoryActive(category)) { return; }
+    LogIt_Internal(category, fmt, val1, val2);
+  }
+
+  // ------------------------------------------------------------------------
+  internal static void LogIt(string category, string fmt, int val1, int val2, int val3, int val4)
+  {
+    if (!IsLogActive || !IsCategoryActive(category)) { return; }
+    LogIt_Internal(category, fmt, val1, val2, val3, val4);
+  }
+
+  // ------------------------------------------------------------------------
+  internal static void LogIt(string category, string fmt, int val1, int val2, int val3, int val4, int val5)
+  {
+    if (!IsLogActive || !IsCategoryActive(category)) { return; }
+    LogIt_Internal(category, fmt, val1, val2, val3, val4, val5);
+  }
+
+  // ------------------------------------------------------------------------
+  internal static void LogIt(string category, string fmt, int val1, int val2, int val3)
+  {
+    if (!IsLogActive || !IsCategoryActive(category)) { return; }
+    LogIt_Internal(category, fmt, val1, val2, val3);
+  }
+
+  // ------------------------------------------------------------------------
+  internal static void LogIt(string category, string fmt, bool val1, int val2, int val3)
+  {
+    if (!IsLogActive || !IsCategoryActive(category)) { return; }
+    LogIt_Internal(category, fmt, val1, val2, val3);
+  }
+
+
+
+  #endregion
+
   // ------------------------------------------------------------------------
   internal static bool IsCategoryActive(string category)
   {
@@ -76,10 +148,11 @@ public static class Utils
     return res;
   }
 
+
   // ------------------------------------------------------------------------
-  internal static void LogIt(string category, string fmt, params object[] args)
+  private static void LogIt_Internal(string category, string fmt, params object[] args)
   {
-    if (!IsLogActive || !IsCategoryActive(category)) { return; }
+    // if (!IsLogActive || !IsCategoryActive(category)) { return; }
 
     long time = Clock.ElapsedMilliseconds;
     string msg = $"{time}|{category}|{string.Format(fmt, args)}\n";
@@ -91,7 +164,7 @@ public static class Utils
   {
     if (!IsLogActive || !IsCategoryActive(LogCategories.EVENT)) { return; }
 
-    LogIt(LogCategories.EVENT, "%d", (int)evt.type);
+    LogIt_Internal(LogCategories.EVENT, "%d", (int)evt.type);
   }
 
   // ----------------------------------------------------------------------------------------------------------------
@@ -132,7 +205,7 @@ public static class Utils
         break;
     }
 
-    LogIt(LogCategories.MESSAGE, msgBuf);
+    LogIt_Internal(LogCategories.MESSAGE, msgBuf);
   }
 
 
@@ -141,7 +214,7 @@ public static class Utils
   {
     if (!IsLogActive || !IsCategoryActive(LogCategories.NETWORK)) { return; }
 
-    LogIt(LogCategories.NETWORK, "%d:%d:%d", totalBytesSent, totalPacketsSent, ping);
+    LogIt_Internal(LogCategories.NETWORK, "%d:%d:%d", totalBytesSent, totalPacketsSent, ping);
   }
 
   //// ------------------------------------------------------------------------
