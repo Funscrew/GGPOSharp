@@ -106,7 +106,7 @@ public class GGPOClient
   }
 
   // ----------------------------------------------------------------------------------------
-  public GGPOEndpoint AddRemote(string remoteHost, int remotePort, int playerIndex ,TestOptions? testOptions = null)
+  public GGPOEndpoint AddRemote(string remoteHost, int remotePort, int playerIndex, TestOptions? testOptions = null)
   {
     CheckLocked();
 
@@ -177,12 +177,12 @@ public class GGPOClient
         total_min_confirmed = PollNPlayers(current_frame);
       }
 
-      GGPOUtils.Log("last confirmed frame in p2p backend is %d.", total_min_confirmed);
+      Utils.LogIt(LogCategories.ENDPOINT, "last confirmed: %d.", total_min_confirmed);
       if (total_min_confirmed >= 0)
       {
-        GGPOUtils.ASSERT(total_min_confirmed != int.MaxValue);
+        Utils.ASSERT(total_min_confirmed != int.MaxValue);
 
-        GGPOUtils.Log("setting confirmed frame in sync to %d.", total_min_confirmed);
+        Utils.LogIt(LogCategories.ENDPOINT, "set confirmed: %d.", total_min_confirmed);
         _sync.SetLastConfirmedFrame(total_min_confirmed);
       }
 
@@ -248,13 +248,12 @@ public class GGPOClient
       {
         total_min_confirmed = Math.Min(_local_connect_status[epi].last_frame, total_min_confirmed);
       }
-      GGPOUtils.Log("  local endp: connected = %d, last_received = %d, total_min_confirmed = %d.", !_local_connect_status[i].disconnected, _local_connect_status[i].last_frame, total_min_confirmed);
+      Utils.LogIt(LogCategories.ENDPOINT, "local frame: %d, last: %d, confirmed: %d", !_local_connect_status[i].disconnected, _local_connect_status[i].last_frame, total_min_confirmed);
       if (!queue_connected && !_local_connect_status[epi].disconnected)
       {
-        GGPOUtils.Log("disconnecting i %d by remote request.", i);
+        Utils.LogIt(LogCategories.ENDPOINT, "disconnect by request: %d", i);
         DisconnectPlayer(epi, total_min_confirmed);
       }
-      GGPOUtils.Log("  total_min_confirmed = %d.", total_min_confirmed);
     }
     return total_min_confirmed;
   }
@@ -323,7 +322,7 @@ public class GGPOClient
   // ----------------------------------------------------------------------------------------------------------
   public bool IncrementFrame()
   {
-    GGPOUtils.Log("End of frame (%d)...", _sync.GetFrameCount());
+    // Utils.Log("End of frame (%d)...", _sync.GetFrameCount());
     _sync.IncrementFrame();
     DoPoll(0);
     PollSyncEvents();
@@ -370,7 +369,7 @@ public class GGPOClient
     // NOTE: We aren't doing anything with the flags... I think the system is probably using the event codes
     // to playerIndex this kind of thing......
     _sync.SynchronizeInputs(values, isize * maxPlayers);
-    
+
 
     return true;
 
@@ -399,7 +398,6 @@ public class GGPOClient
     if (!_sync.AddLocalInput(Options.PlayerIndex, ref input))
     {
       // return GGPO_ERRORCODE_PREDICTION_THRESHOLD;
-      GGPOUtils.Log("Prediction threshold met!", false);
       return false;
     }
 
@@ -412,7 +410,7 @@ public class GGPOClient
       // NOTE: All endpoints send out the _local_connect_status data with each message.
       // An ideal implemetation would have a single 'client' that we set this data on,
       // and then all endpoints would also be contained internally.
-      GGPOUtils.Log("setting local connect status for local player %d to %d", Options.PlayerIndex, input.frame);
+      Utils.LogIt(LogCategories.INPUT, "local frame for: %d - %d", Options.PlayerIndex, input.frame);
       _local_connect_status[Options.PlayerIndex].last_frame = input.frame;
 
       // Send the input to all the remote players.
@@ -425,14 +423,6 @@ public class GGPOClient
         var ep = _endpoints[i];
         ep.SendInput(ref input);
       }
-      // C++ Style:
-      //for (int i = 0; i < _num_players; i++)
-      //{
-      //  if (_endpoints[i].IsInitialized())
-      //  {
-      //    _endpoints[i].SendInput(input);
-      //  }
-      //}
     }
 
     return true;
@@ -478,11 +468,11 @@ public class GGPOClient
 
           int current_remote_frame = _local_connect_status[playerIndex].last_frame;
           int new_remote_frame = evt.u.input.frame;
-          GGPOUtils.ASSERT(current_remote_frame == -1 || new_remote_frame == (current_remote_frame + 1));
+          Utils.ASSERT(current_remote_frame == -1 || new_remote_frame == (current_remote_frame + 1));
 
           _sync.AddRemoteInput(playerIndex, ref evt.u.input);
           // Notify the other endpoints which frame we received from a peer
-          GGPOUtils.Log("setting remote connect status for playerIndex %d to %d", playerIndex, evt.u.input.frame);
+          Utils.LogIt(LogCategories.INPUT, "remote frame for: %d - %d", playerIndex, evt.u.input.frame);
           _local_connect_status[playerIndex].last_frame = evt.u.input.frame;
         }
         break;
@@ -518,7 +508,7 @@ public class GGPOClient
       int current_frame = _sync.GetFrameCount();
       // xxx: we should be tracking who the local player is, but for now assume
       // that if the endpoint is not initalized, this must be the local player.
-      GGPOUtils.Log("Disconnecting local player %d at frame %d by user request.", queue, _local_connect_status[queue].last_frame);
+      Utils.LogIt(LogCategories.ENDPOINT, "Disconnecting local player %d at frame %d by user request.", playerIndex, _local_connect_status[playerIndex].last_frame);
       int epCount = _endpoints.Count;
       for (UInt16 i = 0; i < epCount; i++)
       {
@@ -531,7 +521,7 @@ public class GGPOClient
     }
     else
     {
-      GGPOUtils.Log("Disconnecting playerIndex %d at frame %d by user request.", queue, _local_connect_status[queue].last_frame);
+      Utils.LogIt(LogCategories.ENDPOINT, "Disconnecting player: %d at frame: %d by user request.", playerIndex, _local_connect_status[playerIndex].last_frame);
       DisconnectPlayer(queue, _local_connect_status[queue].last_frame);
     }
 
@@ -547,17 +537,17 @@ public class GGPOClient
 
     _endpoints[playerIndex].Disconnect();
 
-    GGPOUtils.Log("Changing playerIndex %d local connect status for last frame from %d to %d on disconnect request (current: %d).",
-      playerIndex, _local_connect_status[playerIndex].last_frame, syncto, framecount);
+    Utils.LogIt(LogCategories.ENDPOINT, "Changing player: %d local connect status for last frame from %d to %d on disconnect request (current: %d).",
+        playerIndex, _local_connect_status[playerIndex].last_frame, syncto, framecount);
 
     _local_connect_status[playerIndex].disconnected = true;
     _local_connect_status[playerIndex].last_frame = syncto;
 
     if (syncto < framecount)
     {
-      GGPOUtils.Log("adjusting simulation to account for the fact that %d disconnected @ %d.", playerIndex, syncto);
+      Utils.LogIt(LogCategories.ENDPOINT, "adjusting simulation to account for the fact that %d disconnected @ %d.", playerIndex, syncto);
       _sync.AdjustSimulation(syncto);
-      GGPOUtils.Log("finished adjusting simulation.");
+      Utils.LogIt(LogCategories.ENDPOINT, "finished adjusting simulation.");
     }
 
     info.code = EEventCode.GGPO_EVENTCODE_DISCONNECTED_FROM_PEER;
@@ -647,8 +637,8 @@ public class GGPOClient
         var ep = _endpoints[i];
         int epi = ep.PlayerIndex;
         // xxx: IsInitialized() must go... we're actually using it as a proxy for "represents the local player"
-        if (ep.IsInitialized() && 
-            !ep.IsSynchronized() && 
+        if (ep.IsInitialized() &&
+            !ep.IsSynchronized() &&
             !_local_connect_status[epi].disconnected)
         {
           return;

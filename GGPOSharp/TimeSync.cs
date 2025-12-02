@@ -65,7 +65,7 @@ public class TimeSync
     // sleep for.
     int sleep_frames = (int)(((radvantage - advantage) / 2) + 0.5);
 
-    GGPOUtils.Log("iteration %d:  sleep frames is %d", count, sleep_frames);
+    Utils.LogIt(LogCategories.TIMESYNC, "iteration %d:  sleep frames is %d", count, sleep_frames);
 
     // Some things just aren't worth correcting for.  Make sure
     // the difference is relevant before proceeding.
@@ -84,7 +84,7 @@ public class TimeSync
       {
         if (!_last_inputs[i].equal(ref _last_inputs[0]))
         {
-          GGPOUtils.Log("iteration %d:  rejecting due to input stuff at position %d...!!!", count, i);
+          Utils.LogIt(LogCategories.TIMESYNC, "iteration %d:  rejecting due to input stuff at position %d...!!!", count, i);
           return 0;
         }
       }

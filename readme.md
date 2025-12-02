@@ -40,3 +40,47 @@ want to be sure that there isn't a bunch of garbage creation / collection.  Idea
 - Do some testing with OO (out of order) packets.  I'm still not clear on how GGPO handles this, if at all.
 
 
+
+
+
+
+
+# GGPO PROTO:
+
+
+## Notes:
+
+
+## STEPS:
+# Synchronize
+###  Running:
+Clients are now exchanging packets.  Inspection of those packets 
+Sync / Handshake:
+During sync operations, each client sends a sync request, and expects a response from the endpoint.
+For robustness, a certain number (default = 5) of successful sync replies are required before the clients will be considered synchronized.
+
+## Polling and Events:
+Each of the clients / backends poll each game frame.  This is where messages are send, received, and handled.  Events are created for processing in the next step.
+After the polling step, the client will handle any events that were put the in the queue.
+
+
+
+
+## GGPO Sepcific (C++)
+- Each of the backends has a list of 'endpoints' that it communicates with.  This is the equivalent of one of the C# GGPOClient classes.
+- Each endpoint is initialized with UDP connection information and a *poll manager*.
+- Each of the endpoints share the same poll manager instance.
+- Both UdpProtocol and Udp (the main UDP client wrapper) use the IPollSink interface, and so each of them get called in PollManager::Pump()
+-- Udp is initialized when the backend is setup, and UdpProto is initialized when each of the players (endpoints) are added.  This means that Udp will always poll first
+and this is where the network data (messages) comes from.  It makes sense to do it first, IMO....
+-- Each backend has its own Udp instance, so only the poll manager, which fires off the callbacks, is shared between everything.  Personally, I am not really sure why there is a poll manager at all..... maybe because of the periodic, and msg sinks which are never actually used?  Anyway, pollmgr + 'loop sinks' seem to be overkil
+at the moment, so I will not use that approach in the C# client, and will opt for something a bit more direct for now.
+
+- When Udp receives a message from the network it hands it off to the callbacks, which are located in the backends (p2p, etc.)  Because the backends can have
+more than one connection, each are first checked via HandlesMessage, which does an address check:
+```
+  return _peer_addr.sin_addr.S_un.S_addr == from.sin_addr.S_un.S_addr &&
+    _peer_addr.sin_port == from.sin_port;
+```
+to make sure that the endpoint (udpprotocol) that sent the message doesn't handle it.  This makes sense to me, but not sure if the C# model will end up this way...
+Anyway, UdpProtocol uses an array of function pointers for the message specific handles, indexed by the message type...  I guess that it slightly better than a branch, so I will look into a similar implementation for the C# client....
