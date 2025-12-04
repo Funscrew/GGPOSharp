@@ -1,14 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.Contracts;
-using System.Linq;
-using System.Reflection.Metadata.Ecma335;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace GGPOSharp;
+﻿namespace GGPOSharp;
 
 // ==========================================================================================
 /// <summary>
@@ -61,7 +51,7 @@ public class GGPOClient
     {
       callbacks = Options.Callbacks,
       input_size = Options.InputSize,
-      num_players = 2, //Options.MaxPlayerCount,
+      num_players = 2, 
       num_prediction_frames = GGPOConsts.MAX_PREDICTION_FRAMES
     };
     _sync = new Sync(_local_connect_status, ops);
