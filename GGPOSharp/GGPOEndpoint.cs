@@ -129,6 +129,11 @@ public class GGPOEndpoint
   // Your name.  This will be exchanged with other peers on sync.
   string _playerName = null!; //new char[ProtoConsts.MAX_NAME_SIZE];
 
+  // HACK: This is a workaround for not sending out the player name data correctly....
+  public void SetPlayerName(string newName_) { 
+    _playerName = newName_;
+  }
+
 
   // Buffer for receiving messages.  We use this one so we don't have to allocate bytes every frame.
   private byte[] ReceiveBuffer = new byte[8192];
@@ -189,7 +194,7 @@ public class GGPOEndpoint
     //_oop_percent = Platform::GetConfigInt(L"ggpo.oop.percent");
 
     // memset(_playerName, 0, MAX_NAME_SIZE);
-    _playerName = Options.PlayerName; /**/; // Options.PlayerName;
+    _playerName =  Options.PlayerName; /**/; // Options.PlayerName;
     // _playerName.SetValue(Options.PlayerName);
 
     this._local_connect_status = localConnectStatus_;
@@ -849,14 +854,14 @@ public class GGPOEndpoint
     UdpMsg reply = new UdpMsg(EMsgType.SyncReply);
     reply.u.sync_reply.random_reply = msg.u.sync_request.random_request;
 
+    // So this endpoint is responding to a sync request, so we should be replying with the name
+    // of the local player....
+    // I think that the sync requests should be the ones that have the player names set....
+    // _playerName = "abc";
     reply.u.sync_reply.SetPlayerName(_playerName);
-    //      strcpy_s(reply.u.sync_reply.playerName, _playerName);
 
     SendMsg(ref reply);
     return true;
-
-
-    //throw new GGPOException("sync request!!");
   }
 
   // ------------------------------------------------------------------------
@@ -878,10 +883,9 @@ public class GGPOEndpoint
     {
       var evt = new UdpEvent(EEventType.Connected);
 
-      // TODO: A direct copy from sbyte in the future!
+      // TODO: The player names should be sent out with the sync request NOT the reply!
       string pn = msg.u.sync_reply.GetPlayerName();
       evt.u.connected.SetText(pn);
-      // strcpy_s(evt.u.connected.playerName, msg.u.sync_reply.playerName);
       QueueEvent(evt);
 
       _connected = true;

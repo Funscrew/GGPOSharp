@@ -41,7 +41,7 @@ namespace GGPOSharp
 
       const int PLAYER_ONE = 0;
       const int PLAYER_TWO = 1;
-      var ops = new GGPOClientOptions(PLAYER_ONE, "Screwie", Defaults.LOCAL_PORT)
+      var ops = new GGPOClientOptions(PLAYER_ONE, Defaults.LOCAL_PORT)
       {
         Callbacks = new GGPOSessionCallbacks()
         {
@@ -58,9 +58,14 @@ namespace GGPOSharp
 
       Client = new GGPOClient(ops);
 
-      Client.AddLocal("Screwie", PLAYER_ONE, null);
+      const string LOCAL_PLAYER_NAME = "Screwie";
 
-      Client.AddRemote(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, PLAYER_TWO);
+      var local = Client.AddLocal(LOCAL_PLAYER_NAME, PLAYER_ONE, null);
+
+      var remote = Client.AddRemote(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, PLAYER_TWO);
+      remote.SetPlayerName(LOCAL_PLAYER_NAME);
+
+      // No more endpoints can be added!
       Client.Lock();
 
       // Game loop:

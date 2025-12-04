@@ -40,6 +40,8 @@ public class GGPOClient
 
   private int _next_recommended_sleep = 0;
 
+  private GGPOEndpoint LocalPlayer = null;
+
   // ----------------------------------------------------------------------------------------
   public GGPOClient(GGPOClientOptions options_)
   {
@@ -75,10 +77,6 @@ public class GGPOClient
   // ----------------------------------------------------------------------------------------
   private void ValidateOptions()
   {
-    if (Options.LocalPlayerName.Length > GGPOConsts.MAX_NAME_SIZE)
-    {
-      throw new InvalidOperationException("Invalid player name!");
-    }
     if (Options.Callbacks == null)
     {
       throw new InvalidOperationException("Callbacks are null!");
@@ -91,6 +89,10 @@ public class GGPOClient
   /// </summary>
   public GGPOEndpoint AddLocal(string playerName, int playerIndex, TestOptions? testOptions = null)
   {
+    if (LocalPlayer != null) { 
+      throw new InvalidOperationException("The local player has already been set!");
+    }
+
     CheckLocked();
     var ops = new GGPOEndpointOptions()
     {
@@ -100,6 +102,7 @@ public class GGPOClient
       TestOptions = testOptions ?? new TestOptions()
     };
     var res = new GGPOEndpoint(this, ops, _local_connect_status);
+    LocalPlayer = res;
 
     this._endpoints.Add(res);
     return res;
@@ -222,15 +225,6 @@ public class GGPOClient
 
     // discard confirmed frames as appropriate
     int total_min_confirmed = int.MaxValue;
-
-    //// We want to get the min frame for the 'local' player.
-    //// TODO: At some point I really think that adding local players as a distinct endpoint is the way to go.
-    //int lpi = this.Options.PlayerIndex;
-    //if (!_local_connect_status[lpi].disconnected)
-    //{
-    //  total_min_confirmed = Math.Min(_local_connect_status[lpi].last_frame, total_min_confirmed);
-    //}
-
 
     for (i = 0; i < _endpoints.Count; i++)
     {
@@ -581,6 +575,7 @@ public class GGPOClient
         info.u.synchronizing.total = evt.u.synchronizing.total;
         _callbacks.on_event(ref info);
         break;
+
       case EEventType.Synchronized:
         info.code = EEventCode.GGPO_EVENTCODE_SYNCHRONIZED_WITH_PEER;
         info.u.synchronized.player_index = playerIndex;
@@ -674,10 +669,9 @@ public class GGPOClientOptions
   private const int MAX_PLAYER_COUNT = 4;
 
   // ----------------------------------------------------------------------------------------
-  public GGPOClientOptions(int playerIndex_, string localPlayerName_, int localPort_)
+  public GGPOClientOptions(int playerIndex_, int localPort_)
   {
     PlayerIndex = playerIndex_;
-    LocalPlayerName = localPlayerName_;
     LocalPort = localPort_;
   }
 
@@ -685,7 +679,6 @@ public class GGPOClientOptions
   /// Index of the player, coresponding to 0 == player 1, 1 == player 2, etc.
   /// </summary>
   public int PlayerIndex { get; set; }
-  public string LocalPlayerName { get; set; }
   public int LocalPort { get; set; } = Defaults.LOCAL_PORT;
   public int InputSize { get; set; } = DEFAULT_INPUT_SIZE;
   public int MaxPlayerCount { get; set; } = MAX_PLAYER_COUNT;
