@@ -429,18 +429,10 @@ public class GGPOClient
         OnUdpProtocolPeerEvent(ref evt, (UInt16)ep.PlayerIndex);
       }
     }
-
-    //for (int i = 0; i < _num_players; i++)
-    //{
-    //  while (_endpoints[i].GetEvent(evt))
-    //  {
-    //    OnUdpProtocolPeerEvent(evt, i);
-    //  }
-    //}
   }
 
   // ----------------------------------------------------------------------------------------------------------
-  void OnUdpProtocolPeerEvent(ref UdpEvent evt, UInt16 playerIndex)
+  protected virtual void OnUdpProtocolPeerEvent(ref UdpEvent evt, UInt16 playerIndex)
   {
     // int playerIndex = -1;
     OnUdpProtocolEvent(ref evt, playerIndex);
@@ -455,6 +447,7 @@ public class GGPOClient
           Utils.ASSERT(current_remote_frame == -1 || new_remote_frame == (current_remote_frame + 1));
 
           _sync.AddRemoteInput(playerIndex, ref evt.u.input);
+
           // Notify the other endpoints which frame we received from a peer
           Utils.LogIt(LogCategories.INPUT, "remote frame for: %d - %d", playerIndex, evt.u.input.frame);
           _local_connect_status[playerIndex].last_frame = evt.u.input.frame;

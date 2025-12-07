@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using GGPOSharp.Clients;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -56,7 +57,7 @@ namespace GGPOSharp
 
 
 
-      Client = new GGPOClient(ops);
+      Client =  new InputEchoClient(ops, new InputEchoOptions()); // new GGPOClient(ops);
 
       const string LOCAL_PLAYER_NAME = "Screwie";
 

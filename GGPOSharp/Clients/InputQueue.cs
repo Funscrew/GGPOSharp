@@ -191,17 +191,17 @@ internal class InputQueue
        */
       if (requested_frame == 0)
       {
-        Utils.LogIt(LogCategories.INPUT_QUEUE, "basing new prediction frame from nothing, you're client wants frame 0.");
+        Utils.LogIt(LogCategories.CATEGORY_PREDICTED_INPUT, "basing new prediction frame from nothing, you're client wants frame 0.");
         _prediction.erase();
       }
       else if (_last_added_frame == GameInput.NULL_FRAME)
       {
-        Utils.LogIt(LogCategories.INPUT_QUEUE, "basing new prediction frame from nothing, since we have no frames yet.");
+        Utils.LogIt(LogCategories.CATEGORY_PREDICTED_INPUT, "basing new prediction frame from nothing, since we have no frames yet.");
         _prediction.erase();
       }
       else
       {
-        Utils.LogIt(LogCategories.INPUT_QUEUE, "basing new prediction frame from previously added frame (queue entry:%d, frame:%d).", PREVIOUS_FRAME(_head), _inputs[PREVIOUS_FRAME(_head)].frame);
+        Utils.LogIt(LogCategories.CATEGORY_PREDICTED_INPUT, "basing new prediction frame from previously added frame (queue entry:%d, frame:%d).", PREVIOUS_FRAME(_head), _inputs[PREVIOUS_FRAME(_head)].frame);
         _prediction = _inputs[PREVIOUS_FRAME(_head)];
       }
       _prediction.frame++;
@@ -222,7 +222,7 @@ internal class InputQueue
     input = _prediction;
 
     input.frame = requested_frame;
-    Utils.LogIt(LogCategories.INPUT_QUEUE, "returning prediction frame number %d (%d).", input.frame, _prediction.frame);
+    Utils.LogIt(LogCategories.CATEGORY_PREDICTED_INPUT, "returning prediction frame number %d (%d).", input.frame, _prediction.frame);
 
     return false;
   }
