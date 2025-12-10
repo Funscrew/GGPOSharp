@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 namespace GGPOSharp;
 
 // ================================================================================================
-internal class Sync
+public class Sync
 {
   #region Internal Structures, etc.
 
@@ -441,7 +441,7 @@ internal class Sync
 
 
 // ================================================================================================
-struct SyncOptions
+public struct SyncOptions
 {
   public GGPOSessionCallbacks callbacks;
   public int num_prediction_frames;

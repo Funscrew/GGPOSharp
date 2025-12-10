@@ -21,9 +21,10 @@ namespace GGPOSharp
     // Some test input.  This mimics no buttons being pushed, and one DIP set
     // for 3rd strike.
     // The rest of the array data is reserved for the rest of the player inputs.
-    const int INPUT_SIZE = 5;
+    // REFACTOR: Move this elsehere....  Might not even want to use a const so mem can be dynamic for different games.....
+    public const int INPUT_SIZE = 5;
     static byte[] TestInput = new byte[INPUT_SIZE * GGPOConsts.UDP_MSG_MAX_PLAYERS];
-    static byte[] InputSwap = new byte[INPUT_SIZE * GGPOConsts.UDP_MSG_MAX_PLAYERS];
+    //static byte[] InputSwap = new byte[INPUT_SIZE * GGPOConsts.UDP_MSG_MAX_PLAYERS];
 
     // ------------------------------------------------------------------------------------------------------
     static unsafe void Main(string[] args)
@@ -31,13 +32,13 @@ namespace GGPOSharp
       Console.WriteLine("Welcome to GGPO Example Client!");
 
       // TODO: Copy the CLI command from fs-fbneo for this....
-      var logOps = new GGPOLogOptions()
-      {
-        LogToFile = false,
-        FilePath = "ggpo-log.txt",
-        ActiveCategories = $"{LogCategories.MESSAGE}"
-      };
-      Utils.InitLogging(logOps);
+      //var logOps = new GGPOLogOptions()
+      //{
+      //  LogToFile = false,
+      //  FilePath = "ggpo-log.txt",
+      //  ActiveCategories = $"{LogCategories.MESSAGE}"
+      //};
+      //Utils.InitLogging(logOps);
 
 
       const int PLAYER_ONE = 0;
@@ -61,9 +62,9 @@ namespace GGPOSharp
 
       const string LOCAL_PLAYER_NAME = "Screwie";
 
-      var local = Client.AddLocal(LOCAL_PLAYER_NAME, PLAYER_ONE, null);
+      var local = Client.AddLocalPlayer(LOCAL_PLAYER_NAME, PLAYER_ONE, null);
 
-      var remote = Client.AddRemote(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, PLAYER_TWO);
+      var remote = Client.AddRemotePlayer(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, PLAYER_TWO);
       remote.SetPlayerName(LOCAL_PLAYER_NAME);
 
       // No more endpoints can be added!
@@ -97,7 +98,7 @@ namespace GGPOSharp
           {
             TestInput[0] = 0;
           }
-          TestInput[1] = 1;
+          // TestInput[1] = 1;
 
           // Send + receive inputs across the network.
           // NOTE: The bytes in TestInput will be overwritten during this process!  This is
@@ -158,7 +159,7 @@ namespace GGPOSharp
     private static unsafe bool OnFreeGamestateBuffer(byte* arg)
     {
       // NOTE: We don't have to do anything here!
-      Console.WriteLine("An indication to free a buffer happened!");
+      //Console.WriteLine("An indication to free a buffer happened!");
       return true;
     }
 
@@ -166,7 +167,7 @@ namespace GGPOSharp
     private static unsafe bool LoadGameState(byte** buffer, int len)
     {
       // NOTE: We don't attempt to load game state....
-      Console.WriteLine("no state to load...");
+      // Console.WriteLine("no state to load...");
       return true;
     }
 
@@ -182,7 +183,7 @@ namespace GGPOSharp
       *len = 1;
       *checksum = 0;
 
-      Console.WriteLine("nothing to save....");
+      //Console.WriteLine("nothing to save....");
       return true;
       // throw new NotImplementedException();
     }
@@ -190,7 +191,7 @@ namespace GGPOSharp
     // ------------------------------------------------------------------------------------------------------
     private static bool OnEvent(ref GGPOEvent arg)
     {
-      Console.WriteLine($"There was an event: {arg.code}");
+      //Console.WriteLine($"There was an event: {arg.code}");
       return true;
     }
 
@@ -201,7 +202,7 @@ namespace GGPOSharp
       // We run the next frame on rollback, or it all gets fucked!
       RunFrame(Client, TestInput);
 
-      Console.WriteLine($"A rollback was detected!");
+      //Console.WriteLine($"A rollback was detected!");
     }
   }
 }

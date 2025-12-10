@@ -21,7 +21,7 @@ public class GGPOClient
   private bool InRollback = false;
   public bool _synchronizing { get; private set; } = true;
 
-  private Sync _sync = null!;
+  protected Sync _sync = null!;
 
   ConnectStatus[] _local_connect_status = null!;
 
@@ -77,7 +77,7 @@ public class GGPOClient
   /// <summary>
   /// Add a local player!
   /// </summary>
-  public GGPOEndpoint AddLocal(string playerName, int playerIndex, TestOptions? testOptions = null)
+  public GGPOEndpoint AddLocalPlayer(string playerName, int playerIndex, TestOptions? testOptions = null)
   {
     if (LocalPlayer != null) { 
       throw new InvalidOperationException("The local player has already been set!");
@@ -99,7 +99,9 @@ public class GGPOClient
   }
 
   // ----------------------------------------------------------------------------------------
-  public GGPOEndpoint AddRemote(string remoteHost, int remotePort, int playerIndex, TestOptions? testOptions = null)
+  // TODO: Maybe there should be an option to (optionally) set the remote player name, and then it
+  // will need to match for the connection to work?  Could help with spoofing or whatever....
+  public GGPOEndpoint AddRemotePlayer(string remoteHost, int remotePort, int playerIndex, TestOptions? testOptions = null)
   {
     CheckLocked();
 
@@ -118,6 +120,7 @@ public class GGPOClient
     return res;
   }
 
+  // ----------------------------------------------------------------------------------------
   private void CheckLocked()
   {
     if (IsLocked)
@@ -360,7 +363,7 @@ public class GGPOClient
   }
 
   // ----------------------------------------------------------------------------------------
-  private bool AddLocalInput(byte[] values, int isize)
+  protected virtual bool AddLocalInput(byte[] values, int isize)
   {
 
     // NOTE: When this function is called, we already know that we aren't in rollback!

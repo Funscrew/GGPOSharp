@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -29,6 +30,61 @@ public static class Utils
   private static FileStream? LogStream = null;
 
   private static Stopwatch Clock = Stopwatch.StartNew();
+
+
+
+  // ------------------------------------------------------------------------
+  internal unsafe static bool ReadBit(byte* from, int offset)
+  {
+    int byteIndex = offset >> 3;     // offset / 8
+    int bitIndex = offset & 7;      // offset % 8
+
+    byte src = from[byteIndex];
+    byte mask = (byte)(1 << bitIndex);
+
+    bool res = (src & mask) != 0;
+    return res;
+
+  }
+
+  // ------------------------------------------------------------------------
+  internal static void SetBit(byte[] to, bool val, int offset)
+  {
+    if (!val) { ClearBit(to, offset); }
+    else
+    {
+      int byteIndex = offset >> 3;     // offset / 8
+      int bitIndex = offset & 7;      // offset % 8
+
+      byte dest = to[byteIndex];
+      dest |= (byte)(1 << bitIndex);
+      to[byteIndex] = dest;
+    }
+  }
+
+  // ------------------------------------------------------------------------
+  internal static void ClearBit(byte[] to, int offset)
+  {
+    int byteIndex = offset >> 3;     // offset / 8
+    int bitIndex = offset & 7;      // offset % 8
+
+    byte dest = to[byteIndex];
+    dest &= (byte)~(1 << bitIndex);
+    to[byteIndex] = dest;
+  }
+
+  // ------------------------------------------------------------------------
+  internal static bool ReadBit(byte[] from, int offset)
+  {
+    int byteIndex = offset >> 3;     // offset / 8
+    int bitIndex = offset & 7;      // offset % 8
+
+    byte src = from[byteIndex];
+    byte mask = (byte)(1 << bitIndex);
+
+    bool res = (src & mask) != 0;
+    return res;
+  }
 
   // ------------------------------------------------------------------------
   internal static void InitLogging(GGPOLogOptions options_)
@@ -328,6 +384,6 @@ public static class LogCategories
   /// <summary>This happens when we attempt to retrieve an input from 'SynchronizeInputs' but frame data
   /// from the remote is not available.  It isn't a real input, and may get rolled back!
   /// </summary>
-  public const string  CATEGORY_PREDICTED_INPUT = "PI";
+  public const string CATEGORY_PREDICTED_INPUT = "PI";
 
 }
