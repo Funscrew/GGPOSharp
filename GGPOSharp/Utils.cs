@@ -253,7 +253,7 @@ public static class Utils
         break;
       case EMsgType.InputAck:
         break;
-      case EMsgType.ChatCommand:
+      case EMsgType.DataExchange:
         break;
 
       default:

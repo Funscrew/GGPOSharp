@@ -27,8 +27,6 @@ public class GGPOEndpoint
   public const int UDP_SHUTDOWN_TIMER = 5000;
   public const int MAX_SEQ_DISTANCE = (1 << 15);
 
-
-
   // Network transmission information
 
   //Udp* _udp;
@@ -130,7 +128,8 @@ public class GGPOEndpoint
   string _playerName = null!; //new char[ProtoConsts.MAX_NAME_SIZE];
 
   // HACK: This is a workaround for not sending out the player name data correctly....
-  public void SetPlayerName(string newName_) { 
+  public void SetPlayerName(string newName_)
+  {
     _playerName = newName_;
   }
 
@@ -151,7 +150,7 @@ public class GGPOEndpoint
     MsgHandlers[(byte)EMsgType.QualityReply] = OnQualityReply;
     MsgHandlers[(byte)EMsgType.KeepAlive] = OnKeepAlive;
     MsgHandlers[(byte)EMsgType.InputAck] = OnInputAck;
-    MsgHandlers[(byte)EMsgType.ChatCommand] = OnChat;
+    MsgHandlers[(byte)EMsgType.DataExchange] = OnData;
 
     Options = ops_;
     ValidateOptions();
@@ -194,7 +193,7 @@ public class GGPOEndpoint
     //_oop_percent = Platform::GetConfigInt(L"ggpo.oop.percent");
 
     // memset(_playerName, 0, MAX_NAME_SIZE);
-    _playerName =  Options.PlayerName; /**/; // Options.PlayerName;
+    _playerName = Options.PlayerName; /**/; // Options.PlayerName;
     // _playerName.SetValue(Options.PlayerName);
 
     this._local_connect_status = localConnectStatus_;
@@ -242,18 +241,44 @@ public class GGPOEndpoint
   }
 
   // -------------------------------------------------------------------------------------
-  private unsafe bool OnChat(ref UdpMsg msg, int msgLen)
+  private unsafe bool OnData(ref UdpMsg msg, int msgLen)
   {
-    var evt = new UdpEvent(EEventType.ChatCommand);
+    var evt = new UdpEvent(EEventType.DataExchange);
     // evt.u.input.input = _last_received_input;
     //_last_received_input.desc(desc, ARRAY_SIZE(desc));
 
     //_state.running.last_input_packet_recv_time = Platform::GetCurrentTimeMS();
-    int textlen = msgLen - 5; //sizeof(UdpMsg::header);
-    fixed (sbyte* txtData = msg.u.chat.text)
+
+    int dataLen = msgLen - 5; //sizeof(UdpMsg::header);
+
+    evt.u.chat.code = msg.u.chat.code;
+    evt.u.chat.dataSize = msg.u.chat.dataSize;
+
+    if (evt.u.chat.dataSize != dataLen - 2)
     {
-      evt.u.chat.SetText(txtData, textlen);
+      throw new InvalidOperationException($"Unexpected data length in: {nameof(OnData)}");
     }
+
+    fixed (byte* pSrc = msg.u.chat.data)
+    {
+      Utils.CopyMem(evt.u.chat.data, pSrc, msg.u.chat.dataSize);
+    }
+
+    // Debug.Assert(evt.u.chat.dataSize == dataLen, );
+
+    //fixed (byte* txtData = msg.u.chat.data)
+    //{
+    //  evt.u.chat.SetData(txtData, evt.u.chat.dataSize);
+    //}
+    //string text = evt.u.chat.GetText();
+
+    // char code = text[0];
+
+
+
+    // Console.WriteLine($"Received chat: {evt.u.chat.GetText()}");
+
+
     // strcpy_s(evt.u.chat.text, textlen + 1, msg->u.chat.text);
 
     //Log("Sending frame %d to emu queue %d (%s).", _last_received_input.frame, _queue, desc);
@@ -574,7 +599,7 @@ public class GGPOEndpoint
         {
           UdpMsg msg = new UdpMsg(EMsgType.QualityReport);
           msg.u.quality_report.ping = (uint)Clock.ElapsedMilliseconds;
-          msg.u.quality_report.frame_advantage = (sbyte)_local_frame_advantage;
+          msg.u.quality_report.frame_advantage = (byte)_local_frame_advantage;
           SendMsg(ref msg);
           RunningState.last_quality_report_time = (uint)now;
         }
@@ -853,6 +878,7 @@ public class GGPOEndpoint
     }
     UdpMsg reply = new UdpMsg(EMsgType.SyncReply);
     reply.u.sync_reply.random_reply = msg.u.sync_request.random_request;
+    reply.u.sync_reply.client_version = this.Client.ClientVersion;
 
     // So this endpoint is responding to a sync request, so we should be replying with the name
     // of the local player....
@@ -1240,7 +1266,7 @@ public enum EEventType
   Disconnected,
   NetworkInterrupted,
   NetworkResumed,
-  ChatCommand
+  DataExchange
 }
 
 // ================================================================================================
@@ -1279,7 +1305,7 @@ public unsafe struct UdpEvent
     public NetworkInterruptedData network_interrupted;
 
     [FieldOffset(0)]
-    public Chat chat;
+    public Data chat;
   }
 
   public struct SyncData

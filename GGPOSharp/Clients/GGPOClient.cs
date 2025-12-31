@@ -1,4 +1,6 @@
-﻿namespace GGPOSharp;
+﻿using System.Reflection.Metadata;
+
+namespace GGPOSharp;
 
 // ==========================================================================================
 /// <summary>
@@ -32,6 +34,8 @@ public class GGPOClient
 
   private GGPOEndpoint LocalPlayer = null;
 
+  public UInt32 ClientVersion { get { return this.Options.ClientVersion; }}
+
   // ----------------------------------------------------------------------------------------
   public GGPOClient(GGPOClientOptions options_)
   {
@@ -51,7 +55,7 @@ public class GGPOClient
     {
       callbacks = Options.Callbacks,
       input_size = Options.InputSize,
-      num_players = 2, 
+      num_players = 2,
       num_prediction_frames = GGPOConsts.MAX_PREDICTION_FRAMES
     };
     _sync = new Sync(_local_connect_status, ops);
@@ -79,7 +83,8 @@ public class GGPOClient
   /// </summary>
   public GGPOEndpoint AddLocalPlayer(string playerName, int playerIndex, TestOptions? testOptions = null)
   {
-    if (LocalPlayer != null) { 
+    if (LocalPlayer != null)
+    {
       throw new InvalidOperationException("The local player has already been set!");
     }
 
@@ -537,7 +542,7 @@ public class GGPOClient
   }
 
   // ----------------------------------------------------------------------------------------------------------
-  void OnUdpProtocolEvent(ref UdpEvent evt, int playerIndex)
+  internal unsafe void OnUdpProtocolEvent(ref UdpEvent evt, int playerIndex)
   {
     GGPOEvent info = new GGPOEvent();
 
@@ -583,18 +588,32 @@ public class GGPOClient
         _callbacks.on_event(ref info);
         break;
 
-      case EEventType.ChatCommand:
+      case EEventType.DataExchange:
 
         // char[] text = new char[GGPOConsts.MAX_GGPOCHAT_SIZE + 1];
-        var userName = _PlayerNames[playerIndex];
-        string text = evt.u.chat.GetText();
+        // var userName = _PlayerNames[playerIndex];
+        // string text = evt.u.chat.GetText();
+        Console.WriteLine("Received some data!");
 
-        // evt.u.chat.SetText(text);
-        // strcpy_s(text, evt.u.chat.text);
 
-        info.code = EEventCode.GGPO_EVENTCODE_CHATCOMMAND;
-        info.u.chat.SetUsername(userName);
-        info.u.chat.SetText(text);
+        info.code = EEventCode.GGPO_EVENTCODE_DATA_EXCHANGE;
+        info.u.chat.player_index = (byte)playerIndex;
+        info.u.chat.code = evt.u.chat.code;
+
+        fixed (byte* pSrc = evt.u.chat.data)
+        {
+          Utils.CopyMem(info.u.chat.data, pSrc, evt.u.chat.dataSize);
+        }
+
+        if (info.u.chat.code == (byte)'T')
+        {
+          string text = AnsiHelpers.PtrToFixedLengthString(info.u.chat.data, evt.u.chat.dataSize, GGPOConsts.MAX_GGPO_DATA_SIZE);
+          Console.WriteLine($"Text is: {text}");
+        }
+
+
+        // TODO: We can't assume that this is chat.....
+        // info.u.chat.SetText(evt.u.chat.data, evt.u.chat.dataSize);
 
         _callbacks.on_event(ref info);
 
@@ -655,10 +674,11 @@ public class GGPOClientOptions
   private const int MAX_PLAYER_COUNT = 4;
 
   // ----------------------------------------------------------------------------------------
-  public GGPOClientOptions(int playerIndex_, int localPort_)
+  public GGPOClientOptions(int playerIndex_, int localPort_, UInt32 clientVersion_)
   {
     PlayerIndex = playerIndex_;
     LocalPort = localPort_;
+    ClientVersion = clientVersion_; 
   }
 
   /// <summary>
@@ -669,6 +689,13 @@ public class GGPOClientOptions
   public int InputSize { get; set; } = DEFAULT_INPUT_SIZE;
   public int MaxPlayerCount { get; set; } = MAX_PLAYER_COUNT;
   public GGPOSessionCallbacks Callbacks { get; set; } = null!;
+
+  /// <summary>
+  /// Verseion of this client.  It is a 32 bitmasked number as follows:
+  /// MAJOR (8bits) - MINOR (8bits) - REVISION (8bits) - GGPO VERSION (8bits)
+  /// TODO: Put this information in the readme somewhere.....
+  /// </summary>
+  public UInt32 ClientVersion { get; set; }
 }
 
 // ==========================================================================================

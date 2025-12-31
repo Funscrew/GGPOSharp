@@ -43,7 +43,10 @@ namespace GGPOSharp
 
       const int PLAYER_ONE = 0;
       const int PLAYER_TWO = 1;
-      var ops = new GGPOClientOptions(PLAYER_ONE, Defaults.LOCAL_PORT)
+      const byte PROTOCOL_VERSION = 3;
+      const UInt32 clientVersion = PROTOCOL_VERSION;
+
+      var ops = new GGPOClientOptions(PLAYER_ONE, Defaults.LOCAL_PORT, clientVersion)
       {
         Callbacks = new GGPOSessionCallbacks()
         {
