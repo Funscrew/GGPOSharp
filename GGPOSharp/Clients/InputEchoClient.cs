@@ -75,7 +75,7 @@ namespace GGPOSharp.Clients
 
 
     // --------------------------------------------------------------------------------------------------------------------------
-    protected unsafe override void OnUdpProtocolPeerEvent(ref UdpEvent evt, ushort playerIndex)
+    protected unsafe override void OnUdpProtocolPeerEvent(ref UdpEvent evt, byte playerIndex)
     {
       base.OnUdpProtocolPeerEvent(ref evt, playerIndex);
       if (evt.type == EEventType.Input)

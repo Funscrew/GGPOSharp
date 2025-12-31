@@ -491,54 +491,25 @@ public struct UdpMsg
 public struct GGPOEvent
 {
   public EEventCode code;
+  public byte player_index;
   public EventUnion u;   // union
 }
 
 [StructLayout(LayoutKind.Explicit)]
 public struct EventUnion
 {
-  [FieldOffset(0)] public Connected connected;
   [FieldOffset(0)] public Synchronizing synchronizing;
-  [FieldOffset(0)] public Synchronized synchronized;
-  [FieldOffset(0)] public Disconnected disconnected;
   [FieldOffset(0)] public EventTimeSync timesync;
   [FieldOffset(0)] public ConnectionInterrupted connection_interrupted;
-  [FieldOffset(0)] public ConnectionResumed connection_resumed;
   [FieldOffset(0)] public EventDatagram datagram;
 }
 
-//
-// Individual union member structs
-//
 
-// struct { PlayerID player_index; } connected;
-[StructLayout(LayoutKind.Sequential)]
-public struct Connected
-{
-  public int player_index;  // match underlying PlayerID
-}
-
-// struct { PlayerID player_index; int count; int total; } synchronizing;
 [StructLayout(LayoutKind.Sequential)]
 public struct Synchronizing
 {
-  public int player_index;
   public int count;
   public int total;
-}
-
-// struct { PlayerID player_index; } synchronized;
-[StructLayout(LayoutKind.Sequential)]
-public struct Synchronized
-{
-  public int player_index;
-}
-
-// struct { PlayerID player_index; } disconnected;
-[StructLayout(LayoutKind.Sequential)]
-public struct Disconnected
-{
-  public int player_index;
 }
 
 // struct { int frames_ahead; } timesync;
@@ -553,16 +524,7 @@ public struct EventTimeSync
 [StructLayout(LayoutKind.Sequential)]
 public struct ConnectionInterrupted
 {
-  public int player_index;
   public int disconnect_timeout;
-}
-
-// =======================================================================================
-// struct { PlayerID player_index; } connection_resumed;
-[StructLayout(LayoutKind.Sequential)]
-public struct ConnectionResumed
-{
-  public int player_index;
 }
 
 // =======================================================================================

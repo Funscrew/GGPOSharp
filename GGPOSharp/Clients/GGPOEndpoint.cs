@@ -137,7 +137,7 @@ public class GGPOEndpoint
   // Buffer for receiving messages.  We use this one so we don't have to allocate bytes every frame.
   private byte[] ReceiveBuffer = new byte[8192];
 
-  public int PlayerIndex { get { return Options.PlayerIndex; } }
+  public byte PlayerIndex { get { return Options.PlayerIndex; } }
 
   // -------------------------------------------------------------------------------------
   public GGPOEndpoint(GGPOClient client_, GGPOEndpointOptions ops_, ConnectStatus[] localConnectStatus_)
@@ -1335,7 +1335,7 @@ public class GGPOEndpointOptions
   /// <summary>
   /// Index of the player that this endpoint represents.
   /// </summary>
-  public int PlayerIndex { get; set; } = -1;
+  public byte PlayerIndex { get; set; } = byte.MaxValue;
 
   /// <summary>
   /// Name of the player.  This is only used for local players.

@@ -82,7 +82,7 @@ public class GGPOClient
   /// <summary>
   /// Add a local player!
   /// </summary>
-  public GGPOEndpoint AddLocalPlayer(string playerName, int playerIndex, TestOptions? testOptions = null)
+  public GGPOEndpoint AddLocalPlayer(string playerName, byte playerIndex, TestOptions? testOptions = null)
   {
     if (LocalPlayer != null)
     {
@@ -107,7 +107,7 @@ public class GGPOClient
   // ----------------------------------------------------------------------------------------
   // TODO: Maybe there should be an option to (optionally) set the remote player name, and then it
   // will need to match for the connection to work?  Could help with spoofing or whatever....
-  public GGPOEndpoint AddRemotePlayer(string remoteHost, int remotePort, int playerIndex, TestOptions? testOptions = null)
+  public GGPOEndpoint AddRemotePlayer(string remoteHost, int remotePort, byte playerIndex, TestOptions? testOptions = null)
   {
     CheckLocked();
 
@@ -228,7 +228,7 @@ public class GGPOClient
     for (i = 0; i < _endpoints.Count; i++)
     {
       GGPOEndpoint ep = _endpoints[i];
-      int epi = ep.PlayerIndex;
+      byte epi = ep.PlayerIndex;
 
       // We only care if the queue is connected so that we can maybe disconnect it.
       bool queue_connected = true;
@@ -435,13 +435,13 @@ public class GGPOClient
       // NOTE: Local players aren't really going to have events because they don't poll or receive messages.
       while (ep.GetEvent(ref evt))
       {
-        OnUdpProtocolPeerEvent(ref evt, (UInt16)ep.PlayerIndex);
+        OnUdpProtocolPeerEvent(ref evt, ep.PlayerIndex);
       }
     }
   }
 
   // ----------------------------------------------------------------------------------------------------------
-  protected virtual void OnUdpProtocolPeerEvent(ref UdpEvent evt, UInt16 playerIndex)
+  protected virtual void OnUdpProtocolPeerEvent(ref UdpEvent evt, byte playerIndex)
   {
     // int playerIndex = -1;
     OnUdpProtocolEvent(ref evt, playerIndex);
@@ -471,10 +471,10 @@ public class GGPOClient
   }
 
   // ----------------------------------------------------------------------------------------------------------
-  bool DisconnectPlayer(UInt16 playerIndex)
+  bool DisconnectPlayer(byte playerIndex)
   {
     // REFACTOR:  We can skip the assignment here.....
-    UInt16 queue = playerIndex;
+    byte queue = playerIndex;
     //	GGPOErrorCode result;
 
     // if (player > MAX_PLA
@@ -516,7 +516,7 @@ public class GGPOClient
 
 
   // --------------------------------------------------------------------------------------------------------------
-  void DisconnectPlayer(int playerIndex, int syncto)
+  void DisconnectPlayer(byte playerIndex, int syncto)
   {
     GGPOEvent info = new GGPOEvent();
     int framecount = _sync.GetFrameCount();
@@ -536,14 +536,14 @@ public class GGPOClient
     }
 
     info.code = EEventCode.GGPO_EVENTCODE_DISCONNECTED_FROM_PEER;
-    info.u.disconnected.player_index = playerIndex;
+    info.player_index = playerIndex;
     _callbacks.on_event(ref info);
 
     CheckInitialSync();
   }
 
   // ----------------------------------------------------------------------------------------------------------
-  internal unsafe void OnUdpProtocolEvent(ref UdpEvent evt, int playerIndex)
+  internal unsafe void OnUdpProtocolEvent(ref UdpEvent evt, byte playerIndex)
   {
     GGPOEvent info = new GGPOEvent();
 
@@ -551,7 +551,7 @@ public class GGPOClient
     {
       case EEventType.Connected:
         info.code = EEventCode.GGPO_EVENTCODE_CONNECTED_TO_PEER;
-        info.u.connected.player_index = playerIndex;
+        info.player_index = playerIndex;
 
         _PlayerNames[playerIndex] = evt.u.connected.GetText();
         // strcpy_s(_PlayerNames[playerIndex], evt.u.connected.playerName);
@@ -562,7 +562,7 @@ public class GGPOClient
         break;
       case EEventType.Synchronizing:
         info.code = EEventCode.GGPO_EVENTCODE_SYNCHRONIZING_WITH_PEER;
-        info.u.synchronizing.player_index = playerIndex;
+        info.player_index = playerIndex;
         info.u.synchronizing.count = evt.u.synchronizing.count;
         info.u.synchronizing.total = evt.u.synchronizing.total;
         _callbacks.on_event(ref info);
@@ -570,7 +570,7 @@ public class GGPOClient
 
       case EEventType.Synchronized:
         info.code = EEventCode.GGPO_EVENTCODE_SYNCHRONIZED_WITH_PEER;
-        info.u.synchronized.player_index = playerIndex;
+        info.player_index = playerIndex;
         _callbacks.on_event(ref info);
 
         CheckInitialSync();
@@ -578,14 +578,14 @@ public class GGPOClient
 
       case EEventType.NetworkInterrupted:
         info.code = EEventCode.GGPO_EVENTCODE_CONNECTION_INTERRUPTED;
-        info.u.connection_interrupted.player_index = playerIndex;
+        info.player_index = playerIndex;
         info.u.connection_interrupted.disconnect_timeout = evt.u.network_interrupted.disconnect_timeout;
         _callbacks.on_event(ref info);
         break;
 
       case EEventType.NetworkResumed:
         info.code = EEventCode.GGPO_EVENTCODE_CONNECTION_RESUMED;
-        info.u.connection_resumed.player_index = playerIndex;
+        info.player_index = playerIndex;
         _callbacks.on_event(ref info);
         break;
 
