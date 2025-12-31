@@ -150,7 +150,7 @@ public class GGPOEndpoint
     MsgHandlers[(byte)EMsgType.QualityReply] = OnQualityReply;
     MsgHandlers[(byte)EMsgType.KeepAlive] = OnKeepAlive;
     MsgHandlers[(byte)EMsgType.InputAck] = OnInputAck;
-    MsgHandlers[(byte)EMsgType.DataExchange] = OnData;
+    MsgHandlers[(byte)EMsgType.Datagram] = OnData;
 
     Options = ops_;
     ValidateOptions();
@@ -243,7 +243,7 @@ public class GGPOEndpoint
   // -------------------------------------------------------------------------------------
   private unsafe bool OnData(ref UdpMsg msg, int msgLen)
   {
-    var evt = new UdpEvent(EEventType.DataExchange);
+    var evt = new UdpEvent(EEventType.Datagram);
     // evt.u.input.input = _last_received_input;
     //_last_received_input.desc(desc, ARRAY_SIZE(desc));
 
@@ -251,17 +251,17 @@ public class GGPOEndpoint
 
     int dataLen = msgLen - 5; //sizeof(UdpMsg::header);
 
-    evt.u.chat.code = msg.u.chat.code;
-    evt.u.chat.dataSize = msg.u.chat.dataSize;
+    evt.u.chat.code = msg.u.datagram.code;
+    evt.u.chat.dataSize = msg.u.datagram.dataSize;
 
     if (evt.u.chat.dataSize != dataLen - 2)
     {
       throw new InvalidOperationException($"Unexpected data length in: {nameof(OnData)}");
     }
 
-    fixed (byte* pSrc = msg.u.chat.data)
+    fixed (byte* pSrc = msg.u.datagram.data)
     {
-      Utils.CopyMem(evt.u.chat.data, pSrc, msg.u.chat.dataSize);
+      Utils.CopyMem(evt.u.chat.data, pSrc, msg.u.datagram.dataSize);
     }
 
     // Debug.Assert(evt.u.chat.dataSize == dataLen, );
@@ -1266,7 +1266,7 @@ public enum EEventType
   Disconnected,
   NetworkInterrupted,
   NetworkResumed,
-  DataExchange
+  Datagram
 }
 
 // ================================================================================================
@@ -1305,7 +1305,7 @@ public unsafe struct UdpEvent
     public NetworkInterruptedData network_interrupted;
 
     [FieldOffset(0)]
-    public Data chat;
+    public Datagram chat;
   }
 
   public struct SyncData

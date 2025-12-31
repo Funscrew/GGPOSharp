@@ -57,7 +57,7 @@ public enum EMsgType : byte
   QualityReply = 5,
   KeepAlive = 6,
   InputAck = 7,
-  DataExchange = 8
+  Datagram = 8
 };
 
 // ================================================================================================================
@@ -317,22 +317,13 @@ public unsafe struct PlayerConnectData
 
 // ================================================================================================
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-public unsafe struct Data
+public unsafe struct Datagram
 {
   public byte code;
   public byte dataSize;
   public fixed byte data[GGPOConsts.MAX_GGPO_DATA_SIZE];
 
   public bool IsText { get { return code == (byte)'T'; } }
-
-  //// -------------------------------------------------------------------------------------
-  //public int GetTextSize()
-  //{
-  //  fixed (byte* p = data)
-  //  {
-  //    return AnsiHelpers.PtrToAnsiStringLength(p, GGPOConsts.MAX_GGPO_DATA_SIZE);
-  //  }
-  //}
 
   // -------------------------------------------------------------------------------------
   public string GetText()
@@ -360,26 +351,13 @@ public unsafe struct Data
     fixed (byte* p = this.data)
     {
       Utils.CopyMem(p, data, (uint)size);
-      //for (int i = 0; i < size; i++)
-      //{
-      //  this.data[i] = data[i];
-      //}
-      // AnsiHelpers.WriteAnsiString(value, p, ProtoConsts.MAX_GGPOCHAT_SIZE + 1);
     }
   }
 
 }
 
-//[StructLayout(LayoutKind.Sequential, Pack = 1, CharSet = CharSet.Ansi)]
-//public struct Chat
-//{
-//  // C++: char text[MAX_GGPOCHAT_SIZE + 1];
-//  // For ByValTStr, SizeConst is in characters; +1 for terminating NUL.
-//  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = ProtoConsts.MAX_GGPOCHAT_SIZE + 1)]
-//  public string text;
-//}
 
-// ===== The union =====
+// ================================================================================================================
 [StructLayout(LayoutKind.Explicit, Pack = 1)]
 public struct U
 {
@@ -389,15 +367,8 @@ public struct U
   [FieldOffset(0)] public QualityReply quality_reply;
   [FieldOffset(0)] public InputMsg input;
   [FieldOffset(0)] public InputAck input_ack;
-  [FieldOffset(0)] public Data chat;
+  [FieldOffset(0)] public Datagram datagram;
 }
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct Message
-{
-  public U u;
-}
-
 
 // ================================================================================================================
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -467,9 +438,9 @@ public struct UdpMsg
 
         return res;
 
-      case EMsgType.DataExchange:
+      case EMsgType.Datagram:
         // Include one extra byte to ensure zero termination.
-        res = u.chat.dataSize; // GetTextSize() + 1; //  GetText()  strnlen_s(u.chat.text, MAX_GGPOCHAT_SIZE) + 1;
+        res = u.datagram.dataSize; // GetTextSize() + 1; //  GetText()  strnlen_s(u.chat.text, MAX_GGPOCHAT_SIZE) + 1;
         return res;
 
       default:
@@ -533,7 +504,7 @@ public struct EventUnion
   [FieldOffset(0)] public EventTimeSync timesync;
   [FieldOffset(0)] public ConnectionInterrupted connection_interrupted;
   [FieldOffset(0)] public ConnectionResumed connection_resumed;
-  [FieldOffset(0)] public EventData chat;
+  [FieldOffset(0)] public EventDatagram datagram;
 }
 
 //
@@ -596,31 +567,12 @@ public struct ConnectionResumed
 
 // =======================================================================================
 [StructLayout(LayoutKind.Sequential)]
-public unsafe struct EventData
+public unsafe struct EventDatagram
 {
-
   public byte player_index;
   public byte code;
   public byte dataSize;
   public fixed byte data[GGPOConsts.MAX_GGPO_DATA_SIZE];
   public fixed byte text[GGPOConsts.MAX_GGPO_DATA_SIZE];
   public fixed byte username[GGPOConsts.MAX_NAME_SIZE];
-
-  //// -------------------------------------------------------------------------------------
-  //public void SetText(string value)
-  //{
-  //  fixed (byte* p = text)
-  //  {
-  //    AnsiHelpers.WriteAnsiString(value, p, GGPOConsts.MAX_GGPO_DATA_SIZE);
-  //  }
-  //}
-  //// -------------------------------------------------------------------------------------
-  //public void SetUsername(string value)
-  //{
-  //  fixed (byte* p = text)
-  //  {
-  //    AnsiHelpers.WriteAnsiString(value, p, GGPOConsts.MAX_GGPO_DATA_SIZE);
-  //  }
-  //}
-
 }

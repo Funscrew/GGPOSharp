@@ -12,6 +12,8 @@ public class GGPOClient
   private List<GGPOEndpoint> _endpoints = new List<GGPOEndpoint>();
   internal UdpBlaster UdpClient = null!;
 
+  public UInt32 ClientVersion { get { return this.Options.ClientVersion; } }
+
   /// <summary>
   /// Indicates that the client is officially started, and no new connections can be added.
   /// </summary>
@@ -30,11 +32,10 @@ public class GGPOClient
   private string[] _PlayerNames = new string[GGPOConsts.UDP_MSG_MAX_PLAYERS];
   private GGPOSessionCallbacks _callbacks;
 
-  private int _next_recommended_sleep = 0;
 
   private GGPOEndpoint LocalPlayer = null;
 
-  public UInt32 ClientVersion { get { return this.Options.ClientVersion; }}
+  private int _next_recommended_sleep = 0;
 
   // ----------------------------------------------------------------------------------------
   public GGPOClient(GGPOClientOptions options_)
@@ -588,7 +589,7 @@ public class GGPOClient
         _callbacks.on_event(ref info);
         break;
 
-      case EEventType.DataExchange:
+      case EEventType.Datagram:
 
         // char[] text = new char[GGPOConsts.MAX_GGPOCHAT_SIZE + 1];
         // var userName = _PlayerNames[playerIndex];
@@ -597,17 +598,17 @@ public class GGPOClient
 
 
         info.code = EEventCode.GGPO_EVENTCODE_DATA_EXCHANGE;
-        info.u.chat.player_index = (byte)playerIndex;
-        info.u.chat.code = evt.u.chat.code;
+        info.u.datagram.player_index = (byte)playerIndex;
+        info.u.datagram.code = evt.u.chat.code;
 
         fixed (byte* pSrc = evt.u.chat.data)
         {
-          Utils.CopyMem(info.u.chat.data, pSrc, evt.u.chat.dataSize);
+          Utils.CopyMem(info.u.datagram.data, pSrc, evt.u.chat.dataSize);
         }
 
-        if (info.u.chat.code == (byte)'T')
+        if (info.u.datagram.code == (byte)'T')
         {
-          string text = AnsiHelpers.PtrToFixedLengthString(info.u.chat.data, evt.u.chat.dataSize, GGPOConsts.MAX_GGPO_DATA_SIZE);
+          string text = AnsiHelpers.PtrToFixedLengthString(info.u.datagram.data, evt.u.chat.dataSize, GGPOConsts.MAX_GGPO_DATA_SIZE);
           Console.WriteLine($"Text is: {text}");
         }
 

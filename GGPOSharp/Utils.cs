@@ -253,7 +253,7 @@ public static class Utils
         break;
       case EMsgType.InputAck:
         break;
-      case EMsgType.DataExchange:
+      case EMsgType.Datagram:
         break;
 
       default:
@@ -272,15 +272,6 @@ public static class Utils
 
     LogIt_Internal(LogCategories.NETWORK, "%d:%d:%d", totalBytesSent, totalPacketsSent, ping);
   }
-
-  //// ------------------------------------------------------------------------
-  //// Variadic version.  This is what we will want to convert everything to.
-  //[Obsolete]
-  //internal static void Log(string fmt, params object[] args)
-  //{
-  //  if (!IsLoggingEnabled) { return; }
-  //  string msg = string.Format(fmt, args);
-  //}
 
   // ------------------------------------------------------------------------
   // We do a lot of logging, and that logging is conditional.
