@@ -4,9 +4,9 @@ namespace GGPOSharp;
 
 // ==========================================================================================
 /// <summary>
-/// Main client that is used to connect to one or more other players ove the network.
+/// Main client that is used to connect to one or more other players over the network.
 /// </summary>
-public class GGPOClient
+public class GGPOClient : IDisposable
 {
   private GGPOClientOptions Options = null!;
   private List<GGPOEndpoint> _endpoints = new List<GGPOEndpoint>();
@@ -23,7 +23,7 @@ public class GGPOClient
   /// Are we currently processing a rollback?
   /// </summary>
   private bool InRollback = false;
-  public bool _synchronizing { get; private set; } = true;
+  public bool _synchronizing { get; private set; } = false;
 
   protected Sync _sync = null!;
 
@@ -67,6 +67,28 @@ public class GGPOClient
     // Not really sure if this matters here, or if this is even the best place to
     // fire this off.
     _callbacks.begin_game(string.Empty);
+
+    BeginSync();
+  }
+
+  // ----------------------------------------------------------------------------------------
+  public void Dispose() { 
+    UdpClient?.Dispose();
+  }
+
+  // ----------------------------------------------------------------------------------------
+  public void BeginSync()
+  {
+    // TODO: Some kind of check to make sure that one or more clients are actually disconnected....
+    _synchronizing = true;
+
+    int len = this._endpoints.Count;
+    for (int i = 0; i < len; i++)
+    {
+      var ep = _endpoints[i];
+      ep.Synchronize();
+    }
+
   }
 
   // ----------------------------------------------------------------------------------------
@@ -200,7 +222,7 @@ public class GGPOClient
         if (interval > 0)
         {
           GGPOEvent info = new GGPOEvent();
-          info.code = EEventCode.GGPO_EVENTCODE_TIMESYNC;
+          info.event_code = EEventCode.GGPO_EVENTCODE_TIMESYNC;
           info.u.timesync.frames_ahead = interval;
           _callbacks.on_event(ref info);
           _next_recommended_sleep = current_frame + GGPOConsts.RECOMMENDATION_INTERVAL;
@@ -535,7 +557,7 @@ public class GGPOClient
       Utils.LogIt(LogCategories.ENDPOINT, "finished adjusting simulation.");
     }
 
-    info.code = EEventCode.GGPO_EVENTCODE_DISCONNECTED_FROM_PEER;
+    info.event_code = EEventCode.GGPO_EVENTCODE_DISCONNECTED_FROM_PEER;
     info.player_index = playerIndex;
     _callbacks.on_event(ref info);
 
@@ -550,7 +572,7 @@ public class GGPOClient
     switch (evt.type)
     {
       case EEventType.Connected:
-        info.code = EEventCode.GGPO_EVENTCODE_CONNECTED_TO_PEER;
+        info.event_code = EEventCode.GGPO_EVENTCODE_CONNECTED_TO_PEER;
         info.player_index = playerIndex;
 
         _PlayerNames[playerIndex] = evt.u.connected.GetText();
@@ -561,7 +583,7 @@ public class GGPOClient
         _callbacks.on_event(ref info);
         break;
       case EEventType.Synchronizing:
-        info.code = EEventCode.GGPO_EVENTCODE_SYNCHRONIZING_WITH_PEER;
+        info.event_code = EEventCode.GGPO_EVENTCODE_SYNCHRONIZING_WITH_PEER;
         info.player_index = playerIndex;
         info.u.synchronizing.count = evt.u.synchronizing.count;
         info.u.synchronizing.total = evt.u.synchronizing.total;
@@ -569,7 +591,7 @@ public class GGPOClient
         break;
 
       case EEventType.Synchronized:
-        info.code = EEventCode.GGPO_EVENTCODE_SYNCHRONIZED_WITH_PEER;
+        info.event_code = EEventCode.GGPO_EVENTCODE_SYNCHRONIZED_WITH_PEER;
         info.player_index = playerIndex;
         _callbacks.on_event(ref info);
 
@@ -577,44 +599,52 @@ public class GGPOClient
         break;
 
       case EEventType.NetworkInterrupted:
-        info.code = EEventCode.GGPO_EVENTCODE_CONNECTION_INTERRUPTED;
+        info.event_code = EEventCode.GGPO_EVENTCODE_CONNECTION_INTERRUPTED;
         info.player_index = playerIndex;
         info.u.connection_interrupted.disconnect_timeout = evt.u.network_interrupted.disconnect_timeout;
         _callbacks.on_event(ref info);
         break;
 
       case EEventType.NetworkResumed:
-        info.code = EEventCode.GGPO_EVENTCODE_CONNECTION_RESUMED;
+        info.event_code = EEventCode.GGPO_EVENTCODE_CONNECTION_RESUMED;
         info.player_index = playerIndex;
         _callbacks.on_event(ref info);
         break;
 
       case EEventType.Datagram:
 
-        // char[] text = new char[GGPOConsts.MAX_GGPOCHAT_SIZE + 1];
-        // var userName = _PlayerNames[playerIndex];
-        // string text = evt.u.chat.GetText();
-        Console.WriteLine("Received some data!");
-
-
-        info.code = EEventCode.GGPO_EVENTCODE_DATA_EXCHANGE;
+        info.event_code = EEventCode.GGPO_EVENTCODE_DATAGRAM;
         info.u.datagram.player_index = (byte)playerIndex;
         info.u.datagram.code = evt.u.chat.code;
+        info.u.datagram.dataSize = evt.u.chat.dataSize;
 
         fixed (byte* pSrc = evt.u.chat.data)
         {
           Utils.CopyMem(info.u.datagram.data, pSrc, evt.u.chat.dataSize);
         }
 
-        if (info.u.datagram.code == (byte)'T')
+        // NOTE: I am going to change this up so that we can surface the events in a different way?
+        // I am not convinced that a union is the best way?
+
+        if (info.u.datagram.code == (byte)EDatagramCode.DATAGRAM_CODE_CHAT)
         {
-          string text = AnsiHelpers.PtrToFixedLengthString(info.u.datagram.data, evt.u.chat.dataSize, GGPOConsts.MAX_GGPO_DATA_SIZE);
-          Console.WriteLine($"Text is: {text}");
+          // string text = AnsiHelpers.PtrToFixedLengthString(info.u.datagram.data, evt.u.chat.dataSize, GGPOConsts.MAX_GGPO_DATA_SIZE);
+          // Console.WriteLine($"Text is: {text}");
         }
 
+        if (info.u.datagram.code == (byte)EDatagramCode.DATAGRAM_CODE_DISCONNECT)
+        {
+          var pi = info.u.datagram.player_index;
 
-        // TODO: We can't assume that this is chat.....
-        // info.u.chat.SetText(evt.u.chat.data, evt.u.chat.dataSize);
+          // Disconnect datagrams come in bursts, so if we have already handled it for this index,
+          // then we can skip raising the event multiple times.
+          // NOTE:  We may want to keep more information about the conditions of a disconnect....
+          if (_endpoints[pi].IsDisconnected()) { return; }
+
+          // Console.WriteLine("disconnect notice was received...");
+          // The endpoint has disconnected.... what do we do?
+          _endpoints[pi].Disconnect();
+        }
 
         _callbacks.on_event(ref info);
 
@@ -646,7 +676,7 @@ public class GGPOClient
       }
 
       GGPOEvent info = new GGPOEvent();
-      info.code = EEventCode.GGPO_EVENTCODE_RUNNING;
+      info.event_code = EEventCode.GGPO_EVENTCODE_RUNNING;
       _callbacks.on_event(ref info);
       _synchronizing = false;
     }
@@ -679,7 +709,7 @@ public class GGPOClientOptions
   {
     PlayerIndex = playerIndex_;
     LocalPort = localPort_;
-    ClientVersion = clientVersion_; 
+    ClientVersion = clientVersion_;
   }
 
   /// <summary>

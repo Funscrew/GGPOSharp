@@ -22,6 +22,17 @@ public static class GGPOConsts
 }
 
 // ================================================================================================================
+public enum EDatagramCode : byte
+{
+  DATAGRAM_CODE_INVALID = 0
+  , DATAGRAM_CODE_MUTED = 1
+  , DATAGRAM_CODE_CHAT = 2
+  , DATAGRAM_CODE_GGPO_SETTINGS = 3
+  , DATAGRAM_CODE_DISCONNECT = 4        // Player is disconnecting.
+};
+
+
+// ================================================================================================================
 public enum EEventCode
 {
   Invalid = 0,
@@ -33,7 +44,7 @@ public enum EEventCode
   GGPO_EVENTCODE_TIMESYNC = 1005,
   GGPO_EVENTCODE_CONNECTION_INTERRUPTED = 1006,
   GGPO_EVENTCODE_CONNECTION_RESUMED = 1007,
-  GGPO_EVENTCODE_DATA_EXCHANGE = 1008,
+  GGPO_EVENTCODE_DATAGRAM = 1008,
 }
 
 
@@ -487,14 +498,16 @@ public struct UdpMsg
 
 }
 
+// ================================================================================================================================================================
 [StructLayout(LayoutKind.Sequential)]
 public struct GGPOEvent
 {
-  public EEventCode code;
+  public EEventCode event_code;
   public byte player_index;
-  public EventUnion u;   // union
+  public EventUnion u;   
 }
 
+// ================================================================================================================================================================
 [StructLayout(LayoutKind.Explicit)]
 public struct EventUnion
 {
@@ -505,6 +518,7 @@ public struct EventUnion
 }
 
 
+// ================================================================================================================================================================
 [StructLayout(LayoutKind.Sequential)]
 public struct Synchronizing
 {
@@ -512,6 +526,7 @@ public struct Synchronizing
   public int total;
 }
 
+// ================================================================================================================================================================
 // struct { int frames_ahead; } timesync;
 [StructLayout(LayoutKind.Sequential)]
 public struct EventTimeSync

@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text.Json.Serialization;
 
@@ -24,7 +25,18 @@ namespace GGPOSharp
     // REFACTOR: Move this elsehere....  Might not even want to use a const so mem can be dynamic for different games.....
     public const int INPUT_SIZE = 5;
     static byte[] TestInput = new byte[INPUT_SIZE * GGPOConsts.UDP_MSG_MAX_PLAYERS];
-    //static byte[] InputSwap = new byte[INPUT_SIZE * GGPOConsts.UDP_MSG_MAX_PLAYERS];
+
+    // NOTE: We are assuming one connected client still...
+    // private static int ReconnectEndpointIndex = -1;
+    private const int RECONNECT_WAIT_TIME = 250;
+    private static double ReconnectTime = -1;
+
+    private static Stopwatch Clock = null;
+
+    const int PLAYER_ONE = 0;
+    const int PLAYER_TWO = 1;
+    const byte PROTOCOL_VERSION = 3;
+    const string LOCAL_PLAYER_NAME = "Screwie";
 
     // ------------------------------------------------------------------------------------------------------
     static unsafe void Main(string[] args)
@@ -41,43 +53,16 @@ namespace GGPOSharp
       //Utils.InitLogging(logOps);
 
 
-      const int PLAYER_ONE = 0;
-      const int PLAYER_TWO = 1;
-      const byte PROTOCOL_VERSION = 3;
-      const UInt32 clientVersion = PROTOCOL_VERSION;
-
-      var ops = new GGPOClientOptions(PLAYER_ONE, Defaults.LOCAL_PORT, clientVersion)
-      {
-        Callbacks = new GGPOSessionCallbacks()
-        {
-          begin_game = OnBeginGame,
-          free_buffer = OnFreeGamestateBuffer,
-          on_event = OnEvent,
-          rollback_frame = OnRollback,
-          save_game_state = SaveGameState,
-          load_game_state = LoadGameState
-        }
-      };
+      // const UInt32 clientVersion = PROTOCOL_VERSION;
 
 
-
-      Client =  new InputEchoClient(ops, new InputEchoOptions()); // new GGPOClient(ops);
-
-      const string LOCAL_PLAYER_NAME = "Screwie";
-
-      var local = Client.AddLocalPlayer(LOCAL_PLAYER_NAME, PLAYER_ONE, null);
-
-      var remote = Client.AddRemotePlayer(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, PLAYER_TWO);
-      remote.SetPlayerName(LOCAL_PLAYER_NAME);
-
-      // No more endpoints can be added!
-      Client.Lock();
+      InitializeClient();
 
       // Game loop:
       // No, this isn't meant to be a sophisticated timing scenario, just get us in the ballpark...
       TimeBeginPeriod(1);
 
-      var sw = Stopwatch.StartNew();
+      Clock = Stopwatch.StartNew();
       const double FPS = 60.0d;
       double lastTime = double.MinValue;
       double frameTime = 1.0d / FPS;
@@ -87,10 +72,21 @@ namespace GGPOSharp
       int frameCount = 0;
       while (true)
       {
-        double elapsed = sw.Elapsed.TotalSeconds;
+        double elapsed = Clock.Elapsed.TotalSeconds;
         if (elapsed < nextFrameTime)
         {
-          Client.Idle();
+          if (ReconnectTime != -1 && elapsed >= ReconnectTime)
+          {
+            // Put the client back into a listening / sync state...
+            Console.WriteLine("Putting the client back into sync state, waiting for remote connection...");
+            ReconnectTime = -1.0d;
+            InitializeClient();
+
+          }
+          else
+          {
+            Client.Idle();
+          }
         }
         else
         {
@@ -133,6 +129,41 @@ namespace GGPOSharp
         }
 
       }
+    }
+
+    // ------------------------------------------------------------------------------------------------------
+    private static unsafe void InitializeClient()
+    {
+      Console.WriteLine("Initializing the client...");
+
+      if (Client != null) { 
+        Console.WriteLine("Disposing old client....");
+        Client.Dispose();
+      }
+
+      var ops = new GGPOClientOptions(PLAYER_ONE, Defaults.LOCAL_PORT, PROTOCOL_VERSION)
+      {
+        Callbacks = new GGPOSessionCallbacks()
+        {
+          begin_game = OnBeginGame,
+          free_buffer = OnFreeGamestateBuffer,
+          on_event = OnEvent,
+          rollback_frame = OnRollback,
+          save_game_state = SaveGameState,
+          load_game_state = LoadGameState
+        }
+      };
+
+      Client = new InputEchoClient(ops, new InputEchoOptions());
+
+
+      var local = Client.AddLocalPlayer(LOCAL_PLAYER_NAME, PLAYER_ONE, null);
+
+      var remote = Client.AddRemotePlayer(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, PLAYER_TWO);
+      remote.SetPlayerName(LOCAL_PLAYER_NAME);
+
+      // No more endpoints can be added!
+      Client.Lock();
     }
 
     // ------------------------------------------------------------------------------------------------------
@@ -192,8 +223,23 @@ namespace GGPOSharp
     }
 
     // ------------------------------------------------------------------------------------------------------
-    private static bool OnEvent(ref GGPOEvent arg)
+    private static unsafe bool OnEvent(ref GGPOEvent evt)
     {
+      if (evt.u.datagram.code == (byte)EDatagramCode.DATAGRAM_CODE_CHAT)
+      {
+        fixed (byte* pData = evt.u.datagram.data)
+        {
+          string text = AnsiHelpers.PtrToFixedLengthString(pData, evt.u.datagram.dataSize, GGPOConsts.MAX_GGPO_DATA_SIZE);
+          Console.WriteLine($"Text is: {text}");
+        }
+      }
+
+      else if (evt.u.datagram.code == (byte)EDatagramCode.DATAGRAM_CODE_DISCONNECT)
+      {
+        Console.WriteLine("disconnect notice was received...");
+        ReconnectTime = Clock.Elapsed.TotalSeconds + ((float)RECONNECT_WAIT_TIME / 1000.0f);
+      }
+
       //Console.WriteLine($"There was an event: {arg.code}");
       return true;
     }

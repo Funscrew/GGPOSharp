@@ -150,7 +150,7 @@ public class GGPOEndpoint
     MsgHandlers[(byte)EMsgType.QualityReply] = OnQualityReply;
     MsgHandlers[(byte)EMsgType.KeepAlive] = OnKeepAlive;
     MsgHandlers[(byte)EMsgType.InputAck] = OnInputAck;
-    MsgHandlers[(byte)EMsgType.Datagram] = OnData;
+    MsgHandlers[(byte)EMsgType.Datagram] = OnDatagram;
 
     Options = ops_;
     ValidateOptions();
@@ -236,12 +236,15 @@ public class GGPOEndpoint
   // ------------------------------------------------------------------------------------------------
   internal void Disconnect()
   {
-    _current_state = EClientState.Disconnected;
-    _shutdown_timeout = (uint)(Clock.ElapsedMilliseconds + UDP_SHUTDOWN_TIMER);
+    if (_current_state != EClientState.Disconnected)
+    {
+      _current_state = EClientState.Disconnected;
+      _shutdown_timeout = (uint)(Clock.ElapsedMilliseconds + UDP_SHUTDOWN_TIMER);
+    }
   }
 
   // -------------------------------------------------------------------------------------
-  private unsafe bool OnData(ref UdpMsg msg, int msgLen)
+  private unsafe bool OnDatagram(ref UdpMsg msg, int msgLen)
   {
     var evt = new UdpEvent(EEventType.Datagram);
     // evt.u.input.input = _last_received_input;
@@ -256,7 +259,7 @@ public class GGPOEndpoint
 
     if (evt.u.chat.dataSize != dataLen - 2)
     {
-      throw new InvalidOperationException($"Unexpected data length in: {nameof(OnData)}");
+      throw new InvalidOperationException($"Unexpected data length in: {nameof(OnDatagram)}");
     }
 
     fixed (byte* pSrc = msg.u.datagram.data)
@@ -563,7 +566,7 @@ public class GGPOEndpoint
   // REFACTOR: Rename to 'DoPoll' or 'Poll' or whatever.
   public void OnLoopPoll()
   {
-    if (Options.IsLocal) { return; }
+    if (Options.IsLocal || _current_state == EClientState.Disconnected) { return; }
 
     // Receive messages here!
     ReceiveMessages();
@@ -1041,7 +1044,12 @@ public class GGPOEndpoint
     Client.UdpClient.Send(_SendBuffer, packetSize, UseRemote);
   }
 
-
+  // ------------------------------------------------------------------------
+  internal bool IsDisconnected()
+  {
+    bool res = this._current_state == EClientState.Disconnected;
+    return res;
+  }
 }
 
 

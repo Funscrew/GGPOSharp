@@ -344,6 +344,15 @@ public static class Utils
   {
     Unsafe.CopyBlock(dest, src, size);
   }
+
+  // -------------------------------------------------------------------------------------
+  internal static unsafe int GetInt(byte* data, int v)
+  {
+    int* pSrc = (int*)data;
+
+    int res  = *pSrc;
+    return res;
+  }
 }
 
 
