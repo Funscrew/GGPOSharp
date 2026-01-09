@@ -120,6 +120,8 @@ public unsafe struct SyncReply
 {
   public UInt32 random_reply;     // OK, here's your random data back
   public UInt32 client_version;   // Version of this client, in 8 byte chunks: MAJOR - MINOR - REVISION - GGPO (protocol version)
+  public byte delay;
+  public byte runahead;
 
   public fixed byte playerName[GGPOConsts.MAX_NAME_SIZE];
 

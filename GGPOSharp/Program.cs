@@ -186,7 +186,7 @@ namespace GGPOSharp
     // ------------------------------------------------------------------------------------------------------
     private static void OnBeginGame(string gameName)
     {
-      Console.WriteLine("The game has started!");
+      Console.WriteLine("The game has started!  Beginning sync....");
     }
 
     // ------------------------------------------------------------------------------------------------------

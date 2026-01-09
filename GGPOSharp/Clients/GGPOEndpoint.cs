@@ -882,6 +882,8 @@ public class GGPOEndpoint
     UdpMsg reply = new UdpMsg(EMsgType.SyncReply);
     reply.u.sync_reply.random_reply = msg.u.sync_request.random_request;
     reply.u.sync_reply.client_version = this.Client.ClientVersion;
+    reply.u.sync_reply.delay = Options.Delay;
+    reply.u.sync_reply.runahead = Options.Runahead;
 
     // So this endpoint is responding to a sync request, so we should be replying with the name
     // of the local player....
@@ -1360,6 +1362,18 @@ public class GGPOEndpointOptions
   /// These should only be set in scenarios where you want to simulate certain network conditions.
   /// </summary>
   public TestOptions TestOptions { get; set; } = new TestOptions();
+
+
+  /// <summary>
+  /// What is the frame delay set to?
+  /// </summary>
+  public byte Delay { get; set; } = 3;
+
+  /// <summary>
+  /// How many frames is the application 'running ahead' during gameplay.
+  /// NOTE: This is a FS-FBNEO specific setting, and may not apply to all games.
+  /// </summary>
+  public byte Runahead { get; set; } = 9;
 }
 
 
