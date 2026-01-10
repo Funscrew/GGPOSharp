@@ -1,11 +1,7 @@
 ﻿using CommandLine;
 using GGPOSharp.Clients;
 using System.Diagnostics;
-using System.Net;
-using System.Net.Sockets;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text.Json.Serialization;
 
 namespace GGPOSharp
 {
@@ -18,7 +14,7 @@ namespace GGPOSharp
     [DllImport("winmm.dll", EntryPoint = "timeEndPeriod")]
     public static extern void TimeEndPeriod(int t);
 
-    
+    static ClientOptions CLIOptions = default!;
     static GGPOClientOptions ClientOptions = default!;
     static GGPOClient Client = null!;
 
@@ -30,17 +26,10 @@ namespace GGPOSharp
     static byte[] TestInput = new byte[INPUT_SIZE * GGPOConsts.UDP_MSG_MAX_PLAYERS];
 
     // NOTE: We are assuming one connected client still...
-    // private static int ReconnectEndpointIndex = -1;
     private const int RECONNECT_WAIT_TIME = 250;
     private static double ReconnectTime = -1;
 
-    private static Stopwatch Clock = null;
-
-    //const int PLAYER_ONE = 0;
-    //const int PLAYER_TWO = 1;
-    //const byte PROTOCOL_VERSION = 3;
-    //const string LOCAL_PLAYER_NAME = "Screwie";
-
+    private static Stopwatch Clock = default!;
 
 
     // ------------------------------------------------------------------------------------------------------
@@ -48,24 +37,13 @@ namespace GGPOSharp
     {
       Console.WriteLine("Welcome to GGPOSharp");
 
-
-      int res = Parser.Default.ParseArguments<InputEchoOptions>(args).MapResult((InputEchoOptions ops) => RunEchoClient(),
+      int res = Parser.Default.ParseArguments<InputEchoOptions>(args).MapResult((InputEchoOptions ops) => RunEchoClient(ops),
       errs => 1);
 
-      return res;
-
-      // TODO: Copy the CLI command from fs-fbneo for this....
-      //var logOps = new GGPOLogOptions()
-      //{
-      //  LogToFile = false,
-      //  FilePath = "ggpo-log.txt",
-      //  ActiveCategories = $"{LogCategories.MESSAGE}"
-      //};
-      //Utils.InitLogging(logOps);
-
-
-      // const UInt32 clientVersion = PROTOCOL_VERSION;
-
+      if (res != 0)
+      {
+        return res;
+      }
 
       InitializeClient();
 
@@ -75,7 +53,6 @@ namespace GGPOSharp
 
       Clock = Stopwatch.StartNew();
       const double FPS = 60.0d;
-      double lastTime = double.MinValue;
       double frameTime = 1.0d / FPS;
       double nextFrameTime = 0.0d;
 
@@ -107,31 +84,12 @@ namespace GGPOSharp
           {
             TestInput[0] = 0;
           }
-          // TestInput[1] = 1;
 
           // Send + receive inputs across the network.
           // NOTE: The bytes in TestInput will be overwritten during this process!  This is
           // by design!  For emulators, etc. it is convenient to always use the p1 control scheme,
           // even if you are repping p2!
           bool synced = RunFrame(Client, TestInput);
-
-          // TODO: What do we do here?  
-          // For now, I am going to reset the inputs that we send to the other player.
-          // Of course, I will have their inputs too, but at this point I want to think about
-          // how we might capture + replay that data according to our first challenge!
-          if (synced)
-          {
-            // We can read in the inputs from here...?
-            // Technically, this would be enough to record inputs for a game as if we are synced, we havea  complete frame.
-            // Of course, we would want to do that inside of the actual client somewhere....
-          }
-
-          // TODO: Make a switch for this.
-          // We get the stats, and then we can splat them to the screen however
-          // we please.
-          // var stats = c.GetNetworkStats();
-          // OutputStats(stats);
-          // NOTE: --> This is happening internally anyway.....
 
           // This is where we will increment the frame!
           ++frameCount;
@@ -144,7 +102,11 @@ namespace GGPOSharp
     // ------------------------------------------------------------------------------------------------------
     private static unsafe int RunEchoClient(InputEchoOptions ops)
     {
-      ClientOptions = new GGPOClientOptions(ops.PlayerIndex, Defaults.LOCAL_PORT, ops.ProtocolVersion)
+      Console.WriteLine("Setting up echo client....");
+
+      CLIOptions = ops;
+
+      ClientOptions = new GGPOClientOptions(ops.PlayerNumber, Defaults.LOCAL_PORT, ops.ProtocolVersion)
       {
         Callbacks = new GGPOSessionCallbacks()
         {
@@ -164,20 +126,21 @@ namespace GGPOSharp
     private static unsafe void InitializeClient()
     {
       Console.WriteLine("Initializing the client...");
-      if (Client != null) { 
+      if (Client != null)
+      {
         Console.WriteLine("Disposing old client....");
         Client.Dispose();
       }
 
+      var cliOps = CLIOptions as InputEchoOptions;
 
       Client = new InputEchoClient(ClientOptions, new InputEchoOptions());
 
-      // NOTE: This should happen when the client is constructed.  It is assumed that there is a local player!
-      var local = Client.AddLocalPlayer(LOCAL_PLAYER_NAME, PLAYER_ONE, null);
+      var local = Client.AddLocalPlayer(cliOps.PlayerName, (byte)(ClientOptions.PlayerNumber - 1), null);
 
-      byte remotePlayerIndex = (byte)(ClientOptions.PlayerIndex == 1 ? 0 : 1);
+      byte remotePlayerIndex = (byte)(ClientOptions.PlayerNumber == 1 ? 0 : 1);
       var remote = Client.AddRemotePlayer(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, remotePlayerIndex);
-      remote.SetPlayerName(LOCAL_PLAYER_NAME);
+      remote.SetPlayerName(cliOps.PlayerName);
 
       // No more endpoints can be added!
       Client.Lock();
@@ -242,22 +205,28 @@ namespace GGPOSharp
     // ------------------------------------------------------------------------------------------------------
     private static unsafe bool OnEvent(ref GGPOEvent evt)
     {
-      if (evt.u.datagram.code == (byte)EDatagramCode.DATAGRAM_CODE_CHAT)
+      if (evt.event_code == EEventCode.GGPO_EVENTCODE_DATAGRAM)
       {
-        fixed (byte* pData = evt.u.datagram.data)
+        if (evt.u.datagram.code == (byte)EDatagramCode.DATAGRAM_CODE_CHAT)
         {
-          string text = AnsiHelpers.PtrToFixedLengthString(pData, evt.u.datagram.dataSize, GGPOConsts.MAX_GGPO_DATA_SIZE);
-          Console.WriteLine($"Text is: {text}");
+          fixed (byte* pData = evt.u.datagram.data)
+          {
+            string text = AnsiHelpers.PtrToFixedLengthString(pData, evt.u.datagram.dataSize, GGPOConsts.MAX_GGPO_DATA_SIZE);
+            Console.WriteLine($"Text is: {text}");
+          }
+        }
+
+        else if (evt.u.datagram.code == (byte)EDatagramCode.DATAGRAM_CODE_DISCONNECT)
+        {
+          Console.WriteLine("disconnect notice was received...");
+          ReconnectTime = Clock.Elapsed.TotalSeconds + ((float)RECONNECT_WAIT_TIME / 1000.0f);
+        }
+
+        else { 
+            int angaweghag = 10;
         }
       }
 
-      else if (evt.u.datagram.code == (byte)EDatagramCode.DATAGRAM_CODE_DISCONNECT)
-      {
-        Console.WriteLine("disconnect notice was received...");
-        ReconnectTime = Clock.Elapsed.TotalSeconds + ((float)RECONNECT_WAIT_TIME / 1000.0f);
-      }
-
-      //Console.WriteLine($"There was an event: {arg.code}");
       return true;
     }
 

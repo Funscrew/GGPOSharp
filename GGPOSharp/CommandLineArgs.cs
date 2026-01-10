@@ -56,11 +56,11 @@ public class ReplayListenOptions
 public class InputEchoOptions : ClientOptions
 {
 
-  [Option("player", HelpText = "Index that this player represents.  0 = player 1, 1 = player 2, etc.")]
-  public int PlayerIndex { get; set; }
+  [Option("player", HelpText = "The player number: 1, 2, etc.")]
+  public byte PlayerNumber { get; set; }
 
   [Option("name", HelpText = "Name of the player", Required = true)]
-  public string Name { get; set; }
+  public string PlayerName { get; set; }
 
   
   /// <summary>
