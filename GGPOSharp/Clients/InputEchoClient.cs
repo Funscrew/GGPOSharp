@@ -125,19 +125,6 @@ namespace GGPOSharp.Clients
   }
 
 
-  // ==============================================================================================================================
-  public class InputEchoOptions
-  {
-    /// <summary>
-    /// Should the left / right buttons be reversed?
-    /// </summary>
-    public bool InvertLeftRightControls { get; set; } = true;
-
-    /// <summary>
-    /// How many frams should the echo be delayed?
-    /// </summary>
-    public int DelayFrameCount { get; set; } = 30;
-  }
 
   // ==============================================================================================================================
   class InputEcho

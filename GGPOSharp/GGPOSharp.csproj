@@ -12,4 +12,8 @@
     <EditorConfigFiles Remove="C:\code\repos\GGPOClient\GGPOClient\.editorconfig" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="CommandLineParser" Version="2.9.1" />
+  </ItemGroup>
+
 </Project>

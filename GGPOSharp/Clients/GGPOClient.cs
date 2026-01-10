@@ -72,7 +72,8 @@ public class GGPOClient : IDisposable
   }
 
   // ----------------------------------------------------------------------------------------
-  public void Dispose() { 
+  public void Dispose()
+  {
     UdpClient?.Dispose();
   }
 
@@ -705,7 +706,7 @@ public class GGPOClientOptions
   private const int MAX_PLAYER_COUNT = 4;
 
   // ----------------------------------------------------------------------------------------
-  public GGPOClientOptions(int playerIndex_, int localPort_, UInt32 clientVersion_)
+  public GGPOClientOptions(byte playerIndex_, int localPort_, UInt32 clientVersion_)
   {
     PlayerIndex = playerIndex_;
     LocalPort = localPort_;
@@ -715,7 +716,7 @@ public class GGPOClientOptions
   /// <summary>
   /// Index of the player, coresponding to 0 == player 1, 1 == player 2, etc.
   /// </summary>
-  public int PlayerIndex { get; set; }
+  public byte PlayerIndex { get; set; }
   public int LocalPort { get; set; } = Defaults.LOCAL_PORT;
   public int InputSize { get; set; } = DEFAULT_INPUT_SIZE;
   public int MaxPlayerCount { get; set; } = MAX_PLAYER_COUNT;
@@ -734,6 +735,8 @@ public static class Defaults
 {
   public const int LOCAL_PORT = 7001;
   public const int REMOTE_PORT = 7000;
+  public const int PROTOCOL_VERSION = 4;
+
   public const string REMOTE_HOST = "127.0.0.1";
 }
 

@@ -1,4 +1,5 @@
-﻿using GGPOSharp.Clients;
+﻿using CommandLine;
+using GGPOSharp.Clients;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
@@ -17,6 +18,8 @@ namespace GGPOSharp
     [DllImport("winmm.dll", EntryPoint = "timeEndPeriod")]
     public static extern void TimeEndPeriod(int t);
 
+    
+    static GGPOClientOptions ClientOptions = default!;
     static GGPOClient Client = null!;
 
     // Some test input.  This mimics no buttons being pushed, and one DIP set
@@ -33,15 +36,23 @@ namespace GGPOSharp
 
     private static Stopwatch Clock = null;
 
-    const int PLAYER_ONE = 0;
-    const int PLAYER_TWO = 1;
-    const byte PROTOCOL_VERSION = 3;
-    const string LOCAL_PLAYER_NAME = "Screwie";
+    //const int PLAYER_ONE = 0;
+    //const int PLAYER_TWO = 1;
+    //const byte PROTOCOL_VERSION = 3;
+    //const string LOCAL_PLAYER_NAME = "Screwie";
+
+
 
     // ------------------------------------------------------------------------------------------------------
-    static unsafe void Main(string[] args)
+    static unsafe int Main(string[] args)
     {
-      Console.WriteLine("Welcome to GGPO Example Client!");
+      Console.WriteLine("Welcome to GGPOSharp");
+
+
+      int res = Parser.Default.ParseArguments<InputEchoOptions>(args).MapResult((InputEchoOptions ops) => RunEchoClient(),
+      errs => 1);
+
+      return res;
 
       // TODO: Copy the CLI command from fs-fbneo for this....
       //var logOps = new GGPOLogOptions()
@@ -81,7 +92,6 @@ namespace GGPOSharp
             Console.WriteLine("Putting the client back into sync state, waiting for remote connection...");
             ReconnectTime = -1.0d;
             InitializeClient();
-
           }
           else
           {
@@ -132,16 +142,9 @@ namespace GGPOSharp
     }
 
     // ------------------------------------------------------------------------------------------------------
-    private static unsafe void InitializeClient()
+    private static unsafe int RunEchoClient(InputEchoOptions ops)
     {
-      Console.WriteLine("Initializing the client...");
-
-      if (Client != null) { 
-        Console.WriteLine("Disposing old client....");
-        Client.Dispose();
-      }
-
-      var ops = new GGPOClientOptions(PLAYER_ONE, Defaults.LOCAL_PORT, PROTOCOL_VERSION)
+      ClientOptions = new GGPOClientOptions(ops.PlayerIndex, Defaults.LOCAL_PORT, ops.ProtocolVersion)
       {
         Callbacks = new GGPOSessionCallbacks()
         {
@@ -154,12 +157,26 @@ namespace GGPOSharp
         }
       };
 
-      Client = new InputEchoClient(ops, new InputEchoOptions());
+      return 0;
+    }
+
+    // ------------------------------------------------------------------------------------------------------
+    private static unsafe void InitializeClient()
+    {
+      Console.WriteLine("Initializing the client...");
+      if (Client != null) { 
+        Console.WriteLine("Disposing old client....");
+        Client.Dispose();
+      }
 
 
+      Client = new InputEchoClient(ClientOptions, new InputEchoOptions());
+
+      // NOTE: This should happen when the client is constructed.  It is assumed that there is a local player!
       var local = Client.AddLocalPlayer(LOCAL_PLAYER_NAME, PLAYER_ONE, null);
 
-      var remote = Client.AddRemotePlayer(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, PLAYER_TWO);
+      byte remotePlayerIndex = (byte)(ClientOptions.PlayerIndex == 1 ? 0 : 1);
+      var remote = Client.AddRemotePlayer(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, remotePlayerIndex);
       remote.SetPlayerName(LOCAL_PLAYER_NAME);
 
       // No more endpoints can be added!
