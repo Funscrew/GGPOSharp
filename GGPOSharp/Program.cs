@@ -37,8 +37,11 @@ namespace GGPOSharp
     {
       Console.WriteLine("Welcome to GGPOSharp");
 
-      int res = Parser.Default.ParseArguments<InputEchoOptions>(args).MapResult((InputEchoOptions ops) => RunEchoClient(ops),
-      errs => 1);
+      int res = Parser.Default.ParseArguments<InputEchoOptions, 
+                                              ReplayListenOptions>(args)
+                              .MapResult((InputEchoOptions ops) => RunEchoClient(ops),
+                                         (ReplayListenOptions ops) => RunReplayClient(ops),
+                                          errs => 1);
 
       if (res != 0)
       {
@@ -97,6 +100,12 @@ namespace GGPOSharp
         }
 
       }
+    }
+
+    // ------------------------------------------------------------------------------------------------------
+    private static int RunReplayClient(ReplayListenOptions ops)
+    {
+      throw new NotImplementedException("There is no code for the replay client at this time!");
     }
 
     // ------------------------------------------------------------------------------------------------------

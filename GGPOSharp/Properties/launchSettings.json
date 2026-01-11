@@ -7,6 +7,10 @@
     "Echo-Client": {
       "commandName": "Project",
       "commandLineArgs": "input-echo --player 2 --name \"Echoman\""
+    },
+    "Replay-Listener": {
+      "commandName": "Project",
+      "commandLineArgs": "replay-listen -session-id \"abc-123\" --listen-on \"localhost:7002\""
     }
   }
 }
