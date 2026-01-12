@@ -41,7 +41,7 @@ public class ReplayListenOptions
   /// Comma delimited list of all addresses that we are going to listen in on.
   /// There should be one entry for each player that will be sending the data.
   /// </summary>
-  [Option("listen-from", HelpText = "Comma delimited list of host:port for all expected players.")]
+  [Option("listen-on", HelpText = "Comma delimited list of host:port for all expected players.")]
   public string PlayerAddresses { get; set; }
 
   /// <summary>

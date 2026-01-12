@@ -102,15 +102,17 @@ public struct ConnectStatus
 public struct SyncRequest
 {
   public uint random_request;   // please reply back with this random data
-  public ushort remote_magic;
-  public byte remote_endpoint;
+  public UInt64 session_id;     // Used for replay ids.  This is the form of a unix timestamp in milliseconds!  For p2p connections, this can be zero, but is ignored.
+  //public ushort remote_magic;
+  //public byte remote_endpoint;
 
   // ---------------------------------------------------------------------------------
   internal static void FromBytes(byte[] data, int startOffset, ref SyncRequest res)
   {
     res.random_request = BitConverter.ToUInt32(data, startOffset);
-    res.remote_magic = BitConverter.ToUInt16(data, startOffset + sizeof(UInt32));
-    res.remote_endpoint = data[startOffset + sizeof(UInt32) + sizeof(UInt16)];
+    res.session_id = BitConverter.ToUInt64(data, startOffset + sizeof(uint));
+    //res.remote_magic = BitConverter.ToUInt16(data, startOffset + sizeof(UInt32));
+    //res.remote_endpoint = data[startOffset + sizeof(UInt32) + sizeof(UInt16)];
   }
 }
 
