@@ -137,6 +137,12 @@ public class GGPOEndpoint
   // Buffer for receiving messages.  We use this one so we don't have to allocate bytes every frame.
   private byte[] ReceiveBuffer = new byte[8192];
 
+  /// <summary>
+  /// Session Id, which corresponds to unix time in milliseconds.
+  /// Only used in replay contexts.
+  /// </summary>
+  private UInt64 SessionId = 0;
+
   public byte PlayerIndex { get { return Options.PlayerIndex; } }
 
   // -------------------------------------------------------------------------------------
@@ -165,6 +171,7 @@ public class GGPOEndpoint
     _last_acked_input.init(-1, null, 1);
 
     // memset(&_state, 0, sizeof _state);
+    SessionId = Client.SessionId;
     SyncState = new SyncData();
     RunningState = new RunningData();
 
@@ -506,6 +513,7 @@ public class GGPOEndpoint
 
     var msg = new UdpMsg(EMsgType.SyncRequest);
     msg.u.sync_request.random_request = SyncState.random;
+    msg.u.sync_request.session_id = this.SessionId;
     SendMsg(ref msg);
 
     // throw new NotImplementedException();

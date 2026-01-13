@@ -115,7 +115,7 @@ namespace GGPOSharp
 
       CLIOptions = ops;
 
-      ClientOptions = new GGPOClientOptions(ops.PlayerNumber, Defaults.LOCAL_PORT, ops.ProtocolVersion)
+      ClientOptions = new GGPOClientOptions((byte)(ops.PlayerNumber - 1), Defaults.LOCAL_PORT, ops.ProtocolVersion, 0)
       {
         Callbacks = new GGPOSessionCallbacks()
         {

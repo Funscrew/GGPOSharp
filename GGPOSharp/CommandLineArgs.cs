@@ -35,7 +35,7 @@ public class ReplayListenOptions
   /// This is what will be sent to the client as this endpoint's "player name".
   /// </summary>
   [Option("session-id")]
-  public string SessionId { get; set; }
+  public UInt64 SessionId { get; set; } = 0;
 
   /// <summary>
   /// Comma delimited list of all addresses that we are going to listen in on.

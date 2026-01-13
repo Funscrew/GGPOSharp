@@ -35,6 +35,12 @@ public class GGPOClient : IDisposable
 
   private GGPOEndpoint LocalPlayer = null;
 
+  /// <summary>
+  /// Session Id, which corresponds to unix time in milliseconds.
+  /// Only used in replay contexts.
+  /// </summary>
+  public UInt64 SessionId { get { return Options.SessionId; } }
+
   private int _next_recommended_sleep = 0;
 
   // ----------------------------------------------------------------------------------------
@@ -706,11 +712,12 @@ public class GGPOClientOptions
   private const int MAX_PLAYER_COUNT = 4;
 
   // ----------------------------------------------------------------------------------------
-  public GGPOClientOptions(byte playerIndex_, int localPort_, UInt32 clientVersion_)
+  public GGPOClientOptions(byte playerIndex_, int localPort_, UInt32 clientVersion_, UInt64 sessionId_)
   {
     PlayerNumber = playerIndex_;
     LocalPort = localPort_;
     ClientVersion = clientVersion_;
+    SessionId = sessionId_;
   }
 
   /// <summary>
@@ -721,6 +728,12 @@ public class GGPOClientOptions
   public int InputSize { get; set; } = DEFAULT_INPUT_SIZE;
   public int MaxPlayerCount { get; set; } = MAX_PLAYER_COUNT;
   public GGPOSessionCallbacks Callbacks { get; set; } = null!;
+
+  /// <summary>
+  /// Session Id, which corresponds to unix time in milliseconds.
+  /// Only used in replay contexts.
+  /// </summary>
+  public UInt64 SessionId { get; private set; }
 
   /// <summary>
   /// Verseion of this client.  It is a 32 bitmasked number as follows:
