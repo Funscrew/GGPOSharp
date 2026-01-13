@@ -19,6 +19,9 @@ public static class GGPOConsts
   public const int DEFAULT_INPUT_SIZE = 4;
 
   public const int RECOMMENDATION_INTERVAL = 240;
+
+  public const byte REPLAY_APPLIANCE_PLAYER_INDEX = 0xFF;
+
 }
 
 // ================================================================================================================

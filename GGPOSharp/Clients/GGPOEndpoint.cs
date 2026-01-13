@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Net.Sockets;
 using System.Threading;
 using System;
+using drewCo.Tools.Logging;
 
 namespace GGPOSharp;
 
@@ -26,6 +27,8 @@ public class GGPOEndpoint
   public const int NETWORK_STATS_INTERVAL = 1000;
   public const int UDP_SHUTDOWN_TIMER = 5000;
   public const int MAX_SEQ_DISTANCE = (1 << 15);
+
+  private byte[] _SendBuffer = new byte[4200];
 
   // Network transmission information
 
@@ -159,7 +162,6 @@ public class GGPOEndpoint
     MsgHandlers[(byte)EMsgType.Datagram] = OnDatagram;
 
     Options = ops_;
-    ValidateOptions();
     Client = client_;
 
     RemoteIP = new IPEndPoint(IPAddress.Parse(Options.RemoteHost), Options.RemotePort);
@@ -211,15 +213,6 @@ public class GGPOEndpoint
 
     // Begin the sync operation.....
     Synchronize();
-  }
-
-  // ----------------------------------------------------------------------------------------------------------
-  private void ValidateOptions()
-  {
-    if (PlayerIndex < 0 || PlayerIndex > 8)
-    {
-      throw new InvalidOperationException("invalid player index!");
-    }
   }
 
   // If we have an instance, we are initialized!
@@ -286,7 +279,7 @@ public class GGPOEndpoint
 
 
 
-    // Console.WriteLine($"Received chat: {evt.u.chat.GetText()}");
+    // Log.Info($"Received chat: {evt.u.chat.GetText()}");
 
 
     // strcpy_s(evt.u.chat.text, textlen + 1, msg->u.chat.text);
@@ -781,7 +774,7 @@ public class GGPOEndpoint
     {
       // Get the next message.....
       // byte[] data = Client.Receive
-      int received = Client.UdpClient.Receive(ReceiveBuffer, ref RemoteEP);
+      int received = Client.UDP.Receive(ReceiveBuffer, ref RemoteEP);
       if (received == 0)
       {
         break;
@@ -1020,7 +1013,7 @@ public class GGPOEndpoint
 
       if (_oo_packet.HasMessage && _oo_packet.queue_time < (int)Clock.ElapsedMilliseconds)
       {
-        Utils.Log("sending rogue oop!");
+        Log.Info("sending rogue oop!");
 
         SendMsgPacket(_oo_packet.msg);
         _oo_packet.MsgIndex = -1;
@@ -1035,7 +1028,6 @@ public class GGPOEndpoint
 
   }
 
-  private byte[] _SendBuffer = new byte[4200];
 
   // ------------------------------------------------------------------------
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1051,7 +1043,7 @@ public class GGPOEndpoint
 
 
     // Client.Send(toSend, packetSize, Remote);
-    Client.UdpClient.Send(_SendBuffer, packetSize, UseRemote);
+    Client.UDP.Send(_SendBuffer, packetSize, UseRemote);
   }
 
   // ------------------------------------------------------------------------
@@ -1349,6 +1341,7 @@ public class GGPOEndpointOptions
   /// Is this endpoint a local player?
   /// </summary>
   public bool IsLocal { get; set; } = false;
+
 
   /// <summary>
   /// Index of the player that this endpoint represents.

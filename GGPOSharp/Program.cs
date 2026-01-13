@@ -1,4 +1,5 @@
 ﻿using CommandLine;
+using drewCo.Tools.Logging;
 using GGPOSharp.Clients;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -8,6 +9,15 @@ namespace GGPOSharp
   // ========================================================================================================
   internal class Program
   {
+    enum EMode
+    {
+      Invalid = 0,
+      Echo,
+      Replay
+    }
+
+    private static EMode ClientMode = EMode.Invalid;
+
     [DllImport("winmm.dll", EntryPoint = "timeBeginPeriod")]
     public static extern void TimeBeginPeriod(int t);
 
@@ -35,9 +45,11 @@ namespace GGPOSharp
     // ------------------------------------------------------------------------------------------------------
     static unsafe int Main(string[] args)
     {
-      Console.WriteLine("Welcome to GGPOSharp");
+      InitLogging();
 
-      int res = Parser.Default.ParseArguments<InputEchoOptions, 
+      Log.Info("Welcome to GGPOSharp");
+
+      int res = Parser.Default.ParseArguments<InputEchoOptions,
                                               ReplayListenOptions>(args)
                               .MapResult((InputEchoOptions ops) => RunEchoClient(ops),
                                          (ReplayListenOptions ops) => RunReplayClient(ops),
@@ -69,7 +81,7 @@ namespace GGPOSharp
           if (ReconnectTime != -1 && elapsed >= ReconnectTime)
           {
             // Put the client back into a listening / sync state...
-            Console.WriteLine("Putting the client back into sync state, waiting for remote connection...");
+            Log.Info("Putting the client back into sync state, waiting for remote connection...");
             ReconnectTime = -1.0d;
             InitializeClient();
           }
@@ -103,15 +115,40 @@ namespace GGPOSharp
     }
 
     // ------------------------------------------------------------------------------------------------------
-    private static int RunReplayClient(ReplayListenOptions ops)
+    private static void InitLogging()
     {
-      throw new NotImplementedException("There is no code for the replay client at this time!");
+      Log.AddLogger(new ConsoleLogger());
+    }
+
+    // ------------------------------------------------------------------------------------------------------
+    private static unsafe int RunReplayClient(ReplayListenOptions ops)
+    {
+      Log.Info("Setting up replay appliance...");
+
+      CLIOptions = ops;
+
+      ClientOptions = new GGPOClientOptions(0, ops.LocalPort, ops.ProtocolVersion, ops.SessionId)
+      {
+        Callbacks = new GGPOSessionCallbacks()
+        {
+          begin_game = OnBeginGame,
+          free_buffer = OnFreeGamestateBuffer,
+          on_event = OnEvent,
+          rollback_frame = OnRollback,
+          save_game_state = SaveGameState,
+          load_game_state = LoadGameState
+        }
+      };
+
+      ClientMode = EMode.Replay;
+
+      return 0;
     }
 
     // ------------------------------------------------------------------------------------------------------
     private static unsafe int RunEchoClient(InputEchoOptions ops)
     {
-      Console.WriteLine("Setting up echo client....");
+      Log.Info("Setting up echo client....");
 
       CLIOptions = ops;
 
@@ -128,31 +165,52 @@ namespace GGPOSharp
         }
       };
 
+      ClientMode = EMode.Echo;
+
       return 0;
     }
 
     // ------------------------------------------------------------------------------------------------------
     private static unsafe void InitializeClient()
     {
-      Console.WriteLine("Initializing the client...");
+      Log.Info("Initializing the client...");
       if (Client != null)
       {
-        Console.WriteLine("Disposing old client....");
+        Log.Info("Disposing old client....");
         Client.Dispose();
       }
 
-      var cliOps = CLIOptions as InputEchoOptions;
+      switch (ClientMode)
+      {
 
-      Client = new InputEchoClient(ClientOptions, new InputEchoOptions());
+        case EMode.Replay:
+          {
+            var cliOps = CLIOptions as ReplayListenOptions;
+            Client = new ReplayAppliance(ClientOptions, cliOps);
+            Client.Lock();
+            // NOTE: Remotes are setup inside of the client.
+          }
+          break;
 
-      var local = Client.AddLocalPlayer(cliOps.PlayerName, (byte)(ClientOptions.PlayerNumber - 1), null);
+        case EMode.Echo:
+          {
+            var cliOps = CLIOptions as InputEchoOptions;
+            Client = new InputEchoClient(ClientOptions, cliOps);
 
-      byte remotePlayerIndex = (byte)(ClientOptions.PlayerNumber == 1 ? 0 : 1);
-      var remote = Client.AddRemotePlayer(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, remotePlayerIndex);
-      remote.SetPlayerName(cliOps.PlayerName);
+            var local = Client.AddLocalPlayer(cliOps.PlayerName, (byte)(ClientOptions.PlayerNumber - 1), null);
 
-      // No more endpoints can be added!
-      Client.Lock();
+            byte remotePlayerIndex = (byte)(ClientOptions.PlayerNumber == 1 ? 0 : 1);
+            var remote = Client.AddRemotePlayer(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, remotePlayerIndex);
+            remote.SetPlayerName(cliOps.PlayerName);
+
+            // No more endpoints can be added!
+            Client.Lock();
+          }
+          break;
+
+        default:
+          throw new ArgumentOutOfRangeException($"Unsupported client mode: {ClientMode}");
+      }
     }
 
     // ------------------------------------------------------------------------------------------------------
@@ -175,14 +233,14 @@ namespace GGPOSharp
     // ------------------------------------------------------------------------------------------------------
     private static void OnBeginGame(string gameName)
     {
-      Console.WriteLine("The game has started!  Beginning sync....");
+      Log.Info("The game has started!  Beginning sync....");
     }
 
     // ------------------------------------------------------------------------------------------------------
     private static unsafe bool OnFreeGamestateBuffer(byte* arg)
     {
       // NOTE: We don't have to do anything here!
-      //Console.WriteLine("An indication to free a buffer happened!");
+      //Log.Info("An indication to free a buffer happened!");
       return true;
     }
 
@@ -190,7 +248,7 @@ namespace GGPOSharp
     private static unsafe bool LoadGameState(byte** buffer, int len)
     {
       // NOTE: We don't attempt to load game state....
-      // Console.WriteLine("no state to load...");
+      // Log.Info("no state to load...");
       return true;
     }
 
@@ -206,7 +264,7 @@ namespace GGPOSharp
       *len = 1;
       *checksum = 0;
 
-      //Console.WriteLine("nothing to save....");
+      //Log.Info("nothing to save....");
       return true;
       // throw new NotImplementedException();
     }
@@ -221,18 +279,19 @@ namespace GGPOSharp
           fixed (byte* pData = evt.u.datagram.data)
           {
             string text = AnsiHelpers.PtrToFixedLengthString(pData, evt.u.datagram.dataSize, GGPOConsts.MAX_GGPO_DATA_SIZE);
-            Console.WriteLine($"Text is: {text}");
+            Log.Info($"Text is: {text}");
           }
         }
 
         else if (evt.u.datagram.code == (byte)EDatagramCode.DATAGRAM_CODE_DISCONNECT)
         {
-          Console.WriteLine("disconnect notice was received...");
+          Log.Info("disconnect notice was received...");
           ReconnectTime = Clock.Elapsed.TotalSeconds + ((float)RECONNECT_WAIT_TIME / 1000.0f);
         }
 
-        else { 
-            int angaweghag = 10;
+        else
+        {
+          int angaweghag = 10;
         }
       }
 
@@ -246,7 +305,7 @@ namespace GGPOSharp
       // We run the next frame on rollback, or it all gets fucked!
       RunFrame(Client, TestInput);
 
-      //Console.WriteLine($"A rollback was detected!");
+      //Log.Info($"A rollback was detected!");
     }
   }
 }

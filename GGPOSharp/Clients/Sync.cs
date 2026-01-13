@@ -1,4 +1,5 @@
-﻿using GGPOSharp;
+﻿using drewCo.Tools.Logging;
+using GGPOSharp;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -261,7 +262,7 @@ public class Sync
     int prevFrame = _curFrame;
     int count = _curFrame - seek_to;   // This is assumed to be positive b/c we are rolling back to an earlier frame.  Therefore, _framecount is always > seek_to.
 
-    Utils.Log("Catching up");
+    Log.Info("Catching up");
     _rollingback = true;
 
     /*
@@ -287,7 +288,7 @@ public class Sync
 
     _rollingback = false;
 
-    Utils.Log("---");
+    Log.Info("---");
   }
 
   // ------------------------------------------------------------------------------------------------------------------------

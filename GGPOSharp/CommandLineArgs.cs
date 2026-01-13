@@ -27,7 +27,7 @@ public abstract class ClientOptions
 /// that are sent along.
 /// </summary>
 [Verb("replay-listen")]
-public class ReplayListenOptions
+public class ReplayListenOptions : ClientOptions
 {
 
   /// <summary>
@@ -41,13 +41,13 @@ public class ReplayListenOptions
   /// Comma delimited list of all addresses that we are going to listen in on.
   /// There should be one entry for each player that will be sending the data.
   /// </summary>
-  [Option("listen-on", HelpText = "Comma delimited list of host:port for all expected players.")]
-  public string PlayerAddresses { get; set; }
+  [Option("listen-on", HelpText = "host:port that we are listening for connections on.")]
+  public string ListenOn { get; set; }
 
   /// <summary>
   /// Time in ms. for how long we will wait for the expected players to connect / sync.
   /// </summary>
-  public int StartupTimeout { get; set; } = 30000;
+  public int StartupTimeout { get; set; } = -1;
 
 }
 

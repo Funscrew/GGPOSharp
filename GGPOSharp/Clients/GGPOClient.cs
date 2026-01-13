@@ -9,8 +9,8 @@ namespace GGPOSharp;
 public class GGPOClient : IDisposable
 {
   private GGPOClientOptions Options = null!;
-  private List<GGPOEndpoint> _endpoints = new List<GGPOEndpoint>();
-  internal UdpBlaster UdpClient = null!;
+  protected List<GGPOEndpoint> _endpoints = new List<GGPOEndpoint>();
+  internal UdpBlaster UDP = null!;
 
   public UInt32 ClientVersion { get { return this.Options.ClientVersion; } }
 
@@ -27,7 +27,7 @@ public class GGPOClient : IDisposable
 
   protected Sync _sync = null!;
 
-  ConnectStatus[] _local_connect_status = null!;
+  protected ConnectStatus[] _local_connect_status = null!;
 
   private string[] _PlayerNames = new string[GGPOConsts.UDP_MSG_MAX_PLAYERS];
   private GGPOSessionCallbacks _callbacks;
@@ -50,7 +50,7 @@ public class GGPOClient : IDisposable
 
     ValidateOptions();
 
-    UdpClient = new UdpBlaster(Options.LocalPort);
+    UDP = new UdpBlaster(Options.LocalPort);
 
     _local_connect_status = new ConnectStatus[GGPOConsts.UDP_MSG_MAX_PLAYERS];
     for (int i = 0; i < GGPOConsts.UDP_MSG_MAX_PLAYERS; i++)
@@ -80,7 +80,7 @@ public class GGPOClient : IDisposable
   // ----------------------------------------------------------------------------------------
   public void Dispose()
   {
-    UdpClient?.Dispose();
+    UDP?.Dispose();
   }
 
   // ----------------------------------------------------------------------------------------
@@ -171,7 +171,7 @@ public class GGPOClient : IDisposable
   }
 
   // ----------------------------------------------------------------------------------------
-  public void DoPoll(int timeout)
+  public virtual void DoPoll(int timeout)
   {
     // Endpoints get updated first so that we can get events, inputs, etc.
     int epCount = _endpoints.Count;
@@ -376,7 +376,7 @@ public class GGPOClient : IDisposable
   /// Sync the inputs for all players for the current frame.
   /// This sends the local inputs, receives the remote ones, and intiates any rollbacks if needed.
   /// </summary>
-  public bool SyncInput(in byte[] values, int isize, int maxPlayers)
+  public virtual bool SyncInput(in byte[] values, int isize, int maxPlayers)
   {
     if (_synchronizing) { return false; }
 
@@ -636,7 +636,7 @@ public class GGPOClient : IDisposable
         if (info.u.datagram.code == (byte)EDatagramCode.DATAGRAM_CODE_CHAT)
         {
           // string text = AnsiHelpers.PtrToFixedLengthString(info.u.datagram.data, evt.u.chat.dataSize, GGPOConsts.MAX_GGPO_DATA_SIZE);
-          // Console.WriteLine($"Text is: {text}");
+          // Log.Info($"Text is: {text}");
         }
 
         if (info.u.datagram.code == (byte)EDatagramCode.DATAGRAM_CODE_DISCONNECT)
@@ -648,7 +648,7 @@ public class GGPOClient : IDisposable
           // NOTE:  We may want to keep more information about the conditions of a disconnect....
           if (_endpoints[pi].IsDisconnected()) { return; }
 
-          // Console.WriteLine("disconnect notice was received...");
+          // Log.Info("disconnect notice was received...");
           // The endpoint has disconnected.... what do we do?
           _endpoints[pi].Disconnect();
         }
