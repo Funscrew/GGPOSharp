@@ -8,9 +8,9 @@
       "commandName": "Project",
       "commandLineArgs": "input-echo --player 2 --name \"Echoman\""
     },
-    "Replay-Listener": {
+    "Replay-Appliance": {
       "commandName": "Project",
-      "commandLineArgs": "replay-listen --session-id \"12345\" --local-port 7002"
+      "commandLineArgs": "replay-appliance --session-id \"12345\" --local-port 7002"
     }
   }
 }

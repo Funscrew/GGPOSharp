@@ -1,4 +1,5 @@
-﻿using System.Reflection.Metadata;
+﻿using System.Diagnostics;
+using System.Reflection.Metadata;
 
 namespace GGPOSharp;
 
@@ -11,6 +12,8 @@ public class GGPOClient : IDisposable
   private GGPOClientOptions Options = null!;
   protected List<GGPOEndpoint> _endpoints = new List<GGPOEndpoint>();
   internal UdpBlaster UDP = null!;
+
+  internal Stopwatch Clock = Stopwatch.StartNew();
 
   public UInt32 ClientVersion { get { return this.Options.ClientVersion; } }
 
@@ -417,7 +420,7 @@ public class GGPOClient : IDisposable
     input.init(-1, values, isize);
 
     // Feed the input for the current frame into the synchronzation layer.
-    if (!_sync.AddLocalInput(Options.PlayerNumber, ref input))
+    if (!_sync.AddLocalInput(Options.PlayerIndex, ref input))
     {
       // return GGPO_ERRORCODE_PREDICTION_THRESHOLD;
       return false;
@@ -432,8 +435,8 @@ public class GGPOClient : IDisposable
       // NOTE: All endpoints send out the _local_connect_status data with each message.
       // An ideal implemetation would have a single 'client' that we set this data on,
       // and then all endpoints would also be contained internally.
-      Utils.LogIt(LogCategories.INPUT, "local frame for: %d - %d", Options.PlayerNumber, input.frame);
-      _local_connect_status[Options.PlayerNumber].last_frame = input.frame;
+      Utils.LogIt(LogCategories.INPUT, "local frame for: %d - %d", Options.PlayerIndex, input.frame);
+      _local_connect_status[Options.PlayerIndex].last_frame = input.frame;
 
       // Send the input to all the remote players.
       // NOTE: This queues input, and it gets pumped out later....
@@ -716,7 +719,7 @@ public class GGPOClientOptions
   // ----------------------------------------------------------------------------------------
   public GGPOClientOptions(byte playerIndex_, int localPort_, UInt32 clientVersion_, UInt64 sessionId_)
   {
-    PlayerNumber = playerIndex_;
+    PlayerIndex = playerIndex_;
     LocalPort = localPort_;
     ClientVersion = clientVersion_;
     SessionId = sessionId_;
@@ -725,7 +728,7 @@ public class GGPOClientOptions
   /// <summary>
   /// Index of the player, coresponding to 0 == player 1, 1 == player 2, etc.
   /// </summary>
-  public byte PlayerNumber { get; set; }
+  public byte PlayerIndex { get; set; }
   public int LocalPort { get; set; } = Defaults.LOCAL_PORT;
   public int InputSize { get; set; } = DEFAULT_INPUT_SIZE;
   public int MaxPlayerCount { get; set; } = MAX_PLAYER_COUNT;

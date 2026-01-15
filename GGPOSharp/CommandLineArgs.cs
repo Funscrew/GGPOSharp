@@ -26,7 +26,7 @@ public abstract class ClientOptions
 /// This client will listen to two or more connected endpoints and record / merge the input packets
 /// that are sent along.
 /// </summary>
-[Verb("replay-listen")]
+[Verb("replay-appliance")]
 public class ReplayListenOptions : ClientOptions
 {
 

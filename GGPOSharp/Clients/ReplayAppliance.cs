@@ -48,7 +48,10 @@ namespace GGPOSharp.Clients
 
       Clock = Stopwatch.StartNew();
 
-
+      for (int i = 0; i < Endpoints.Length; i++)
+      {
+        Endpoints[i] = null!;
+      }
     }
 
     // --------------------------------------------------------------------------------------------------------------------------
@@ -66,7 +69,7 @@ namespace GGPOSharp.Clients
       else
       {
         while (true)
-        { 
+        {
           int msgSize = UDP.Receive(ReceiveBuffer, ref RemoteEP);
           if (msgSize > 0)
           {
@@ -85,9 +88,10 @@ namespace GGPOSharp.Clients
 
                 // NOTE: We should have a sync request with the correct request ID set!
                 // Don't know what to do if we don't... probably just ignore it...
-                AddReplayEndpoint(RemoteEP, msg);
-                Log.Info("A remote endpoint was added...");
+                var rip = (IPEndPoint)RemoteEP;
+                AddReplayEndpoint(rip.Address.ToString(), rip.Port, msg);
 
+                Log.Info("A remote endpoint was added...");
 
                 this.ConnectedClients.Add(ipa);
                 if (this.ConnectedClients.Count == 2)
@@ -129,10 +133,14 @@ namespace GGPOSharp.Clients
       //base.DoPoll(timeout);
 
       // Endpoints get updated first so that we can get events, inputs, etc.
-      int epCount = _endpoints.Count;
+      int epCount = Endpoints.Length;
       for (int i = 0; i < epCount; i++)
       {
-        _endpoints[i].OnLoopPoll();
+        var ep = Endpoints[i];
+        if (ep != null)
+        {
+          ep.OnLoopPoll();
+        }
       }
 
       // Now we can handle the results of the endpoint updates (events, etc.)
@@ -169,18 +177,24 @@ namespace GGPOSharp.Clients
     }
 
     // --------------------------------------------------------------------------------------------------------------------------
-    private void AddReplayEndpoint(EndPoint remoteEP, UdpMsg msg)
+    private void AddReplayEndpoint(string remoteHost, int remotePort, UdpMsg msg)
     {
-      //var remoteOps = new GGPOEndpointOptions()
-      //{
-      //  IsLocal = false,
-      //  PlayerIndex = msg.u.sync_request.player_index, //   GGPOConsts.REPLAY_APPLIANCE_PLAYER_INDEX,
-      //  TestOptions = new TestOptions()
-      //};
-      //var remote = new GGPOEndpoint(this, remoteOps, _local_connect_status);
-      var remote = new ReplayEndpoint(remoteEP, msg.u.sync_request.player_index);
+      var playerIndex = msg.u.sync_request.player_index;
+      var ops = new GGPOEndpointOptions()
+      {
+        Delay = 0,
+        IsLocal = false,
+        PlayerIndex = playerIndex,
+        PlayerName = "REPLAY_APP",
+        RemoteHost = remoteHost,
+        RemotePort = remotePort,
+        Runahead = 0,
+        TestOptions = new TestOptions()
+      };
 
-      // this._endpoints.Add(remote);
+
+      var remote = new ReplayEndpoint(this, ops, _local_connect_status);
+      this.Endpoints[msg.u.sync_request.player_index] = remote;
     }
 
     // --------------------------------------------------------------------------------------------------------------------------

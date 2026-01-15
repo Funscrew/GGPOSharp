@@ -18,7 +18,6 @@ public class GGPOEndpoint
   public const int SEND_QUEUE_SIZE = 64;
 
   public const int UDP_HEADER_SIZE = 28;                  /* Size of IP + UDP headers */
-  public const int SYNC_PACKETS_COUNT = 5;
   public const int SYNC_RETRY_INTERVAL = 2000;
   public const int SYNC_FIRST_RETRY_INTERVAL = 500;
   public const int RUNNING_RETRY_INTERVAL = 200;
@@ -26,7 +25,6 @@ public class GGPOEndpoint
   public const int QUALITY_REPORT_INTERVAL = 1000;
   public const int NETWORK_STATS_INTERVAL = 1000;
   public const int UDP_SHUTDOWN_TIMER = 5000;
-  public const int MAX_SEQ_DISTANCE = (1 << 15);
 
   private byte[] _SendBuffer = new byte[4200];
 
@@ -75,7 +73,7 @@ public class GGPOEndpoint
 
   private GGPOEndpointOptions Options = null!;
 
-  private Stopwatch Clock = Stopwatch.StartNew();
+  private Stopwatch Clock { get { return Client.Clock; } }
 
   private MsgHandler<UdpMsg>[] MsgHandlers = new MsgHandler<UdpMsg>[9];
 
@@ -122,9 +120,6 @@ public class GGPOEndpoint
 
   TimeSync _timesync = null!;
 
-  /*
-   * Event queue
-   */
   RingBuffer<UdpEvent> _event_queue = new RingBuffer<UdpEvent>(64);
 
   // Your name.  This will be exchanged with other peers on sync.
@@ -147,7 +142,7 @@ public class GGPOEndpoint
   private UInt64 SessionId = 0;
 
   public byte PlayerIndex { get { return Options.PlayerIndex; } }
-  
+
   public bool IsLocalPlayer { get { return Options.IsLocal; } }
 
   // -------------------------------------------------------------------------------------
@@ -497,7 +492,7 @@ public class GGPOEndpoint
     }
 
     _current_state = EClientState.Syncing;
-    SyncState.roundtrips_remaining = SYNC_PACKETS_COUNT;
+    SyncState.roundtrips_remaining = GGPOConsts.SYNC_PACKETS_COUNT;
     SendSyncRequest();
   }
 
@@ -517,7 +512,6 @@ public class GGPOEndpoint
   // -------------------------------------------------------------------------------------
   public unsafe void SendMsg(ref UdpMsg msg)
   {
-
     _packets_sent++;
     _last_send_time = (uint)Clock.ElapsedMilliseconds;
     _bytes_sent += msg.PacketSize();
@@ -537,7 +531,6 @@ public class GGPOEndpoint
 
     Utils.LogMsg(EMsgDirection.Send, ref msg);
     PumpSendQueue();
-
   }
 
   // ----------------------------------------------------------------------------------------------------------
@@ -583,7 +576,7 @@ public class GGPOEndpoint
     {
       case EClientState.Syncing:
         // do sync timeout + resend stuff here....
-        next_interval = (SyncState.roundtrips_remaining == SYNC_PACKETS_COUNT) ? SYNC_FIRST_RETRY_INTERVAL : SYNC_RETRY_INTERVAL;
+        next_interval = (SyncState.roundtrips_remaining == GGPOConsts.SYNC_PACKETS_COUNT) ? SYNC_FIRST_RETRY_INTERVAL : SYNC_RETRY_INTERVAL;
         if (_last_send_time > 0 && _last_send_time + next_interval < now)
         {
           Utils.LogIt(LogCategories.SYNC, "Re-Queueing Sync");
@@ -808,7 +801,7 @@ public class GGPOEndpoint
       // filter out out-of-order packets
       UInt16 skipped = (UInt16)((int)seq - (int)_next_recv_seq);
       // Log("checking sequence number . next - seq : %d - %d = %d", seq, _next_recv_seq, skipped);
-      if (skipped > MAX_SEQ_DISTANCE)
+      if (skipped > GGPOConsts.MAX_SEQ_DISTANCE)
       {
         Utils.LogIt(LogCategories.ENDPOINT, "OOP dropped: (seq: %d, last seq:%d)", seq, _next_recv_seq);
         return;
@@ -835,10 +828,6 @@ public class GGPOEndpoint
         _disconnect_notify_sent = false;
       }
     }
-
-
-
-
   }
 
   // ----------------------------------------------------------------------------------------------------------
@@ -866,7 +855,6 @@ public class GGPOEndpoint
      */
     _local_frame_advantage = remoteFrame - localFrame;
   }
-
 
   // ------------------------------------------------------------------------
   private bool OnInvalid(ref UdpMsg msg, int msgLen)
@@ -937,8 +925,8 @@ public class GGPOEndpoint
     else
     {
       var evt = new UdpEvent(EEventType.Synchronizing);
-      evt.u.synchronizing.total = SYNC_PACKETS_COUNT;
-      evt.u.synchronizing.count = SYNC_PACKETS_COUNT - (int)SyncState.roundtrips_remaining;
+      evt.u.synchronizing.total = GGPOConsts.SYNC_PACKETS_COUNT;
+      evt.u.synchronizing.count = GGPOConsts.SYNC_PACKETS_COUNT - (int)SyncState.roundtrips_remaining;
       QueueEvent(evt);
       SendSyncRequest();
     }
@@ -1357,6 +1345,8 @@ public class GGPOEndpointOptions
 
   public string RemoteHost { get; set; } = Defaults.REMOTE_HOST;
   public int RemotePort { get; set; } = Defaults.REMOTE_PORT;
+
+  public EndPoint Remote { get; set; } = null!;
 
   // NOTE: Other player names come from the network!
   // public string PlayerName { get; set; } = default!;

@@ -22,6 +22,10 @@ public static class GGPOConsts
 
   public const byte REPLAY_APPLIANCE_PLAYER_INDEX = 0xFF;
 
+  public const int MAX_SEQ_DISTANCE = (1 << 15);
+
+  public const int SYNC_PACKETS_COUNT = 5;
+
 }
 
 // ================================================================================================================

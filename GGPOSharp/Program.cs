@@ -197,9 +197,9 @@ namespace GGPOSharp
             var cliOps = CLIOptions as InputEchoOptions;
             Client = new InputEchoClient(ClientOptions, cliOps);
 
-            var local = Client.AddLocalPlayer(cliOps.PlayerName, (byte)(ClientOptions.PlayerNumber - 1), null);
+            var local = Client.AddLocalPlayer(cliOps.PlayerName, (byte)(ClientOptions.PlayerIndex - 1), null);
 
-            byte remotePlayerIndex = (byte)(ClientOptions.PlayerNumber == 1 ? 0 : 1);
+            byte remotePlayerIndex = (byte)(ClientOptions.PlayerIndex == 1 ? 0 : 1);
             var remote = Client.AddRemotePlayer(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, remotePlayerIndex);
             remote.SetPlayerName(cliOps.PlayerName);
 
