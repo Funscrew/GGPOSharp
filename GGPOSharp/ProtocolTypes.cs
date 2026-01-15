@@ -130,6 +130,7 @@ public unsafe struct SyncReply
 {
   public UInt32 random_reply;     // OK, here's your random data back
   public UInt32 client_version;   // Version of this client, in 8 byte chunks: MAJOR - MINOR - REVISION - GGPO (protocol version)
+  public byte player_index;       // Index of the remote player.  Should match what we expect / not be our index!
   public byte delay;
   public byte runahead;
 
@@ -516,7 +517,7 @@ public struct GGPOEvent
 {
   public EEventCode event_code;
   public byte player_index;
-  public EventUnion u;   
+  public EventUnion u;
 }
 
 // ================================================================================================================================================================

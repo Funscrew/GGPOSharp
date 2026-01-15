@@ -184,7 +184,7 @@ namespace GGPOSharp.Clients
       {
         Delay = 0,
         IsLocal = false,
-        PlayerIndex = playerIndex,
+        PlayerIndex = GGPOConsts.REPLAY_APPLIANCE_PLAYER_INDEX,
         PlayerName = "REPLAY_APP",
         RemoteHost = remoteHost,
         RemotePort = remotePort,
@@ -193,7 +193,7 @@ namespace GGPOSharp.Clients
       };
 
 
-      var remote = new ReplayEndpoint(this, ops, _local_connect_status);
+      var remote = new ReplayEndpoint(this, ops, _local_connect_status, playerIndex);
       this.Endpoints[msg.u.sync_request.player_index] = remote;
     }
 

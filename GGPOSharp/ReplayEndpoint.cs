@@ -1,23 +1,17 @@
-﻿using drewCo.Tools.Logging;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Net;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace GGPOSharp
+﻿namespace GGPOSharp
 {
 
   // ==============================================================================================================================
   public class ReplayEndpoint : GGPOEndpoint
   {
-    public ReplayEndpoint(GGPOClient client_, GGPOEndpointOptions ops_, ConnectStatus[] localConnectStatus_)
+    public int RemotePlayerIndex { get; private set; }
+
+    // ----------------------------------------------------------------------------------------------------------------
+    public ReplayEndpoint(GGPOClient client_, GGPOEndpointOptions ops_, ConnectStatus[] localConnectStatus_, int remotePlayerIndex_)
       : base(client_, ops_, localConnectStatus_)
-    { }
-
-
+    { 
+      RemotePlayerIndex = remotePlayerIndex_;
+    }
 
   }
 
