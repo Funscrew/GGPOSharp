@@ -37,12 +37,12 @@ public class ReplayListenOptions : ClientOptions
   [Option("session-id")]
   public UInt64 SessionId { get; set; } = 0;
 
-  /// <summary>
-  /// Comma delimited list of all addresses that we are going to listen in on.
-  /// There should be one entry for each player that will be sending the data.
-  /// </summary>
-  [Option("listen-on", HelpText = "host:port that we are listening for connections on.")]
-  public string ListenOn { get; set; }
+  ///// <summary>
+  ///// Comma delimited list of all addresses that we are going to listen in on.
+  ///// There should be one entry for each player that will be sending the data.
+  ///// </summary>
+  //[Option("listen-on", HelpText = "host:port that we are listening for connections on.")]
+  //public string ListenOn { get; set; }
 
   /// <summary>
   /// Time in ms. for how long we will wait for the expected players to connect / sync.

@@ -23,14 +23,14 @@ public class GGPOClient : IDisposable
   /// Are we currently processing a rollback?
   /// </summary>
   private bool InRollback = false;
-  public bool _synchronizing { get; private set; } = false;
+  public bool _synchronizing { get; protected set; } = false;
 
   protected Sync _sync = null!;
 
   protected ConnectStatus[] _local_connect_status = null!;
 
   private string[] _PlayerNames = new string[GGPOConsts.UDP_MSG_MAX_PLAYERS];
-  private GGPOSessionCallbacks _callbacks;
+  protected GGPOSessionCallbacks _callbacks;
 
 
   private GGPOEndpoint LocalPlayer = null;
@@ -453,7 +453,7 @@ public class GGPOClient : IDisposable
 
   // ----------------------------------------------------------------------------------------
   // REFACTOR: 'HandleEvents'
-  private void PollUdpProtocolEvents()
+  protected void PollUdpProtocolEvents()
   {
     // throw new NotImplementedException();
     var evt = new UdpEvent();
@@ -582,7 +582,8 @@ public class GGPOClient : IDisposable
         info.event_code = EEventCode.GGPO_EVENTCODE_CONNECTED_TO_PEER;
         info.player_index = playerIndex;
 
-        _PlayerNames[playerIndex] = evt.u.connected.GetText();
+        string name = evt.u.connected.GetText();
+        _PlayerNames[playerIndex] = name;
         // strcpy_s(_PlayerNames[playerIndex], evt.u.connected.playerName);
 
         // strcpy_s(info.u.connected.playerName, evt.u.connected.playerName);
@@ -660,7 +661,7 @@ public class GGPOClient : IDisposable
   }
 
   // ----------------------------------------------------------------------------------------------------------
-  void CheckInitialSync()
+  protected virtual void CheckInitialSync()
   {
     int i;
 
@@ -673,8 +674,9 @@ public class GGPOClient : IDisposable
       {
         var ep = _endpoints[i];
         int epi = ep.PlayerIndex;
+
         // xxx: IsInitialized() must go... we're actually using it as a proxy for "represents the local player"
-        if (ep.IsInitialized() &&
+        if (ep.IsLocalPlayer &&
             !ep.IsSynchronized() &&
             !_local_connect_status[epi].disconnected)
         {

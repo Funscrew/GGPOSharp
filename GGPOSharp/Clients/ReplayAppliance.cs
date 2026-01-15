@@ -32,6 +32,10 @@ namespace GGPOSharp.Clients
 
     private Stopwatch Clock = default!;
 
+    // OPTIONS:
+    const int PLAYER_COUNT = 2;
+    private ReplayEndpoint[] Endpoints = new ReplayEndpoint[PLAYER_COUNT];
+
     // --------------------------------------------------------------------------------------------------------------------------
     public ReplayAppliance(GGPOClientOptions ggpoOps_, ReplayListenOptions ops_)
       : base(ggpoOps_)
@@ -48,31 +52,6 @@ namespace GGPOSharp.Clients
     }
 
     // --------------------------------------------------------------------------------------------------------------------------
-    private void SetupEndpoints()
-    {
-      //// This is so we can get data from whatever remote....
-      //RemoteIP = new IPEndPoint(IPAddress.Any, 0);
-      //RemoteEP = RemoteIP;
-
-      //// this.AddRemotePlayer(
-      //var remoteOps = new GGPOEndpointOptions()
-      //{
-      //  IsLocal = true,
-      //  PlayerIndex = GGPOConsts.REPLAY_APPLIANCE_PLAYER_INDEX,
-      //  TestOptions = new TestOptions()
-      //};
-      //var remote = new GGPOEndpoint(this, remoteOps, _local_connect_status);
-
-      //this._endpoints.Add(remote);
-      //// OK... so we kind of need to have our own special endpoint for this.
-      //// Would be a lot easier if we could just have a stupid soft-router....
-      //// Well.... actually we can.... sort of, all I need are the messages and I am recording them... that is all....
-      //// Of course, we have to do all the handshaking stuff toooo....
-
-      //// throw new NotImplementedException();
-    }
-
-    // --------------------------------------------------------------------------------------------------------------------------
     public override void DoPoll(int timeout)
     {
       if (Options.StartupTimeout != -1 && Clock.ElapsedMilliseconds > Options.StartupTimeout)
@@ -80,15 +59,14 @@ namespace GGPOSharp.Clients
         throw new InvalidOperationException("Startup timeout exceeded!");
       }
 
-      if (AllConnected)
+      if (this.ConnectedClients.Count > 0) // AllConnected)
       {
-        base.DoPoll(timeout);
+        ReplayPoll(timeout);
       }
       else
       {
-
         while (true)
-        {
+        { 
           int msgSize = UDP.Receive(ReceiveBuffer, ref RemoteEP);
           if (msgSize > 0)
           {
@@ -104,21 +82,27 @@ namespace GGPOSharp.Clients
               if (msg.header.type == EMsgType.SyncRequest)
               {
                 Log.Info($"Received a sync request with session id: {msg.u.sync_request.session_id}");
+
+                // NOTE: We should have a sync request with the correct request ID set!
+                // Don't know what to do if we don't... probably just ignore it...
+                AddReplayEndpoint(RemoteEP, msg);
+                Log.Info("A remote endpoint was added...");
+
+
+                this.ConnectedClients.Add(ipa);
+                if (this.ConnectedClients.Count == 2)
+                {
+                  AllConnected = true;
+                  Log.Info("All clients are setup...");
+                }
+
+
               }
               else
               {
                 Log.Info("The message should be a sync request!");
               }
 
-              // NOTE: We should have a sync request with the correct request ID set!
-              // Don't know what to do if we don't... probably just ignore it...
-
-              this.ConnectedClients.Add(ipa);
-              if (this.ConnectedClients.Count == 2)
-              {
-                AllConnected = true;
-                Log.Info("All clients are setup...");
-              }
             }
 
           }
@@ -128,14 +112,75 @@ namespace GGPOSharp.Clients
             break;
           }
         }
-
-
       }
 
 
 
       //// this is where we can check the endpoint for data / connection?
       //base.DoPoll(timeout);
+    }
+
+    // --------------------------------------------------------------------------------------------------------------------------
+    /// <summary>
+    /// This is modeled after the base class's DoPoll function.
+    /// </summary>
+    private void ReplayPoll(int timeout)
+    {
+      //base.DoPoll(timeout);
+
+      // Endpoints get updated first so that we can get events, inputs, etc.
+      int epCount = _endpoints.Count;
+      for (int i = 0; i < epCount; i++)
+      {
+        _endpoints[i].OnLoopPoll();
+      }
+
+      // Now we can handle the results of the endpoint updates (events, etc.)
+      // Handle events!
+      PollUdpProtocolEvents();
+
+
+      // This is where we will check the sync + the input queues to 
+
+    }
+
+    // --------------------------------------------------------------------------------------------------------------------------
+    protected override void CheckInitialSync()
+    {
+      if (_synchronizing)
+      {
+        int epLen = _endpoints.Count;
+        if (epLen < 2) { return; }
+
+        for (int i = 0; i < epLen; i++)
+        {
+          var ep = _endpoints[i];
+          if (!ep.IsSynchronized() && !_local_connect_status[ep.PlayerIndex].disconnected)
+          {
+            return;
+          }
+        }
+
+        GGPOEvent info = new GGPOEvent();
+        info.event_code = EEventCode.GGPO_EVENTCODE_RUNNING;
+        _callbacks.on_event(ref info);
+        _synchronizing = false;
+      }
+    }
+
+    // --------------------------------------------------------------------------------------------------------------------------
+    private void AddReplayEndpoint(EndPoint remoteEP, UdpMsg msg)
+    {
+      //var remoteOps = new GGPOEndpointOptions()
+      //{
+      //  IsLocal = false,
+      //  PlayerIndex = msg.u.sync_request.player_index, //   GGPOConsts.REPLAY_APPLIANCE_PLAYER_INDEX,
+      //  TestOptions = new TestOptions()
+      //};
+      //var remote = new GGPOEndpoint(this, remoteOps, _local_connect_status);
+      var remote = new ReplayEndpoint(remoteEP, msg.u.sync_request.player_index);
+
+      // this._endpoints.Add(remote);
     }
 
     // --------------------------------------------------------------------------------------------------------------------------

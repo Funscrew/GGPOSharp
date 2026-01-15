@@ -10,7 +10,7 @@
     },
     "Replay-Listener": {
       "commandName": "Project",
-      "commandLineArgs": "replay-listen --session-id \"12345\" --listen-on \"localhost:7002\""
+      "commandLineArgs": "replay-listen --session-id \"12345\" --local-port 7002"
     }
   }
 }

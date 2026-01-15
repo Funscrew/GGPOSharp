@@ -105,6 +105,7 @@ public struct ConnectStatus
 public struct SyncRequest
 {
   public uint random_request;   // please reply back with this random data
+  public byte player_index;     // Players must identify their desired index.
   public UInt64 session_id;     // Used for replay ids.  This is the form of a unix timestamp in milliseconds!  For p2p connections, this can be zero, but is ignored.
   //public ushort remote_magic;
   //public byte remote_endpoint;

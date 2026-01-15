@@ -147,6 +147,8 @@ public class GGPOEndpoint
   private UInt64 SessionId = 0;
 
   public byte PlayerIndex { get { return Options.PlayerIndex; } }
+  
+  public bool IsLocalPlayer { get { return Options.IsLocal; } }
 
   // -------------------------------------------------------------------------------------
   public GGPOEndpoint(GGPOClient client_, GGPOEndpointOptions ops_, ConnectStatus[] localConnectStatus_)
