@@ -262,7 +262,7 @@ public class Sync
     int prevFrame = _curFrame;
     int count = _curFrame - seek_to;   // This is assumed to be positive b/c we are rolling back to an earlier frame.  Therefore, _framecount is always > seek_to.
 
-    Log.Info("Catching up");
+    Utils.LogIt(LogCategories.MESSAGE, "Catching up to: %d", seek_to); 
     _rollingback = true;
 
     /*
@@ -288,7 +288,6 @@ public class Sync
 
     _rollingback = false;
 
-    Log.Info("---");
   }
 
   // ------------------------------------------------------------------------------------------------------------------------

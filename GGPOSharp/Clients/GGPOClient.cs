@@ -137,19 +137,17 @@ public class GGPOClient : IDisposable
   }
 
   // ----------------------------------------------------------------------------------------
-  // TODO: Maybe there should be an option to (optionally) set the remote player name, and then it
-  // will need to match for the connection to work?  Could help with spoofing or whatever....
-  public GGPOEndpoint AddRemotePlayer(string remoteHost, int remotePort, byte playerIndex, TestOptions? testOptions = null)
+  public GGPOEndpoint AddRemotePlayer(RemotePlayerData remoteData, TestOptions? testOps = null)
   {
     CheckLocked();
 
     var ops = new GGPOEndpointOptions()
     {
       IsLocal = false,
-      PlayerIndex = playerIndex,
-      RemoteHost = remoteHost,
-      RemotePort = remotePort,
-      TestOptions = testOptions ?? new TestOptions()
+      PlayerIndex = (byte)(remoteData.PlayerNumber - 1),
+      RemoteHost = remoteData.Host,
+      RemotePort = remoteData.Port,
+      TestOptions = testOps ?? new TestOptions()
     };
 
     var res = new GGPOEndpoint(this, ops, _local_connect_status);
@@ -157,6 +155,29 @@ public class GGPOClient : IDisposable
 
     return res;
   }
+
+  //// ----------------------------------------------------------------------------------------
+  //// TODO: Maybe there should be an option to (optionally) set the remote player name, and then it
+  //// will need to match for the connection to work?  Could help with spoofing or whatever....
+  //[Obsolete]
+  //public GGPOEndpoint AddRemotePlayer(string remoteHost, int remotePort, byte playerIndex, TestOptions? testOptions = null)
+  //{
+  //  CheckLocked();
+
+  //  var ops = new GGPOEndpointOptions()
+  //  {
+  //    IsLocal = false,
+  //    PlayerIndex = playerIndex,
+  //    RemoteHost = remoteHost,
+  //    RemotePort = remotePort,
+  //    TestOptions = testOptions ?? new TestOptions()
+  //  };
+
+  //  var res = new GGPOEndpoint(this, ops, _local_connect_status);
+  //  this._endpoints.Add(res);
+
+  //  return res;
+  //}
 
   // ----------------------------------------------------------------------------------------
   private void CheckLocked()
@@ -755,6 +776,7 @@ public static class Defaults
   public const int LOCAL_PORT = 7001;
   public const int REMOTE_PORT = 7000;
   public const int PROTOCOL_VERSION = 4;
+  public const byte PLAYER_TWO = 2;
 
   public const string REMOTE_HOST = "127.0.0.1";
 }

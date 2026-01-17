@@ -19,6 +19,10 @@ public abstract class ClientOptions
   public bool AutoReinitialize { get; set; }
 
   public uint ProtocolVersion { get; set; } = Defaults.PROTOCOL_VERSION;
+
+
+  [Option("replay-options", Required = false, HelpText = "Address + session id of the replay applicance in the form of: <host>:<port>-<sessionid>")]
+  public string? ReplayOptions { get; set; } = null;
 }
 
 // ==============================================================================================================================
@@ -62,7 +66,11 @@ public class InputEchoOptions : ClientOptions
   [Option("name", HelpText = "Name of the player", Required = true)]
   public string PlayerName { get; set; }
 
-  
+
+  [Option("remote", Required = false, HelpText = "comma delimited list of all <host>:<port>-<playerNumber> of the remote players that we expect to connect to.  NOTE: Currently only one remote player is supported!")]
+  public string RemotePlayers { get; set; } = $"{Defaults.REMOTE_HOST}:{Defaults.REMOTE_PORT}-{Defaults.PLAYER_TWO}";
+
+
   /// <summary>
   /// Should the left / right buttons be reversed?
   /// </summary>
@@ -74,4 +82,5 @@ public class InputEchoOptions : ClientOptions
   /// </summary>
   [Option("delay-frames", HelpText = "How many frames should the echo be delayed?")]
   public int DelayFrameCount { get; set; } = 30;
+
 }

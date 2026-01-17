@@ -1001,7 +1001,7 @@ public class GGPOEndpoint
 
       if (_oo_packet.HasMessage && _oo_packet.queue_time < (int)Clock.ElapsedMilliseconds)
       {
-        Log.Info("sending rogue oop!");
+        Utils.LogIt(LogCategories.MESSAGE, "sending rogue oop!");
 
         SendMsgPacket(_oo_packet.msg);
         _oo_packet.MsgIndex = -1;
