@@ -2,9 +2,6 @@
 using System.Net;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Net.Sockets;
-using System.Threading;
-using System;
 using drewCo.Tools.Logging;
 
 namespace GGPOSharp;
