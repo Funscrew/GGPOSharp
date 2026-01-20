@@ -1,6 +1,7 @@
 ﻿using CommandLine;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -20,9 +21,19 @@ public abstract class ClientOptions
 
   public uint ProtocolVersion { get; set; } = Defaults.PROTOCOL_VERSION;
 
-
-  [Option("replay-options", Required = false, HelpText = "Address + session id of the replay applicance in the form of: <host>:<port>-<sessionid>")]
+  [Option("replay-options", Required = false, HelpText = "Address of the replay applicance in the form of: <host>:<port>")]
   public string? ReplayOptions { get; set; } = null;
+
+  [Option("replay-timeout", Required = false, HelpText = "Time in ms. that attempts to sync will time out.  Gameplay will continue as normal, but no replay data will be sent.")]
+  public int ReplayTimeout { get; set; } = Defaults.REPLAY_TIMEOUT;
+
+  /// <summary>
+  /// This is how the replay sessions are uniquely identified.
+  /// This is what will be sent to the client as this endpoint's "player name".
+  /// </summary>
+  [Option("session-id")]
+  public UInt64 SessionId { get; set; } = 0;
+
 }
 
 // ==============================================================================================================================
@@ -34,12 +45,6 @@ public abstract class ClientOptions
 public class ReplayListenOptions : ClientOptions
 {
 
-  /// <summary>
-  /// This is how the replay sessions are uniquely identified.
-  /// This is what will be sent to the client as this endpoint's "player name".
-  /// </summary>
-  [Option("session-id")]
-  public UInt64 SessionId { get; set; } = 0;
 
   ///// <summary>
   ///// Comma delimited list of all addresses that we are going to listen in on.
@@ -51,7 +56,8 @@ public class ReplayListenOptions : ClientOptions
   /// <summary>
   /// Time in ms. for how long we will wait for the expected players to connect / sync.
   /// </summary>
-  public int StartupTimeout { get; set; } = -1;
+  [Option("startup-timeout", Required = false, HelpText = "Time in ms. that we will wait for connections.  Use -1 for unlimited time.")]
+  public int StartupTimeout { get; set; } = GGPOConsts.UNLIMITED_TIME;
 
 }
 
@@ -74,7 +80,7 @@ public class InputEchoOptions : ClientOptions
   /// <summary>
   /// Should the left / right buttons be reversed?
   /// </summary>
-  [Option("invert-controls", HelpText ="If set, the left/right controls will be inverted when echoing the input.")]
+  [Option("invert-controls", HelpText = "If set, the left/right controls will be inverted when echoing the input.")]
   public bool InvertLeftRightControls { get; set; } = true;
 
   /// <summary>
@@ -82,5 +88,8 @@ public class InputEchoOptions : ClientOptions
   /// </summary>
   [Option("delay-frames", HelpText = "How many frames should the echo be delayed?")]
   public int DelayFrameCount { get; set; } = 30;
+
+  //[Option("replay-appliance", Required = false, HelpText = "Optional, use this to send gameplay data to a replay applicance, in the form of: <host>:<port>-<sessionId>")]
+  //public string? ReplayAppliance { get; set; } = null;
 
 }

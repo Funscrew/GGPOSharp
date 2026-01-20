@@ -14,7 +14,7 @@
     },
     "Echo-Client-With-Replay": {
       "commandName": "Project",
-      "commandLineArgs": "input-echo --player 1 --name \"Echoman\" --replay-options \"127.0.0.1:7002-12345\""
+      "commandLineArgs": "input-echo --player 1 --name \"Echoman\" --session-id \"12345\" --replay-options \"127.0.0.1:7002\""
     }
   }
 }

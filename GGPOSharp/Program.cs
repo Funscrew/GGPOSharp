@@ -165,6 +165,8 @@ internal class Program
       }
     };
 
+    ClientOptions.SetReplayOption(ops.ReplayOptions, ops.ReplayTimeout);
+
     ClientMode = EMode.Echo;
 
     return 0;
@@ -211,14 +213,13 @@ internal class Program
 
           foreach (var item in remotes)
           {
-            var rOps = new RemotePlayerData(item);
+            var rOps = new RemoteEndpointData(item);
             Client.AddRemotePlayer(rOps);
           }
 
-
-          //byte remotePlayerIndex = (byte)(ClientOptions.PlayerIndex == 1 ? 0 : 1);
-          //var remote = Client.AddRemotePlayer(Defaults.REMOTE_HOST, Defaults.REMOTE_PORT, remotePlayerIndex);
-          //remote.SetPlayerName(cliOps.PlayerName);
+          if (ClientOptions.ReplayHost != null) {
+            Client.AddReplayAppliance(ClientOptions.ReplayHost, ClientOptions.ReplayPort, ClientOptions.ReplayTimeout);
+          }
 
           // No more endpoints can be added!
           Client.Lock();
@@ -250,7 +251,7 @@ internal class Program
   // ------------------------------------------------------------------------------------------------------
   private static void OnBeginGame(string gameName)
   {
-    Log.Info("The game has started!  Beginning sync....");
+    Log.Info("The game has started!  Waiting for sync....");
   }
 
   // ------------------------------------------------------------------------------------------------------
@@ -327,23 +328,24 @@ internal class Program
 }
 
 // ==============================================================================================================================
-public class RemotePlayerData
+public class RemoteEndpointData
 {
-  public RemotePlayerData(string fromCliOption)
+  // --------------------------------------------------------------------------------------------------------------------------
+  public RemoteEndpointData(string fromCliOption)
   {
     var parts = fromCliOption.Trim().Split("-");
-    if (parts.Length < 2)
-    {
-      throw new InvalidOperationException($"Invalid option value: {fromCliOption}!");
-    }
-    var hostAndPort = parts[0].Split(":");
 
+    var hostAndPort = parts[0].Split(":");
     Host = hostAndPort[0];
     Port = int.Parse(hostAndPort[1]);
-    PlayerNumber = byte.Parse(parts[1]);
+
+    if (parts.Length > 1)
+    {
+      PlayerNumber = byte.Parse(parts[1]);
+    }
   }
 
   public string Host { get; set; }
   public int Port { get; set; }
-  public byte PlayerNumber { get; set; }
+  public byte PlayerNumber { get; set; } = GGPOConsts.PLAYER_NOT_SET;
 }

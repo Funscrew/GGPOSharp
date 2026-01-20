@@ -20,11 +20,14 @@ public static class GGPOConsts
 
   public const int RECOMMENDATION_INTERVAL = 240;
 
-  public const byte REPLAY_APPLIANCE_PLAYER_INDEX = 0xFF;
+  public const byte PLAYER_NOT_SET = 0xFF;
+  public const byte REPLAY_APPLIANCE_PLAYER_INDEX = 0xFE;
 
   public const int MAX_SEQ_DISTANCE = (1 << 15);
 
   public const int SYNC_PACKETS_COUNT = 5;
+
+  public const int UNLIMITED_TIME = -1;
 
 }
 

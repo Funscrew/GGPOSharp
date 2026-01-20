@@ -9,6 +9,12 @@ namespace GGPOSharp;
 /// </summary>
 public class GGPOClient : IDisposable
 {
+  /// <summary>
+  /// The current number of players in the game.
+  /// This is updated when endpoints are added.
+  /// </summary>
+  private int PlayerCount = 0;
+
   private GGPOClientOptions Options = null!;
   protected List<GGPOEndpoint> _endpoints = new List<GGPOEndpoint>();
   internal UdpBlaster UDP = null!;
@@ -45,6 +51,8 @@ public class GGPOClient : IDisposable
   public UInt64 SessionId { get { return Options.SessionId; } }
 
   private int _next_recommended_sleep = 0;
+
+  private bool ReplayApplianceAdded = false;
 
   // ----------------------------------------------------------------------------------------
   public GGPOClient(GGPOClientOptions options_)
@@ -133,11 +141,14 @@ public class GGPOClient : IDisposable
     LocalPlayer = res;
 
     this._endpoints.Add(res);
+
+    ++PlayerCount;
+
     return res;
   }
 
   // ----------------------------------------------------------------------------------------
-  public GGPOEndpoint AddRemotePlayer(RemotePlayerData remoteData, TestOptions? testOps = null)
+  public GGPOEndpoint AddRemotePlayer(RemoteEndpointData remoteData, TestOptions? testOps = null)
   {
     CheckLocked();
 
@@ -153,7 +164,31 @@ public class GGPOClient : IDisposable
     var res = new GGPOEndpoint(this, ops, _local_connect_status);
     this._endpoints.Add(res);
 
+    ++PlayerCount;
+
     return res;
+  }
+
+  // ----------------------------------------------------------------------------------------
+  internal GGPOEndpoint AddReplayAppliance(string replayHost, int replayPort, int replayTimeout)
+  {
+    if (ReplayApplianceAdded) { throw new InvalidOperationException("The replay appliance has already been added!"); }
+
+    var ops = new GGPOEndpointOptions()
+    {
+      IsLocal = false,
+      IsReplayAppliance = true,
+      RemoteHost = replayHost,
+      RemotePort = replayPort,
+      ConnectTimeout = replayTimeout
+    };
+    var ep = new GGPOEndpoint(this, ops, this._local_connect_status);
+
+    this._endpoints.Add(ep);
+
+    ReplayApplianceAdded = true;
+
+    return ep;
   }
 
   //// ----------------------------------------------------------------------------------------
@@ -222,7 +257,7 @@ public class GGPOClient : IDisposable
       }
 
       int total_min_confirmed;
-      if (_endpoints.Count == 2)
+      if (PlayerCount == 2)
       {
         // We are connected to one other player....
         total_min_confirmed = Poll2Players(current_frame);
@@ -278,7 +313,10 @@ public class GGPOClient : IDisposable
     // discard confirmed frames as appropriate
     int total_min_confirmed = int.MaxValue;
 
-    for (i = 0; i < _endpoints.Count; i++)
+    // NOTE: because the replay appliance is another endpoint, things get a bit weird...
+    // In a future iteration, I think that we would keep track of player endpoints, and 'other' endpoints
+    // to make the distinction a bit more clear, and so we don't have to keep indexes in sync across components.
+    for (i = 0; i < PlayerCount; i++)
     {
       GGPOEndpoint ep = _endpoints[i];
       byte epi = ep.PlayerIndex;
@@ -701,7 +739,7 @@ public class GGPOClient : IDisposable
 
         // xxx: IsInitialized() must go... we're actually using it as a proxy for "represents the local player"
         // NOTE: The above comment is a bit misleading.  'Is initialized' means that the endpoint is remote.
-        if (!ep.IsLocalPlayer &&
+        if (!ep.IsLocalPlayer && !ep.IsReplayAppliance &&
             !ep.IsSynchronized() &&
             !_local_connect_status[epi].disconnected)
         {
@@ -747,6 +785,20 @@ public class GGPOClientOptions
     SessionId = sessionId_;
   }
 
+  // --------------------------------------------------------------------------------------------------------------------------
+  public void SetReplayOption(string hostAndPort, int replayTimeout)
+  {
+    if (!string.IsNullOrWhiteSpace(hostAndPort))
+    {
+      var x = new RemoteEndpointData(hostAndPort);
+
+      ReplayHost = x.Host;
+      ReplayPort = x.Port;
+      ReplayTimeout = replayTimeout;
+      // SessionId = x.SessionId
+    }
+  }
+
   /// <summary>
   /// Index of the player, coresponding to 0 == player 1, 1 == player 2, etc.
   /// </summary>
@@ -761,6 +813,10 @@ public class GGPOClientOptions
   /// Only used in replay contexts.
   /// </summary>
   public UInt64 SessionId { get; private set; }
+
+  public string? ReplayHost { get; private set; } = null;
+  public int ReplayPort { get; private set; } = -1;
+  public int ReplayTimeout { get; private set; } = 0;
 
   /// <summary>
   /// Verseion of this client.  It is a 32 bitmasked number as follows:
@@ -779,6 +835,8 @@ public static class Defaults
   public const byte PLAYER_TWO = 2;
 
   public const string REMOTE_HOST = "127.0.0.1";
+
+  public const int REPLAY_TIMEOUT = 5000;
 }
 
 

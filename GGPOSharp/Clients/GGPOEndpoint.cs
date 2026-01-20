@@ -141,6 +141,7 @@ public class GGPOEndpoint
   public byte PlayerIndex { get { return Options.PlayerIndex; } }
 
   public bool IsLocalPlayer { get { return Options.IsLocal; } }
+  public bool IsReplayAppliance { get { return Options.IsReplayAppliance; } }
 
   // -------------------------------------------------------------------------------------
   public GGPOEndpoint(GGPOClient client_, GGPOEndpointOptions ops_, ConnectStatus[] localConnectStatus_)
@@ -534,6 +535,12 @@ public class GGPOEndpoint
   internal void SendInput(ref GameInput input)
   {
     if (Options.IsLocal) { return; }
+
+    // TEMP:
+    if (Options.IsReplayAppliance)
+    {
+      int x = 10;
+    }
 
     if (_current_state == EClientState.Running)
     {
@@ -1330,6 +1337,13 @@ public class GGPOEndpointOptions
   /// </summary>
   public bool IsLocal { get; set; } = false;
 
+  /// <summary>
+  /// Is this endpoint pointed at a replay appliance?
+  /// </summary>
+  public bool IsReplayAppliance { get; set; }
+
+  // TODO: Is this really used?
+  public int ConnectTimeout { get; set; } = GGPOConsts.UNLIMITED_TIME;
 
   /// <summary>
   /// Index of the player that this endpoint represents.
@@ -1345,9 +1359,6 @@ public class GGPOEndpointOptions
   public int RemotePort { get; set; } = Defaults.REMOTE_PORT;
 
   public EndPoint Remote { get; set; } = null!;
-
-  // NOTE: Other player names come from the network!
-  // public string PlayerName { get; set; } = default!;
 
   /// <summary>
   /// These should only be set in scenarios where you want to simulate certain network conditions.
