@@ -6,16 +6,25 @@ using System.Reflection.Metadata;
 namespace GGPOSharp;
 
 // ==========================================================================================
+public interface IGGPOClient
+{
+  Stopwatch Clock { get; }
+  IUdpBlaster UDP { get; }
+  UInt32 ClientVersion { get; }
+}
+
+// ==========================================================================================
 /// <summary>
 /// Main client that is used to connect to one or more other players over the network.
 /// </summary>
-public class GGPOClient : IDisposable
+public class GGPOClient : IGGPOClient, IDisposable
 {
   private GGPOClientOptions Options = null!;
   protected List<GGPOEndpoint> _endpoints = new List<GGPOEndpoint>();
-  internal UdpBlaster UDP = null!;
 
-  internal Stopwatch Clock = Stopwatch.StartNew();
+  public IUdpBlaster UDP {get; private set; } = null!;
+
+  public Stopwatch Clock { get; private set; } = Stopwatch.StartNew();
 
   public UInt32 ClientVersion { get { return this.Options.ClientVersion; } }
 
@@ -51,13 +60,13 @@ public class GGPOClient : IDisposable
   private ReplayClient? ReplayClient = null;
 
   // ----------------------------------------------------------------------------------------
-  public GGPOClient(GGPOClientOptions options_)
+  public GGPOClient(GGPOClientOptions options_, IUdpBlaster udp_)
   {
     Options = options_;
 
     ValidateOptions();
 
-    UDP = new UdpBlaster(Options.LocalPort);
+    UDP = udp_;
 
     _local_connect_status = new ConnectStatus[GGPOConsts.UDP_MSG_MAX_PLAYERS];
     for (int i = 0; i < GGPOConsts.UDP_MSG_MAX_PLAYERS; i++)

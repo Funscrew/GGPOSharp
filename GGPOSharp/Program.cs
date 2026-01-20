@@ -132,7 +132,7 @@ internal class Program
       Callbacks = new GGPOSessionCallbacks()
       {
         begin_game = OnBeginGame,
-        free_buffer = OnFreeGamestateBuffer,
+        free_buffer = OnFreeBuffer,
         on_event = OnEvent,
         rollback_frame = OnRollback,
         save_game_state = SaveGameState,
@@ -157,7 +157,7 @@ internal class Program
       Callbacks = new GGPOSessionCallbacks()
       {
         begin_game = OnBeginGame,
-        free_buffer = OnFreeGamestateBuffer,
+        free_buffer = OnFreeBuffer,
         on_event = OnEvent,
         rollback_frame = OnRollback,
         save_game_state = SaveGameState,
@@ -188,7 +188,9 @@ internal class Program
       case EMode.Replay:
         {
           var cliOps = CLIOptions as ReplayListenOptions;
-          Client = new ReplayAppliance(ClientOptions, cliOps);
+
+          var udp = new UdpBlaster(ClientOptions.LocalPort);
+          Client = new ReplayAppliance(ClientOptions, cliOps, udp);
           Client.Lock();
           // NOTE: Remotes are setup inside of the client.
         }
@@ -197,7 +199,8 @@ internal class Program
       case EMode.Echo:
         {
           var cliOps = CLIOptions as InputEchoOptions;
-          Client = new InputEchoClient(ClientOptions, cliOps);
+          var udp = new UdpBlaster(ClientOptions.LocalPort);
+          Client = new InputEchoClient(ClientOptions, cliOps, udp);
 
           var local = Client.AddLocalPlayer(cliOps.PlayerName, (byte)(ClientOptions.PlayerIndex), null);
 
@@ -255,7 +258,7 @@ internal class Program
   }
 
   // ------------------------------------------------------------------------------------------------------
-  private static unsafe bool OnFreeGamestateBuffer(byte* arg)
+  private static unsafe bool OnFreeBuffer(byte* arg)
   {
     // NOTE: We don't have to do anything here!
     //Log.Info("An indication to free a buffer happened!");

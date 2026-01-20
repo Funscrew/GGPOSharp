@@ -6,10 +6,17 @@ using System.Net.Sockets;
 namespace GGPOSharp
 {
   // ========================================================================================================================
+  public interface IUdpBlaster : IDisposable
+  {
+    int Receive(byte[] receiveBuffer, ref EndPoint remoteEP);
+    int Send(byte[] sendBuffer, int packetSize, SocketAddress useRemote);
+  }
+
+  // ========================================================================================================================
   /// <summary>
-  /// Because UdpClient NEEDS to make bullshit assumptions about how udp works, and how you wnat to use it!
+  /// Because UdpClient NEEDS to make bullshit assumptions about how udp works, and how you want to use it!
   /// </summary>
-  public sealed class UdpBlaster : IDisposable
+  public sealed class UdpBlaster : IUdpBlaster
   {
     private readonly Socket Socket;
     private bool IsDisposed;

@@ -60,7 +60,7 @@ public class GGPOEndpoint
   /// <summary>
   /// Client that owns this endpoint.
   /// </summary>
-  private GGPOClient Client = null!;
+  private IGGPOClient Client = null!;
 
   private int LocalPort;
   private int RemotePort;
@@ -144,8 +144,10 @@ public class GGPOEndpoint
   public bool IsReplayAppliance { get { return Options.IsReplayAppliance; } }
 
   // -------------------------------------------------------------------------------------
-  public GGPOEndpoint(GGPOClient client_, GGPOEndpointOptions ops_, ConnectStatus[] localConnectStatus_)
+  public GGPOEndpoint(IGGPOClient client_, GGPOEndpointOptions ops_, ConnectStatus[] localConnectStatus_)
   {
+    if (client_ == null) { throw new ArgumentNullException(nameof(client_)); }
+
     MsgHandlers[(byte)EMsgType.Invalid] = OnInvalid;
     MsgHandlers[(byte)EMsgType.SyncRequest] = OnSyncRequest;
     MsgHandlers[(byte)EMsgType.SyncReply] = OnSyncReply;
@@ -168,7 +170,7 @@ public class GGPOEndpoint
     _last_acked_input.init(-1, null, 1);
 
     // memset(&_state, 0, sizeof _state);
-    SessionId = Client.SessionId;
+    SessionId = Options.SessionId;
     SyncState = new SyncData();
     RunningState = new RunningData();
 
@@ -1369,13 +1371,15 @@ public class GGPOEndpointOptions
   /// <summary>
   /// What is the frame delay set to?
   /// </summary>
-  public byte Delay { get; set; } = 3;
+  public byte Delay { get; set; } = 0;
 
   /// <summary>
   /// How many frames is the application 'running ahead' during gameplay.
   /// NOTE: This is a FS-FBNEO specific setting, and may not apply to all games.
   /// </summary>
-  public byte Runahead { get; set; } = 9;
+  public byte Runahead { get; set; } = 0;
+
+  public UInt64 SessionId { get; set; }
 }
 
 

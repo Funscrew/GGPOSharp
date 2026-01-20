@@ -15,7 +15,7 @@ namespace GGPOSharp.Clients
   /// This is the class that will be responsible for receiving and logging input data from
   /// two or more players.
   /// </summary>
-  internal class ReplayAppliance : GGPOClient
+  public class ReplayAppliance : GGPOClient
   {
     private ReplayListenOptions Options = default!;
 
@@ -37,8 +37,8 @@ namespace GGPOSharp.Clients
     private ReplayClient[] Endpoints = new ReplayClient[PLAYER_COUNT];
 
     // --------------------------------------------------------------------------------------------------------------------------
-    public ReplayAppliance(GGPOClientOptions ggpoOps_, ReplayListenOptions ops_)
-      : base(ggpoOps_)
+    public ReplayAppliance(GGPOClientOptions ggpoOps_, ReplayListenOptions ops_, UdpBlaster udp_)
+      : base(ggpoOps_, udp_)
     {
       Options = ops_;
 
@@ -193,7 +193,7 @@ namespace GGPOSharp.Clients
       };
 
 
-      var remote = new ReplayEndpoint(this, ops, _local_connect_status, playerIndex);
+      var remote = new ReplayClient(this, ops, _local_connect_status);
       this.Endpoints[msg.u.sync_request.player_index] = remote;
     }
 

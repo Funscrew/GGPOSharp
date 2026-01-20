@@ -27,7 +27,8 @@ namespace GGPOSharp.Clients
     private Stopwatch Clock = Stopwatch.StartNew();
 
     // --------------------------------------------------------------------------------------------------------------------------
-    public InputEchoClient(GGPOClientOptions options_, InputEchoOptions echoOps_) : base(options_)
+    public InputEchoClient(GGPOClientOptions options_, InputEchoOptions echoOps_, IUdpBlaster udp_) 
+      : base(options_, udp_)
     {
       EchoOptions = echoOps_;
 
