@@ -34,7 +34,7 @@ namespace GGPOSharp.Clients
 
     // OPTIONS:
     const int PLAYER_COUNT = 2;
-    private ReplayEndpoint[] Endpoints = new ReplayEndpoint[PLAYER_COUNT];
+    private ReplayClient[] Endpoints = new ReplayClient[PLAYER_COUNT];
 
     // --------------------------------------------------------------------------------------------------------------------------
     public ReplayAppliance(GGPOClientOptions ggpoOps_, ReplayListenOptions ops_)

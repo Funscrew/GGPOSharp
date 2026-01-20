@@ -218,7 +218,7 @@ internal class Program
           }
 
           if (ClientOptions.ReplayHost != null) {
-            Client.AddReplayAppliance(ClientOptions.ReplayHost, ClientOptions.ReplayPort, ClientOptions.ReplayTimeout);
+            Client.AddReplayClient(ClientOptions.ReplayHost, ClientOptions.ReplayPort, ClientOptions.ReplayTimeout);
           }
 
           // No more endpoints can be added!

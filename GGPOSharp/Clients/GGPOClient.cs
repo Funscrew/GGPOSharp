@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿using GGPOSharp.Clients;
+using System.Diagnostics;
+using System.Net;
 using System.Reflection.Metadata;
 
 namespace GGPOSharp;
@@ -9,12 +11,6 @@ namespace GGPOSharp;
 /// </summary>
 public class GGPOClient : IDisposable
 {
-  /// <summary>
-  /// The current number of players in the game.
-  /// This is updated when endpoints are added.
-  /// </summary>
-  private int PlayerCount = 0;
-
   private GGPOClientOptions Options = null!;
   protected List<GGPOEndpoint> _endpoints = new List<GGPOEndpoint>();
   internal UdpBlaster UDP = null!;
@@ -52,7 +48,7 @@ public class GGPOClient : IDisposable
 
   private int _next_recommended_sleep = 0;
 
-  private bool ReplayApplianceAdded = false;
+  private ReplayClient? ReplayClient = null;
 
   // ----------------------------------------------------------------------------------------
   public GGPOClient(GGPOClientOptions options_)
@@ -142,8 +138,6 @@ public class GGPOClient : IDisposable
 
     this._endpoints.Add(res);
 
-    ++PlayerCount;
-
     return res;
   }
 
@@ -164,15 +158,13 @@ public class GGPOClient : IDisposable
     var res = new GGPOEndpoint(this, ops, _local_connect_status);
     this._endpoints.Add(res);
 
-    ++PlayerCount;
-
     return res;
   }
 
   // ----------------------------------------------------------------------------------------
-  internal GGPOEndpoint AddReplayAppliance(string replayHost, int replayPort, int replayTimeout)
+  internal ReplayClient AddReplayClient(string replayHost, int replayPort, int replayTimeout)
   {
-    if (ReplayApplianceAdded) { throw new InvalidOperationException("The replay appliance has already been added!"); }
+    if (ReplayClient != null) { throw new InvalidOperationException("The replay client has already been added!"); }
 
     var ops = new GGPOEndpointOptions()
     {
@@ -182,11 +174,8 @@ public class GGPOClient : IDisposable
       RemotePort = replayPort,
       ConnectTimeout = replayTimeout
     };
-    var ep = new GGPOEndpoint(this, ops, this._local_connect_status);
-
-    this._endpoints.Add(ep);
-
-    ReplayApplianceAdded = true;
+    var ep = new ReplayClient(this, ops, this._local_connect_status);
+    ReplayClient = ep;
 
     return ep;
   }
@@ -257,7 +246,7 @@ public class GGPOClient : IDisposable
       }
 
       int total_min_confirmed;
-      if (PlayerCount == 2)
+      if (_endpoints.Count == 2)
       {
         // We are connected to one other player....
         total_min_confirmed = Poll2Players(current_frame);
@@ -316,7 +305,7 @@ public class GGPOClient : IDisposable
     // NOTE: because the replay appliance is another endpoint, things get a bit weird...
     // In a future iteration, I think that we would keep track of player endpoints, and 'other' endpoints
     // to make the distinction a bit more clear, and so we don't have to keep indexes in sync across components.
-    for (i = 0; i < PlayerCount; i++)
+    for (i = 0; i < _endpoints.Count; i++)
     {
       GGPOEndpoint ep = _endpoints[i];
       byte epi = ep.PlayerIndex;
