@@ -70,7 +70,7 @@ public class GGPOEndpoint
 
   private GGPOEndpointOptions Options = null!;
 
-  private Stopwatch Clock { get { return Client.Clock; } }
+  // private Stopwatch Clock { get { return Client.Clock; } }
 
   private MsgHandler<UdpMsg>[] MsgHandlers = new MsgHandler<UdpMsg>[9];
 
@@ -236,7 +236,7 @@ public class GGPOEndpoint
     if (_current_state != EClientState.Disconnected)
     {
       _current_state = EClientState.Disconnected;
-      _shutdown_timeout = (uint)(Clock.ElapsedMilliseconds + UDP_SHUTDOWN_TIMER);
+      _shutdown_timeout = (uint)(Client.CurTime + UDP_SHUTDOWN_TIMER);
     }
   }
 
@@ -323,7 +323,7 @@ public class GGPOEndpoint
   // -------------------------------------------------------------------------------------
   private bool OnQualityReply(ref UdpMsg msg, int msgLen)
   {
-    _round_trip_time = (int)(Clock.ElapsedMilliseconds - msg.u.quality_reply.pong);
+    _round_trip_time = (int)(Client.CurTime - msg.u.quality_reply.pong);
     return true;
   }
 
@@ -435,7 +435,7 @@ public class GGPOEndpoint
               //byte[] desc = new byte[1024];
               //_last_received_input.desc(desc, DESC_SIZE);
 
-              RunningState.last_input_packet_recv_time = (uint)Clock.ElapsedMilliseconds;
+              RunningState.last_input_packet_recv_time = (uint)Client.CurTime;
 
               // Utils.Log("Sending frame %d to emu queue %d (%d).", _last_received_input.frame, _queue, desc);
               QueueEvent(evt);
@@ -513,7 +513,7 @@ public class GGPOEndpoint
   public unsafe void SendMsg(ref UdpMsg msg)
   {
     _packets_sent++;
-    _last_send_time = (uint)Clock.ElapsedMilliseconds;
+    _last_send_time = (uint)Client.CurTime;
     _bytes_sent += msg.PacketSize();
 
     msg.header.magic = _magic_number;
@@ -521,7 +521,7 @@ public class GGPOEndpoint
 
     _send_queue.Push(new QueueEntry()
     {
-      queue_time = (int)Clock.ElapsedMilliseconds,
+      queue_time = (int)Client.CurTime,
       dest_addr = this.RemoteIP,
 
       // NOTE: This is a BIG copy, so we will find a different way to handle it in the future.
@@ -576,7 +576,7 @@ public class GGPOEndpoint
     PumpSendQueue();
 
     int next_interval = 0;
-    int now = (int)this.Clock.ElapsedMilliseconds;
+    int now = (int)this.Client.CurTime;
 
     switch (_current_state)
     {
@@ -603,7 +603,7 @@ public class GGPOEndpoint
         if (RunningState.last_quality_report_time == 0 || RunningState.last_quality_report_time + QUALITY_REPORT_INTERVAL < now)
         {
           UdpMsg msg = new UdpMsg(EMsgType.QualityReport);
-          msg.u.quality_report.ping = (uint)Clock.ElapsedMilliseconds;
+          msg.u.quality_report.ping = (uint)Client.CurTime;
           msg.u.quality_report.frame_advantage = (byte)_local_frame_advantage;
           SendMsg(ref msg);
           RunningState.last_quality_report_time = (uint)now;
@@ -652,7 +652,7 @@ public class GGPOEndpoint
   // ------------------------------------------------------------------------
   private void UpdateNetworkStats()
   {
-    int now = (int)Clock.ElapsedMilliseconds;
+    int now = (int)Client.CurTime;
 
     if (_stats_start_time == 0)
     {
@@ -827,7 +827,7 @@ public class GGPOEndpoint
 
     if (handled)
     {
-      _last_recv_time = (uint)Clock.ElapsedMilliseconds;
+      _last_recv_time = (uint)Client.CurTime;
       if (_disconnect_notify_sent && _current_state == EClientState.Running)
       {
         QueueEvent(new UdpEvent(EEventType.NetworkResumed)); // Event(Event::NetworkResumed));
@@ -967,7 +967,7 @@ public class GGPOEndpoint
         // should really come up with a gaussian distribution based on the configured
         // value, but this will do for now.
         int jitter = (_send_latency * 2 / 3) + (Random.Shared.Next(_send_latency) / 3);
-        if ((int)Clock.ElapsedMilliseconds < _send_queue.Front().queue_time + jitter)
+        if ((int)Client.CurTime < _send_queue.Front().queue_time + jitter)
         {
           break;
         }
@@ -980,7 +980,7 @@ public class GGPOEndpoint
       {
         int delay = Random.Shared.Next(_send_latency * 10 + 1000);
         Utils.LogIt(LogCategories.TEST, "creating rogue oop (seq: %d  delay: %d)", entry.msg.header.sequence_number, delay);
-        _oo_packet.queue_time = (int)Clock.ElapsedMilliseconds + delay;
+        _oo_packet.queue_time = (int)Client.CurTime + delay;
         _oo_packet.msg = entry.msg;
         _oo_packet.dest_addr = entry.dest_addr;
       }
@@ -1008,7 +1008,7 @@ public class GGPOEndpoint
         _send_queue.Pop();
       }
 
-      if (_oo_packet.HasMessage && _oo_packet.queue_time < (int)Clock.ElapsedMilliseconds)
+      if (_oo_packet.HasMessage && _oo_packet.queue_time < (int)Client.CurTime)
       {
         Utils.LogIt(LogCategories.MESSAGE, "sending rogue oop!");
 

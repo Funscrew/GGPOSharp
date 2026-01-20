@@ -312,7 +312,7 @@ public static class Utils
   }
 
   // -------------------------------------------------------------------------------------
-  internal unsafe static void CopyMem(byte[] dest, int destOffset, byte* src, uint size)
+  public unsafe static void CopyMem(byte[] dest, int destOffset, byte* src, uint size)
   {
     for (int i = 0; i < size; i++)
     {
@@ -321,7 +321,7 @@ public static class Utils
   }
 
   // -------------------------------------------------------------------------------------
-  internal static unsafe void CopyMem(void* dest, void* src, uint size)
+  public static unsafe void CopyMem(void* dest, void* src, uint size)
   {
     Unsafe.CopyBlock(dest, src, size);
   }

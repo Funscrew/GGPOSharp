@@ -87,6 +87,10 @@ internal class Program
         }
         else
         {
+          // This is where the endpoints are polled for data, events are sent out, etc.
+          // Because this runs at higher frequency than 'SyncInputs (RunFrame)' we
+          // can expect that many events, text, and other data messages to come through
+          // outside of the frame boundaries.
           Client.Idle();
         }
       }
@@ -104,6 +108,10 @@ internal class Program
         // NOTE: The bytes in TestInput will be overwritten during this process!  This is
         // by design!  For emulators, etc. it is convenient to always use the p1 control scheme,
         // even if you are repping p2!
+        // NOTE: RunFrame() syncs the inputs, it doesn't do any network stuff until the
+        // input sync is complete.  After that it will call DoPoll(0), but is that necessary?
+        // --> Seems to me that we should poll immediately before syncing inputs, if anything, but that
+        // may take too long... what about putting the netcode on a different thread.
         bool synced = RunFrame(Client, TestInput);
 
         // This is where we will increment the frame!
@@ -114,10 +122,22 @@ internal class Program
     }
   }
 
+
   // ------------------------------------------------------------------------------------------------------
-  private static void InitLogging()
+  private static bool RunFrame(GGPOClient c, byte[] testInput)
   {
-    Log.AddLogger(new ConsoleLogger());
+    if (!c._synchronizing)
+    {
+      bool syncOK = c.SyncInput(testInput, INPUT_SIZE, GGPOConsts.UDP_MSG_MAX_PLAYERS);
+
+      // Tell the client that we have moved ahead one frame.
+      if (syncOK)
+      {
+        c.IncrementFrame();
+      }
+      return syncOK;
+    }
+    return false;
   }
 
   // ------------------------------------------------------------------------------------------------------
@@ -235,23 +255,6 @@ internal class Program
   }
 
   // ------------------------------------------------------------------------------------------------------
-  private static bool RunFrame(GGPOClient c, byte[] testInput)
-  {
-    if (!c._synchronizing)
-    {
-      bool syncOK = c.SyncInput(testInput, INPUT_SIZE, GGPOConsts.UDP_MSG_MAX_PLAYERS);
-
-      // Tell the client that we have moved ahead one frame.
-      if (syncOK)
-      {
-        c.IncrementFrame();
-      }
-      return syncOK;
-    }
-    return false;
-  }
-
-  // ------------------------------------------------------------------------------------------------------
   private static void OnBeginGame(string gameName)
   {
     Log.Info("The game has started!  Waiting for sync....");
@@ -327,6 +330,13 @@ internal class Program
     RunFrame(Client, TestInput);
 
     //Log.Info($"A rollback was detected!");
+  }
+
+
+  // ------------------------------------------------------------------------------------------------------
+  private static void InitLogging()
+  {
+    Log.AddLogger(new ConsoleLogger());
   }
 }
 

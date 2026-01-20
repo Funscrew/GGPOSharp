@@ -1,19 +1,12 @@
 using GGPOSharp;
 using GGPOSharp.Clients;
 using System.Diagnostics;
+using System.Net;
 using System.Runtime.CompilerServices;
 
 namespace GGPOSharpTesters
 {
 
-  // ==============================================================================================================================
-  public class TestClient : IGGPOClient
-  {
-    public Stopwatch Clock { get; private set; } = Stopwatch.StartNew();
-    public uint ClientVersion { get; private set; } = Defaults.PROTOCOL_VERSION;
-
-    public IUdpBlaster UDP => throw new NotImplementedException();
-  }
 
   // ==============================================================================================================================
   public class ReplayApplianceTesters
@@ -48,8 +41,24 @@ namespace GGPOSharpTesters
     [Test]
     public unsafe void CanSyncReplayClientToAppliance()
     {
-      const int RA_PORT = 7000;
+      const int RA_PORT = 7002;
       const UInt64 SESSION_ID = 12345;
+
+      // This is how we actually move the messages around....
+      var testQueue = new TestMessageQueue();
+
+
+      // So we have the basics all setup, but there needs to be some streamlining in terms of
+      // being able to have the SimUdp devices sending + receiving to the correct places.
+      // We might be able to use the 'SocketAddress useRemote' argument in IUdpBlaster.Send
+      // to get the actual, correct remote address, but that will need a bit of research.
+      // All the same, I need to review how we setup + deal with the remote/local ports, just so
+      // that I know.
+      // I may want to look into a better way to setup the appliance + its clients so that there
+      // are less options, etc. flying all over the place.
+      throw new NotImplementedException();
+      
+
 
       var clientOps = new GGPOClientOptions(GGPOConsts.REPLAY_APPLIANCE_PLAYER_INDEX, RA_PORT, Defaults.PROTOCOL_VERSION, SESSION_ID);
       clientOps.Callbacks = new GGPOSessionCallbacks()
@@ -76,11 +85,31 @@ namespace GGPOSharpTesters
         RemotePort = RA_PORT,
       };
 
-      var testGGPO = new TestClient();
-      var client = new ReplayClient(testGGPO, epOps, null);
+      Assert.Fail("complete me!");
+      //var testUdp =  new SimUdp("test", 
+      //var testGGPO = new TestClient(Defaults.LOCAL_PORT, testUdp);
+      //var client = new ReplayClient(testGGPO, epOps, null);
 
-      int x = 10;
 
+      // Now that the appliance + clients are setup, we need to get them to send / receive messages.
+      // Because we are testing, I don't think that we need to go through the network, and
+      // can probably save a lot of time by simulating a PERFECT UDP network.  Protocol robustness can
+      // then be tested by adding lag, out of order packets (OOP) and dropped packets.
+
+      // So if we want to simulate the netowrk we need:
+      // - One or more clients.  In this case two.
+      // - The clients will send / receive at certain time intervals.  In the case
+      // of the emulator, or a videogame, we send/receive at intervals of 1/60sec (60FPS)
+      // so I guess that means each 'client' will have a send / receive queue, and those messages will have
+      // some kind of a timestamp so that we can properly simulate ping / lag, etc.
+      // --> Our PERFECT network will stick to the timestamps that we define.. when quality
+      // testing we can take one of our playbacks and adjust the timestamps to introduce lag/jitter/etc.
+
+
+      // So then we have a list of all of the 'sent' packets and the time that they should be received.
+      // In the case of the packets being sent by the code after being recieved, we will have to have some kind
+      // of way to add 'receive' times on them using whatever the ping time is set to, and then some
+      // kind of jitter....
     }
 
   }

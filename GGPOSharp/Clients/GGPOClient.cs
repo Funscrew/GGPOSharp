@@ -6,9 +6,18 @@ using System.Reflection.Metadata;
 namespace GGPOSharp;
 
 // ==========================================================================================
-public interface IGGPOClient
+public interface ITimeSource
 {
-  Stopwatch Clock { get; }
+  /// <summary>
+  /// The current time in Milliseconds
+  /// </summary>
+  public int CurTime { get; }
+}
+
+// ==========================================================================================
+public interface IGGPOClient : ITimeSource
+{
+  // Stopwatch Clock { get; }
   IUdpBlaster UDP { get; }
   UInt32 ClientVersion { get; }
 }
@@ -22,9 +31,10 @@ public class GGPOClient : IGGPOClient, IDisposable
   private GGPOClientOptions Options = null!;
   protected List<GGPOEndpoint> _endpoints = new List<GGPOEndpoint>();
 
-  public IUdpBlaster UDP {get; private set; } = null!;
+  public IUdpBlaster UDP { get; private set; } = null!;
 
   public Stopwatch Clock { get; private set; } = Stopwatch.StartNew();
+  public int CurTime { get { return (int)Clock.ElapsedMilliseconds; } }
 
   public UInt32 ClientVersion { get { return this.Options.ClientVersion; } }
 
@@ -406,6 +416,11 @@ public class GGPOClient : IGGPOClient, IDisposable
   {
     // Utils.Log("End of frame (%d)...", _sync.GetFrameCount());
     _sync.IncrementFrame();
+
+    // Are we polling after the sync so that we can get sync events?
+    // If we are just trying to grab network packets, then doesn't it make more
+    // sense to have poll BEFORE we sync so we can get whatever, if any, packets
+    // that may have arrived?
     DoPoll(0);
     PollSyncEvents();
 
@@ -413,6 +428,7 @@ public class GGPOClient : IGGPOClient, IDisposable
   }
 
   // ----------------------------------------------------------------------------------------------------------
+  // NOTE:  There is no such thing as a sync event!
   private void PollSyncEvents()
   {
     SyncEvent e = new SyncEvent();
