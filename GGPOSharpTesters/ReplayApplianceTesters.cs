@@ -41,10 +41,13 @@ namespace GGPOSharpTesters
     [Test]
     public unsafe void CanSyncReplayClientToAppliance()
     {
+      const int PLAYER1_PORT = 7000;
+      const int PLAYER2_PORT = 7001;
       const int RA_PORT = 7002;
       const UInt64 SESSION_ID = 12345;
 
       // This is how we actually move the messages around....
+      var timeSource = new SimTimer();
       var testQueue = new TestMessageQueue();
 
 
@@ -56,10 +59,10 @@ namespace GGPOSharpTesters
       // that I know.
       // I may want to look into a better way to setup the appliance + its clients so that there
       // are less options, etc. flying all over the place.
-      throw new NotImplementedException();
-      
+      // throw new NotImplementedException();
 
 
+      // This is the replay appliance.  It accepts connections from one of the normal clients.
       var clientOps = new GGPOClientOptions(GGPOConsts.REPLAY_APPLIANCE_PLAYER_INDEX, RA_PORT, Defaults.PROTOCOL_VERSION, SESSION_ID);
       clientOps.Callbacks = new GGPOSessionCallbacks()
       {
@@ -69,14 +72,12 @@ namespace GGPOSharpTesters
       };
 
       // NOTE: Most of the options here are covered in GGPOClientOptions.  We should defer to those...
-      var replayOps = new ReplayListenOptions()
-      {
-
-      };
-      var udp = new UdpBlaster(clientOps.LocalPort);
+      var replayOps = new ReplayListenOptions();
+      var udp = new SimUdp("replay-appliance", RA_PORT, timeSource, testQueue); //    new UdpBlaster(clientOps.LocalPort)
       var appliance = new ReplayAppliance(clientOps, replayOps, udp);
-      // Assert.Fail("do something!");
 
+
+      // This is one of the clients that will be sending the input, etc. data to the replay appliance.
       var epOps = new GGPOEndpointOptions()
       {
         PlayerIndex = 0,
@@ -84,11 +85,11 @@ namespace GGPOSharpTesters
         RemoteHost = "127.0.0.1",
         RemotePort = RA_PORT,
       };
-
-      Assert.Fail("complete me!");
-      //var testUdp =  new SimUdp("test", 
-      //var testGGPO = new TestClient(Defaults.LOCAL_PORT, testUdp);
-      //var client = new ReplayClient(testGGPO, epOps, null);
+    
+      // Assert.Fail("complete me!");
+      var testUdp =  new SimUdp("test", PLAYER1_PORT, timeSource, testQueue);
+      var testGGPO = new TestClient(testUdp, timeSource);
+      var client = new ReplayClient(testGGPO, epOps, null);
 
 
       // Now that the appliance + clients are setup, we need to get them to send / receive messages.
@@ -104,6 +105,14 @@ namespace GGPOSharpTesters
       // some kind of a timestamp so that we can properly simulate ping / lag, etc.
       // --> Our PERFECT network will stick to the timestamps that we define.. when quality
       // testing we can take one of our playbacks and adjust the timestamps to introduce lag/jitter/etc.
+
+      // We will simulate a game loop.  For now, we put both the appliance and the client on the same clock.
+      // We can care about simulating lead/lag scenarios later, if we care....
+
+      // I want to simulate for a certain amount of time....
+      // we will increment in 1ms intervals, and send the sync message as needed.
+      // We will run 'increment frame' on the client every 16ms to simulate a real game....
+      throw new Exception("Complete me!  See notes on above lines.");
 
 
       // So then we have a list of all of the 'sent' packets and the time that they should be received.

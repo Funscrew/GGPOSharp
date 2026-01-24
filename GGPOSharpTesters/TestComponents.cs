@@ -31,7 +31,7 @@ namespace GGPOSharpTesters
     public ITimeSource TimeSource { get; private set; }
 
     // ----------------------------------------------------------------------------------------------------------------
-    public TestUDP(TestClient client_,   ITimeSource timeSource_)
+    public TestUDP(TestClient client_, ITimeSource timeSource_)
     {
       Client = client_;
       TimeSource = timeSource_;
@@ -59,15 +59,16 @@ namespace GGPOSharpTesters
   // ==============================================================================================================================
   public class TestClient : IGGPOClient
   {
-    public int CurTime { get { return (int)Clock.ElapsedMilliseconds; } }
-    public Stopwatch Clock { get; private set; } = Stopwatch.StartNew();
+    public int CurTime { get { return _TimeSource.CurTime; } }
     public uint ClientVersion { get; private set; } = Defaults.PROTOCOL_VERSION;
     public IUdpBlaster UDP { get; set; }
+    private ITimeSource _TimeSource;
 
     // ---------------------------------------------------------------------------------------------------------------------------
-    public TestClient(int localPort, IUdpBlaster udp_)
+    public TestClient(IUdpBlaster udp_, ITimeSource timeSrc_)
     {
       UDP = udp_; // new UdpBlaster(localPort);
+      _TimeSource = timeSrc_;
     }
 
   }

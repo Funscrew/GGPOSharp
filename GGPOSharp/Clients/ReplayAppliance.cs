@@ -37,7 +37,7 @@ namespace GGPOSharp.Clients
     private ReplayClient[] Endpoints = new ReplayClient[PLAYER_COUNT];
 
     // --------------------------------------------------------------------------------------------------------------------------
-    public ReplayAppliance(GGPOClientOptions ggpoOps_, ReplayListenOptions ops_, UdpBlaster udp_)
+    public ReplayAppliance(GGPOClientOptions ggpoOps_, ReplayListenOptions ops_, IUdpBlaster udp_)
       : base(ggpoOps_, udp_)
     {
       Options = ops_;
