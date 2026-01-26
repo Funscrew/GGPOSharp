@@ -1,6 +1,8 @@
 using GGPOSharp;
 using GGPOSharp.Clients;
+using NUnit.Framework.Constraints;
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Runtime.CompilerServices;
 
@@ -71,9 +73,15 @@ namespace GGPOSharpTesters
         begin_game = NoOp,
       };
 
+      // This is typical of a local network.
+      // NOTE: In reality we should have a way to register the simulate ping + jitter for EACH port -> port connection.
+      // we can get all fany with that at some other point in time..
+      const int SIM_PING = 4;
+      const int SIM_JITTER = 0;
+
       // NOTE: Most of the options here are covered in GGPOClientOptions.  We should defer to those...
       var replayOps = new ReplayListenOptions();
-      var udp = new SimUdp("replay-appliance", RA_PORT, timeSource, testQueue); //    new UdpBlaster(clientOps.LocalPort)
+      var udp = new SimUdp("replay-appliance", RA_PORT, timeSource, testQueue, SIM_PING, SIM_JITTER); //    new UdpBlaster(clientOps.LocalPort)
       var appliance = new ReplayAppliance(clientOps, replayOps, udp);
 
 
@@ -87,10 +95,12 @@ namespace GGPOSharpTesters
       };
     
       // Assert.Fail("complete me!");
-      var testUdp =  new SimUdp("test", PLAYER1_PORT, timeSource, testQueue);
+      var testUdp =  new SimUdp("test", PLAYER1_PORT, timeSource, testQueue, SIM_PING, SIM_JITTER);
       var testGGPO = new TestClient(testUdp, timeSource);
       var client = new ReplayClient(testGGPO, epOps, null);
 
+
+      appliance.BeginSync();
 
       // Now that the appliance + clients are setup, we need to get them to send / receive messages.
       // Because we are testing, I don't think that we need to go through the network, and
@@ -112,6 +122,14 @@ namespace GGPOSharpTesters
       // I want to simulate for a certain amount of time....
       // we will increment in 1ms intervals, and send the sync message as needed.
       // We will run 'increment frame' on the client every 16ms to simulate a real game....
+      const int TIME_INTERVAL = 1;
+      const int FRAME_INTERVAL  =16;
+
+      // The total number of 'frames' that we want to simulate in this case.
+      const int MAX_FRAMES = 100;
+      for (int i = 0; i < MAX_FRAMES; i++) {
+        
+      }
       throw new Exception("Complete me!  See notes on above lines.");
 
 

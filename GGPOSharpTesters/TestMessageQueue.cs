@@ -1,4 +1,5 @@
-﻿namespace GGPOSharpTesters
+﻿
+namespace GGPOSharpTesters
 {
   // ==================================================================================================================
   /// <summary>
@@ -27,8 +28,8 @@
       {
         SimUdpMessage next = MsgQueue[i];
         if (next.ReceiveTime <= curTime &&
-          next.Port == udp.Port &&
-          next.Host == udp.Host && next.ReceiveTime < minTime)
+          next.DestPort == udp.Port &&
+          next.DestHost == udp.Host && next.ReceiveTime < minTime)
         {
           res = next;
           minTime = res.ReceiveTime;
@@ -36,6 +37,12 @@
       }
 
       return res;
+    }
+
+    // ---------------------------------------------------------------------------------------------------------------------------
+    internal void AddMessage(SimUdpMessage msg)
+    {
+      throw new NotImplementedException();
     }
   }
 
@@ -46,8 +53,8 @@
     public const int MAX_MSG_SIZE = 1024;
 
     // NOTE: Host + port are used for sending the message to the correct place...
-    public string Host { get; set; }
-    public int Port { get; set; }
+    public string DestHost { get; set; }
+    public int DestPort { get; set; }
 
     public byte[] Data { get; set; } = null;
     public int ReceiveTime { get; set; }
