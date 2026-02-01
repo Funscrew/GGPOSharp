@@ -10,7 +10,6 @@ using System.Threading.Tasks;
 namespace GGPOSharpTesters
 {
 
-
   // ==============================================================================================================================
   public class SimTimer : ITimeSource
   {
@@ -24,52 +23,53 @@ namespace GGPOSharpTesters
     }
   }
 
-  // ==============================================================================================================================
-  public class TestUDP : IUdpBlaster
-  {
-    public TestClient Client { get; private set; }
-    public ITimeSource TimeSource { get; private set; }
+  //// ==============================================================================================================================
+  //public class TestUDP : IUdpBlaster
+  //{
+  //  public TestGGPOClient Client { get; private set; }
+  //  public ITimeSource TimeSource { get; private set; }
 
-    // ----------------------------------------------------------------------------------------------------------------
-    public TestUDP(TestClient client_, ITimeSource timeSource_)
-    {
-      Client = client_;
-      TimeSource = timeSource_;
-    }
+  //  // ----------------------------------------------------------------------------------------------------------------
+  //  public TestUDP(TestGGPOClient client_, ITimeSource timeSource_)
+  //  {
+  //    Client = client_;
+  //    TimeSource = timeSource_;
+  //  }
 
-    // ----------------------------------------------------------------------------------------------------------------
-    public void Dispose()
-    {
-      // NOOP
-    }
+  //  // ----------------------------------------------------------------------------------------------------------------
+  //  public void Dispose()
+  //  {
+  //    // NOOP
+  //  }
 
-    // ----------------------------------------------------------------------------------------------------------------
-    public int Receive(byte[] receiveBuffer, ref EndPoint remoteEP)
-    {
-      throw new NotImplementedException();
-    }
+  //  // ----------------------------------------------------------------------------------------------------------------
+  //  public int Receive(byte[] receiveBuffer, ref EndPoint remoteEP)
+  //  {
+  //    throw new NotImplementedException();
+  //  }
 
-    // ----------------------------------------------------------------------------------------------------------------
-    public int Send(byte[] sendBuffer, int packetSize, SocketAddress useRemote)
-    {
-      throw new NotImplementedException();
-    }
-  }
+  //  // ----------------------------------------------------------------------------------------------------------------
+  //  public int Send(byte[] sendBuffer, int packetSize, SocketAddress useRemote)
+  //  {
+  //    throw new NotImplementedException();
+  //  }
+  //}
 
-  // ==============================================================================================================================
-  public class TestClient : IGGPOClient
-  {
-    public int CurTime { get { return _TimeSource.CurTime; } }
-    public uint ClientVersion { get; private set; } = Defaults.PROTOCOL_VERSION;
-    public IUdpBlaster UDP { get; set; }
-    private ITimeSource _TimeSource;
+  //// ==============================================================================================================================
+  //public class TestGGPOClient : IGGPOClient
+  //{
+  //  public int CurTime { get { return _TimeSource.CurTime; } }
+  //  public uint ClientVersion { get; private set; } = Defaults.PROTOCOL_VERSION;
+  //  public IUdpBlaster UDP { get; set; }
+  //  private ITimeSource _TimeSource;
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-    public TestClient(IUdpBlaster udp_, ITimeSource timeSrc_)
-    {
-      UDP = udp_; // new UdpBlaster(localPort);
-      _TimeSource = timeSrc_;
-    }
+  //  // ---------------------------------------------------------------------------------------------------------------------------
+  //  public TestGGPOClient(IUdpBlaster udp_, ITimeSource timeSrc_)
+  //  {
+  //    UDP = udp_; // new UdpBlaster(localPort);
+  //    _TimeSource = timeSrc_;
+  //  }
+  //}
 
-  }
+
 }

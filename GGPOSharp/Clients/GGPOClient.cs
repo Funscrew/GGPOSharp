@@ -14,6 +14,15 @@ public interface ITimeSource
   public int CurTime { get; }
 }
 
+
+// ==============================================================================================================================
+public class ClockTimer : ITimeSource
+{
+  private Stopwatch Clock = Stopwatch.StartNew();
+  public int CurTime { get { return (int)Clock.ElapsedMilliseconds; } }
+}
+
+
 // ==========================================================================================
 public interface IGGPOClient : ITimeSource
 {
@@ -33,8 +42,10 @@ public class GGPOClient : IGGPOClient, IDisposable
 
   public IUdpBlaster UDP { get; private set; } = null!;
 
-  public Stopwatch Clock { get; private set; } = Stopwatch.StartNew();
-  public int CurTime { get { return (int)Clock.ElapsedMilliseconds; } }
+  //public Stopwatch Clock { get; private set; } = Stopwatch.StartNew();
+
+  private ITimeSource Clock = null!;
+  public int CurTime { get { return Clock.CurTime; } }
 
   public UInt32 ClientVersion { get { return this.Options.ClientVersion; } }
 
@@ -67,16 +78,17 @@ public class GGPOClient : IGGPOClient, IDisposable
 
   private int _next_recommended_sleep = 0;
 
-  private ReplayClient? ReplayClient = null;
+  private ReplayEndpoint? ReplayClient = null;
 
   // ----------------------------------------------------------------------------------------
-  public GGPOClient(GGPOClientOptions options_, IUdpBlaster udp_)
+  public GGPOClient(GGPOClientOptions options_, IUdpBlaster udp_, ITimeSource clock_)
   {
     Options = options_;
 
     ValidateOptions();
 
     UDP = udp_;
+    Clock = clock_;
 
     _local_connect_status = new ConnectStatus[GGPOConsts.UDP_MSG_MAX_PLAYERS];
     for (int i = 0; i < GGPOConsts.UDP_MSG_MAX_PLAYERS; i++)
@@ -133,6 +145,29 @@ public class GGPOClient : IGGPOClient, IDisposable
     }
   }
 
+
+  // ----------------------------------------------------------------------------------------
+  public GGPOEndpoint AddReplayEndpoint(string host, int port)
+  {
+    if (LocalPlayer == null)  {
+      throw new InvalidOperationException("The local player must be set to add a replay client!");
+    }
+
+    // This is one of the clients that will be sending the input, etc. data to the replay appliance.
+    var epOps = new GGPOEndpointOptions()
+    {
+      PlayerIndex = LocalPlayer.PlayerIndex,
+      PlayerName = LocalPlayer.GetPlayerName(),
+      RemoteHost = host,
+      RemotePort = port,
+    };
+
+    var replayClient = new ReplayEndpoint(this, epOps, null);
+    this.ReplayClient = replayClient;
+
+    return this.ReplayClient;
+  }
+
   // ----------------------------------------------------------------------------------------
   /// <summary>
   /// Add a local player!
@@ -181,7 +216,7 @@ public class GGPOClient : IGGPOClient, IDisposable
   }
 
   // ----------------------------------------------------------------------------------------
-  internal ReplayClient AddReplayClient(string replayHost, int replayPort, int replayTimeout)
+  internal ReplayEndpoint AddReplayClient(string replayHost, int replayPort, int replayTimeout)
   {
     if (ReplayClient != null) { throw new InvalidOperationException("The replay client has already been added!"); }
 
@@ -193,7 +228,7 @@ public class GGPOClient : IGGPOClient, IDisposable
       RemotePort = replayPort,
       ConnectTimeout = replayTimeout
     };
-    var ep = new ReplayClient(this, ops, this._local_connect_status);
+    var ep = new ReplayEndpoint(this, ops, this._local_connect_status);
     ReplayClient = ep;
 
     return ep;

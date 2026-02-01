@@ -42,7 +42,7 @@ namespace GGPOSharpTesters
     // ---------------------------------------------------------------------------------------------------------------------------
     internal void AddMessage(SimUdpMessage msg)
     {
-      throw new NotImplementedException();
+      MsgQueue.Add(msg);
     }
   }
 

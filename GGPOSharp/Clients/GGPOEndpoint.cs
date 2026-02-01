@@ -128,6 +128,10 @@ public class GGPOEndpoint
     _playerName = newName_;
   }
 
+  public string GetPlayerName()
+  {
+    return _playerName;
+  }
 
   // Buffer for receiving messages.  We use this one so we don't have to allocate bytes every frame.
   private byte[] ReceiveBuffer = new byte[8192];

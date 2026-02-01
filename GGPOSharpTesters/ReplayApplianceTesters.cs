@@ -65,8 +65,8 @@ namespace GGPOSharpTesters
 
 
       // This is the replay appliance.  It accepts connections from one of the normal clients.
-      var clientOps = new GGPOClientOptions(GGPOConsts.REPLAY_APPLIANCE_PLAYER_INDEX, RA_PORT, Defaults.PROTOCOL_VERSION, SESSION_ID);
-      clientOps.Callbacks = new GGPOSessionCallbacks()
+      var applianceOps = new GGPOClientOptions(GGPOConsts.REPLAY_APPLIANCE_PLAYER_INDEX, RA_PORT, Defaults.PROTOCOL_VERSION, SESSION_ID);
+      applianceOps.Callbacks = new GGPOSessionCallbacks()
       {
         free_buffer = NoOp,
         rollback_frame = NoOp,
@@ -82,25 +82,23 @@ namespace GGPOSharpTesters
       // NOTE: Most of the options here are covered in GGPOClientOptions.  We should defer to those...
       var replayOps = new ReplayListenOptions();
       var udp = new SimUdp("replay-appliance", RA_PORT, timeSource, testQueue, SIM_PING, SIM_JITTER); //    new UdpBlaster(clientOps.LocalPort)
-      var appliance = new ReplayAppliance(clientOps, replayOps, udp);
+      var appliance = new ReplayAppliance(applianceOps, replayOps, udp, timeSource);
 
 
-      // This is one of the clients that will be sending the input, etc. data to the replay appliance.
-      var epOps = new GGPOEndpointOptions()
-      {
-        PlayerIndex = 0,
-        PlayerName = "Joe",
-        RemoteHost = "127.0.0.1",
-        RemotePort = RA_PORT,
-      };
-    
+
       // Assert.Fail("complete me!");
-      var testUdp =  new SimUdp("test", PLAYER1_PORT, timeSource, testQueue, SIM_PING, SIM_JITTER);
-      var testGGPO = new TestClient(testUdp, timeSource);
-      var client = new ReplayClient(testGGPO, epOps, null);
+      var testUdp = new SimUdp("test", PLAYER1_PORT, timeSource, testQueue, SIM_PING, SIM_JITTER);
+      var testOps = new GGPOClientOptions(0, PLAYER1_PORT, Defaults.PROTOCOL_VERSION, SESSION_ID);
 
+      var testGGPO = new GGPOClient(testOps, testUdp, timeSource);
+      // TODO: I think that we need to add this to make everything correct......
+      testGGPO.AddLocalPlayer("Joe", 0);
+      
+      testGGPO.AddReplayEndpoint("127.0.0.1", RA_PORT);
 
-      appliance.BeginSync();
+      // Replay client is what sends the data to the replay appliance.
+      // It is another endpoint that is created along with the player (local) endpoint.
+      // var replayClient = new ReplayEndpoint(testGGPO, epOps, null);
 
       // Now that the appliance + clients are setup, we need to get them to send / receive messages.
       // Because we are testing, I don't think that we need to go through the network, and
@@ -123,14 +121,35 @@ namespace GGPOSharpTesters
       // we will increment in 1ms intervals, and send the sync message as needed.
       // We will run 'increment frame' on the client every 16ms to simulate a real game....
       const int TIME_INTERVAL = 1;
-      const int FRAME_INTERVAL  =16;
+      const int FRAME_INTERVAL = 16;
 
       // The total number of 'frames' that we want to simulate in this case.
       const int MAX_FRAMES = 100;
-      for (int i = 0; i < MAX_FRAMES; i++) {
-        
+      for (int i = 1; i < MAX_FRAMES; i++)
+      {
+        timeSource.AddTime(TIME_INTERVAL);
+
+        if (i % FRAME_INTERVAL == 0)
+        {
+          // TODO: A proper RunFrams() function..... (see Program.cs for example)
+          testGGPO.IncrementFrame();
+        }
+        else
+        {
+          // TODO: A proper idle() function.....    (see Program.cs for example)
+          // This is where we would send out the player inputs and so on....
+          testGGPO.DoPoll(1);
+        }
+
+        // The replay appliance will poll every 'frame'.  The actual polling interval,
+        // etc. depends on the server setup:
+        // NOTE:  We are not setting a poll timeout on purpose, internally it is using the same
+        // time source as everything else.  Additionally, on an actual server, we would have some
+        // other kind of time-checking algo that doesn't block, probably....
+        appliance.DoPoll(0);
       }
-      throw new Exception("Complete me!  See notes on above lines.");
+
+      // throw new Exception("Complete me!  See notes on above lines.");
 
 
       // So then we have a list of all of the 'sent' packets and the time that they should be received.

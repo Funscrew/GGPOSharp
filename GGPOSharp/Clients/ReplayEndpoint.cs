@@ -11,10 +11,10 @@ namespace GGPOSharp.Clients
   /// <summary>
   /// This is very much like GGPOClient, but it is only for sending replay data to an appliance.
   /// </summary>
-  public class ReplayClient : GGPOEndpoint
+  public class ReplayEndpoint : GGPOEndpoint
   {
     // --------------------------------------------------------------------------------------------------------------------------  
-    public ReplayClient(IGGPOClient client_, GGPOEndpointOptions ops_, ConnectStatus[] localConnectStatus_) 
+    public ReplayEndpoint(IGGPOClient client_, GGPOEndpointOptions ops_, ConnectStatus[] localConnectStatus_) 
       : base(client_, ops_, localConnectStatus_)
     {
     }

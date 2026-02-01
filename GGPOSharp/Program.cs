@@ -210,7 +210,7 @@ internal class Program
           var cliOps = CLIOptions as ReplayListenOptions;
 
           var udp = new UdpBlaster(ClientOptions.LocalPort);
-          Client = new ReplayAppliance(ClientOptions, cliOps, udp);
+          Client = new ReplayAppliance(ClientOptions, cliOps, udp, new ClockTimer());
           Client.Lock();
           // NOTE: Remotes are setup inside of the client.
         }
@@ -220,7 +220,7 @@ internal class Program
         {
           var cliOps = CLIOptions as InputEchoOptions;
           var udp = new UdpBlaster(ClientOptions.LocalPort);
-          Client = new InputEchoClient(ClientOptions, cliOps, udp);
+          Client = new InputEchoClient(ClientOptions, cliOps, udp, new ClockTimer());
 
           var local = Client.AddLocalPlayer(cliOps.PlayerName, (byte)(ClientOptions.PlayerIndex), null);
 

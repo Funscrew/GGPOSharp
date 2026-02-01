@@ -34,11 +34,11 @@ namespace GGPOSharp.Clients
 
     // OPTIONS:
     const int PLAYER_COUNT = 2;
-    private ReplayClient[] Endpoints = new ReplayClient[PLAYER_COUNT];
+    private ReplayEndpoint[] Endpoints = new ReplayEndpoint[PLAYER_COUNT];
 
     // --------------------------------------------------------------------------------------------------------------------------
-    public ReplayAppliance(GGPOClientOptions ggpoOps_, ReplayListenOptions ops_, IUdpBlaster udp_)
-      : base(ggpoOps_, udp_)
+    public ReplayAppliance(GGPOClientOptions ggpoOps_, ReplayListenOptions ops_, IUdpBlaster udp_, ITimeSource clock_)
+      : base(ggpoOps_, udp_, clock_)
     {
       Options = ops_;
 
@@ -193,7 +193,7 @@ namespace GGPOSharp.Clients
       };
 
 
-      var remote = new ReplayClient(this, ops, _local_connect_status);
+      var remote = new ReplayEndpoint(this, ops, _local_connect_status);
       this.Endpoints[msg.u.sync_request.player_index] = remote;
     }
 

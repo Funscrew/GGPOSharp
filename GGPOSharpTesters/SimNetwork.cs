@@ -58,9 +58,17 @@ namespace GGPOSharpTesters
     // ----------------------------------------------------------------------------------------------------------------
     public int Send(byte[] sendBuffer, int packetSize, SocketAddress useRemote)
     {
-      uint usePing = ComputePing();
 
-      throw new Exception("get the target ports....");
+      // NOTE: This is a very roundabout way to get the host + address from 'useRemote'
+      // There is very likely a better way to do this...
+      var ep = new IPEndPoint(IPAddress.Any, 0);
+      var x  = ep.Create(useRemote);
+      IPEndPoint ipEndPoint = (IPEndPoint)x;
+
+      string useHost = ipEndPoint.Address.ToString();
+      int usePort=  ipEndPoint.Port;
+
+      uint usePing = ComputePing();
 
       var msg = new SimUdpMessage()
       {
@@ -68,13 +76,14 @@ namespace GGPOSharpTesters
         ReceiveTime = (int)(TimeSource.CurTime + usePing),
 
         // HMMMMM.... I need to set the target host/port....
-        DestHost = this.Host,
-        DestPort = this.Port
+        DestHost = useHost,
+        DestPort = usePort
       };
       MsgQueue.AddMessage(msg);
 
       // I need to have the ping times so I can make this work.....
-      throw new NotImplementedException();
+      // throw new NotImplementedException();
+      return packetSize;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
