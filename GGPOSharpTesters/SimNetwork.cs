@@ -75,7 +75,6 @@ namespace GGPOSharpTesters
         Data = CopyBytes(sendBuffer, packetSize),
         ReceiveTime = (int)(TimeSource.CurTime + usePing),
 
-        // HMMMMM.... I need to set the target host/port....
         DestHost = useHost,
         DestPort = usePort
       };

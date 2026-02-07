@@ -1,10 +1,12 @@
 using GGPOSharp;
 using GGPOSharp.Clients;
+using Microsoft.VisualStudio.TestPlatform.TestHost;
 using NUnit.Framework.Constraints;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace GGPOSharpTesters
 {
@@ -19,9 +21,8 @@ namespace GGPOSharpTesters
     {
     }
 
-
     // --------------------------------------------------------------------------------------------------------------------------
-    private static unsafe bool NoOp(byte* arg)
+    private unsafe static bool NoOp(byte* arg)
     {
       // TODO: Logging...
       return true;
@@ -32,17 +33,40 @@ namespace GGPOSharpTesters
       // TODO: Logging...
     }
     // --------------------------------------------------------------------------------------------------------------------------
-    private static void NoOp(string gameName) { }
+    private static void NoOp_BeginGame(string gameName) { }
+
+    // --------------------------------------------------------------------------------------------------------------------------
+    private static bool NoOp_Event(ref GGPOEvent evt)
+    {
+      return true;
+    }
+
+    // --------------------------------------------------------------------------------------------------------------------------
+    private unsafe static bool NoOp_SaveGame(byte** buffer, int* len, int* checksum, int frame)
+    {
+      return true;
+    }
+
+    // --------------------------------------------------------------------------------------------------------------------------
+    private unsafe static bool NoOp_LoadGame(byte** buffer, int len)
+    {
+      return true;
+    }
 
     // --------------------------------------------------------------------------------------------------------------------------
     /// <summary>
-    /// Show that we are able to create a replay appliance, and a client, and that we are able
-    /// to sync the client with the appliance.  This is the first step in being able to send
-    /// the replay data to the appliance.
+    /// This shows that we are able to create two clients and have them communicate over a virtual, ideal network.
+    /// The main purpose of this is to show that we can indeed simulate a network, which will allow us to
+    /// develop the protocol bits faster + make automated tests to hadle all kinds of scenarios.
     /// </summary>
     [Test]
-    public unsafe void CanSyncReplayClientToAppliance()
+    public unsafe void CanSimluateNetworkGame()
     {
+      const int MAX_PLAYERS = 4;      // GGPO Default.  Really should be two!
+
+      const int PLAYER1_INDEX = 0;
+      const int PLAYER2_INDEX = 1;
+
       const int PLAYER1_PORT = 7000;
       const int PLAYER2_PORT = 7001;
       const int RA_PORT = 7002;
@@ -62,16 +86,28 @@ namespace GGPOSharpTesters
       // I may want to look into a better way to setup the appliance + its clients so that there
       // are less options, etc. flying all over the place.
       // throw new NotImplementedException();
-
-
-      // This is the replay appliance.  It accepts connections from one of the normal clients.
-      var applianceOps = new GGPOClientOptions(GGPOConsts.REPLAY_APPLIANCE_PLAYER_INDEX, RA_PORT, Defaults.PROTOCOL_VERSION, SESSION_ID);
-      applianceOps.Callbacks = new GGPOSessionCallbacks()
+      var callbacks = new GGPOSessionCallbacks()
       {
         free_buffer = NoOp,
         rollback_frame = NoOp,
-        begin_game = NoOp,
+        begin_game = NoOp_BeginGame,
+        // one day....
+        //on_event = (ref x) => {
+        //  return true;
+        //}
+        on_event = NoOp_Event,
+        save_game_state = NoOp_SaveGame,
+        load_game_state = NoOp_LoadGame
       };
+
+      //// This is the replay appliance.  It accepts connections from one of the normal clients.
+      //var applianceOps = new GGPOClientOptions(GGPOConsts.REPLAY_APPLIANCE_PLAYER_INDEX, RA_PORT, Defaults.PROTOCOL_VERSION, SESSION_ID);
+      //applianceOps.Callbacks = new GGPOSessionCallbacks()
+      //{
+      //  free_buffer = NoOp,
+      //  rollback_frame = NoOp,
+      //  begin_game = NoOp,
+      //};
 
       // This is typical of a local network.
       // NOTE: In reality we should have a way to register the simulate ping + jitter for EACH port -> port connection.
@@ -79,47 +115,32 @@ namespace GGPOSharpTesters
       const int SIM_PING = 4;
       const int SIM_JITTER = 0;
 
-      // NOTE: Most of the options here are covered in GGPOClientOptions.  We should defer to those...
-      var replayOps = new ReplayListenOptions();
-      var udp = new SimUdp("replay-appliance", RA_PORT, timeSource, testQueue, SIM_PING, SIM_JITTER); //    new UdpBlaster(clientOps.LocalPort)
-      var appliance = new ReplayAppliance(applianceOps, replayOps, udp, timeSource);
+      // NOTE: The hosts don't actually matter.  Just make them IP addresses.
+      const string PLAYER1_HOST = "127.0.0.1";
+      const string PLAYER2_HOST = "192.168.1.3";
+
+      var p1Udp = new SimUdp(PLAYER1_HOST, PLAYER1_PORT, timeSource, testQueue, SIM_PING, SIM_JITTER);
+      var p1Ops = new GGPOClientOptions(PLAYER1_INDEX, PLAYER1_PORT, Defaults.PROTOCOL_VERSION, SESSION_ID);
+      p1Ops.IdleTimeout = 0;
+      p1Ops.Callbacks = callbacks;
+
+      var p1GGPO = new GGPOClient(p1Ops, p1Udp, timeSource);
+      p1GGPO.AddLocalPlayer("Joe", PLAYER1_INDEX);
 
 
+      var p2Udp = new SimUdp(PLAYER2_HOST, PLAYER2_PORT, timeSource, testQueue, SIM_PING, SIM_JITTER);
+      var p2Ops = new GGPOClientOptions(PLAYER2_INDEX, PLAYER2_PORT, Defaults.PROTOCOL_VERSION, SESSION_ID);
+      p2Ops.IdleTimeout = 0;
+      p2Ops.Callbacks = callbacks;
 
-      // Assert.Fail("complete me!");
-      var testUdp = new SimUdp("test", PLAYER1_PORT, timeSource, testQueue, SIM_PING, SIM_JITTER);
-      var testOps = new GGPOClientOptions(0, PLAYER1_PORT, Defaults.PROTOCOL_VERSION, SESSION_ID);
+      var p2GGPO = new GGPOClient(p2Ops, p2Udp, timeSource);
+      p2GGPO.AddLocalPlayer("Archie", PLAYER2_INDEX);
 
-      var testGGPO = new GGPOClient(testOps, testUdp, timeSource);
-      // TODO: I think that we need to add this to make everything correct......
-      testGGPO.AddLocalPlayer("Joe", 0);
-      
-      testGGPO.AddReplayEndpoint("127.0.0.1", RA_PORT);
 
-      // Replay client is what sends the data to the replay appliance.
-      // It is another endpoint that is created along with the player (local) endpoint.
-      // var replayClient = new ReplayEndpoint(testGGPO, epOps, null);
+      // Add the remotes to the test clients:
+      p1GGPO.AddRemotePlayer(new RemoteEndpointData(PLAYER2_HOST, PLAYER2_PORT, PLAYER2_INDEX + 1));
+      p2GGPO.AddRemotePlayer(new RemoteEndpointData(PLAYER1_HOST, PLAYER1_PORT, PLAYER1_INDEX + 1));
 
-      // Now that the appliance + clients are setup, we need to get them to send / receive messages.
-      // Because we are testing, I don't think that we need to go through the network, and
-      // can probably save a lot of time by simulating a PERFECT UDP network.  Protocol robustness can
-      // then be tested by adding lag, out of order packets (OOP) and dropped packets.
-
-      // So if we want to simulate the netowrk we need:
-      // - One or more clients.  In this case two.
-      // - The clients will send / receive at certain time intervals.  In the case
-      // of the emulator, or a videogame, we send/receive at intervals of 1/60sec (60FPS)
-      // so I guess that means each 'client' will have a send / receive queue, and those messages will have
-      // some kind of a timestamp so that we can properly simulate ping / lag, etc.
-      // --> Our PERFECT network will stick to the timestamps that we define.. when quality
-      // testing we can take one of our playbacks and adjust the timestamps to introduce lag/jitter/etc.
-
-      // We will simulate a game loop.  For now, we put both the appliance and the client on the same clock.
-      // We can care about simulating lead/lag scenarios later, if we care....
-
-      // I want to simulate for a certain amount of time....
-      // we will increment in 1ms intervals, and send the sync message as needed.
-      // We will run 'increment frame' on the client every 16ms to simulate a real game....
       const int TIME_INTERVAL = 1;
       const int FRAME_INTERVAL = 16;
 
@@ -131,14 +152,19 @@ namespace GGPOSharpTesters
 
         if (i % FRAME_INTERVAL == 0)
         {
+          byte[] p1Input = new byte[5 * MAX_PLAYERS];
+          byte[] p2Input = new byte[5 * MAX_PLAYERS];
+
           // TODO: A proper RunFrams() function..... (see Program.cs for example)
-          testGGPO.IncrementFrame();
+          GGPOSharp.Program.RunFrame(p1GGPO, p1Input);
+          GGPOSharp.Program.RunFrame(p2GGPO, p2Input);
         }
         else
         {
           // TODO: A proper idle() function.....    (see Program.cs for example)
           // This is where we would send out the player inputs and so on....
-          testGGPO.DoPoll(1);
+          p1GGPO.Idle();//  DoPoll(1);
+          p2GGPO.Idle(); //p2GGPO.DoPoll(1);
         }
 
         // The replay appliance will poll every 'frame'.  The actual polling interval,
@@ -146,17 +172,16 @@ namespace GGPOSharpTesters
         // NOTE:  We are not setting a poll timeout on purpose, internally it is using the same
         // time source as everything else.  Additionally, on an actual server, we would have some
         // other kind of time-checking algo that doesn't block, probably....
-        appliance.DoPoll(0);
+        // appliance.DoPoll(0);
       }
 
-      // throw new Exception("Complete me!  See notes on above lines.");
+      // Here we can check to see if the players are synced or not...
+      int x = 10;
 
-
-      // So then we have a list of all of the 'sent' packets and the time that they should be received.
-      // In the case of the packets being sent by the code after being recieved, we will have to have some kind
-      // of way to add 'receive' times on them using whatever the ping time is set to, and then some
-      // kind of jitter....
+      // At this point we should have synced clients?
+      // Maybe we can capture some events or something?
     }
+
 
   }
 }

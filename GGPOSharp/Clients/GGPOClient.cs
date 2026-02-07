@@ -267,9 +267,9 @@ public class GGPOClient : IGGPOClient, IDisposable
   }
 
   // ----------------------------------------------------------------------------------------
-  internal void Idle()
+  public void Idle()
   {
-    DoPoll(1);
+    DoPoll(Options.IdleTimeout);
   }
 
   // ----------------------------------------------------------------------------------------
@@ -341,6 +341,8 @@ public class GGPOClient : IGGPOClient, IDisposable
       // NOTE: Not sure what that means.... we should use the timeout for the sleep value,
       // or we should not sleep it here?
       // XXX: this is obviously a farce...
+      // --> It means that we should not sleep it here b/c the game loop should provide all of the timing.
+      // It is being preserved like this for legacy purposes.
       if (timeout > 0)
       {
         Thread.Sleep(1);
@@ -873,6 +875,9 @@ public class GGPOClientOptions
   /// TODO: Put this information in the readme somewhere.....
   /// </summary>
   public UInt32 ClientVersion { get; set; }
+
+  // NOTE: This should only be set in testing scenarios.  We may drop it in the future altogether.
+  public int IdleTimeout { get; set; } = 1;
 }
 
 // ==========================================================================================

@@ -7,6 +7,7 @@ namespace GGPOSharpTesters
   /// Using this approach we can setup all kinds of different test scenarios for our UDP
   /// based GGPO client, and others.
   /// </summary>
+  /// REFACTOR: This is basically our "test network" so its name should reflect that.
   internal class TestMessageQueue
   {
     // NOTE: We shouldn't expect to see a huge number of entries in this as we will
@@ -23,6 +24,8 @@ namespace GGPOSharpTesters
 
       // Grab all messages in the queue up to the current time.
       // only include those messages that have the matching port...
+      // SimUdpMessage? toRemove = null;
+      int index = -1;
       int len = MsgQueue.Count;
       for (int i = 0; i < len; i++)
       {
@@ -31,9 +34,14 @@ namespace GGPOSharpTesters
           next.DestPort == udp.Port &&
           next.DestHost == udp.Host && next.ReceiveTime < minTime)
         {
+          index = i;
           res = next;
           minTime = res.ReceiveTime;
         }
+      }
+
+      if (index != -1) { 
+        MsgQueue.RemoveAt(index);
       }
 
       return res;

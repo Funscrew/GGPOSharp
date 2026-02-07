@@ -7,7 +7,7 @@ using System.Runtime.InteropServices;
 namespace GGPOSharp;
 
 // ========================================================================================================
-internal class Program
+public class Program
 {
   enum EMode
   {
@@ -124,7 +124,7 @@ internal class Program
 
 
   // ------------------------------------------------------------------------------------------------------
-  private static bool RunFrame(GGPOClient c, byte[] testInput)
+  public static bool RunFrame(GGPOClient c, byte[] testInput)
   {
     if (!c._synchronizing)
     {
@@ -240,7 +240,8 @@ internal class Program
             Client.AddRemotePlayer(rOps);
           }
 
-          if (ClientOptions.ReplayHost != null) {
+          if (ClientOptions.ReplayHost != null)
+          {
             Client.AddReplayClient(ClientOptions.ReplayHost, ClientOptions.ReplayPort, ClientOptions.ReplayTimeout);
           }
 
@@ -344,6 +345,14 @@ internal class Program
 public class RemoteEndpointData
 {
   // --------------------------------------------------------------------------------------------------------------------------
+  public RemoteEndpointData(string host_, int port_, byte playerNumber_)
+  {
+    Host = host_;
+    Port = port_;
+    PlayerNumber = playerNumber_;
+  }
+
+  // --------------------------------------------------------------------------------------------------------------------------
   public RemoteEndpointData(string fromCliOption)
   {
     var parts = fromCliOption.Trim().Split("-");
@@ -360,5 +369,6 @@ public class RemoteEndpointData
 
   public string Host { get; set; }
   public int Port { get; set; }
+
   public byte PlayerNumber { get; set; } = GGPOConsts.PLAYER_NOT_SET;
 }
