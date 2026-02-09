@@ -151,19 +151,14 @@ namespace GGPOSharpTesters
 
 
       // Add the remotes to the test clients:
-      p1GGPO.AddRemotePlayer(new RemoteEndpointData(PLAYER2_HOST, PLAYER2_PORT, PLAYER2_INDEX + 1));
-      p2GGPO.AddRemotePlayer(new RemoteEndpointData(PLAYER1_HOST, PLAYER1_PORT, PLAYER1_INDEX + 1));
-
-      // The clients need to start with an idle frame....
-      // --> TODO: If this is really a requirement, then it should be done during setup.  Maybe a 'lock' type function, or preload the frame data?
-      //p1GGPO.Idle();
-      //p2GGPO.Idle();
+      var p2 = p1GGPO.AddRemotePlayer(new RemoteEndpointData(PLAYER2_HOST, PLAYER2_PORT, PLAYER2_INDEX + 1));
+      var p1 = p2GGPO.AddRemotePlayer(new RemoteEndpointData(PLAYER1_HOST, PLAYER1_PORT, PLAYER1_INDEX + 1));
 
       const int TIME_INTERVAL = 1;
       const int FRAME_INTERVAL = 16;
 
       // The total number of 'frames' that we want to simulate in this case.
-      const int MAX_FRAMES = 100;
+      const int MAX_FRAMES = 50;
       for (int i = 0; i < MAX_FRAMES; i++)
       {
         timeSource.AddTime(TIME_INTERVAL);
@@ -181,23 +176,22 @@ namespace GGPOSharpTesters
         {
           // TODO: A proper idle() function.....    (see Program.cs for example)
           // This is where we would send out the player inputs and so on....
-          p1GGPO.Idle();//  DoPoll(1);
-          p2GGPO.Idle(); //p2GGPO.DoPoll(1);
+          p1GGPO.Idle();
+          p2GGPO.Idle();
         }
-
-        // The replay appliance will poll every 'frame'.  The actual polling interval,
-        // etc. depends on the server setup:
-        // NOTE:  We are not setting a poll timeout on purpose, internally it is using the same
-        // time source as everything else.  Additionally, on an actual server, we would have some
-        // other kind of time-checking algo that doesn't block, probably....
-        // appliance.DoPoll(0);
       }
 
-      // Here we can check to see if the players are synced or not...
-      int x = 10;
+      // NOTE: We could hook up event listeners and count rollbacks and things of that nature.
+      // One thing I would really like to be able to simulate is the 'start time' of each of the
+      // clients, which is a thing that I've seen happen in real life.  The simulations don't
+      // start at the same universal clock time, so one is always kind of behind, and that can
+      // trigger a lot of rollbacks from what I see.
 
-      // At this point we should have synced clients?
-      // Maybe we can capture some events or something?
+      // Here we can check to see if the players are synced or not...
+      Assert.That(p1._current_state == EClientState.Running, "P1 should be listed as running!");
+      Assert.That(p2._current_state == EClientState.Running, "P2 should be listed as running!");
+
+
     }
 
     // --------------------------------------------------------------------------------------------------------------------------
