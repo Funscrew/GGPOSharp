@@ -823,6 +823,13 @@ public class GGPOClient : IGGPOClient, IDisposable
     var res= (from x in _endpoints where x.IsLocalPlayer select x).SingleOrDefault();
     return res;
   }
+
+  // ----------------------------------------------------------------------------------------
+  public GGPOEndpoint GetRemotePlayer()
+  {
+    var res = (from x in _endpoints where !x.IsLocalPlayer select x).SingleOrDefault();
+    return res;
+  }
 }
 
 // ==========================================================================================
