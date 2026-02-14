@@ -11,7 +11,7 @@ namespace GGPOSharpTesters
 {
 
   // ==============================================================================================================================
-  public class SimTimer : ITimeSource
+  public class SimTimer : GGPOSharp.SimTimer
   {
     private int _CurTime = 0;
     public int CurTime { get { return this._CurTime; } }

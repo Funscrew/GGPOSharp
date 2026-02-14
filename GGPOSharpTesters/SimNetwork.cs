@@ -13,14 +13,14 @@ namespace GGPOSharpTesters
   // ==================================================================================================================
   internal class SimUdp : IUdpBlaster
   {
-    public ITimeSource TimeSource { get; private set; }
+    public GGPOSharp.SimTimer TimeSource { get; private set; }
     public TestMessageQueue MsgQueue { get; private set; }
 
     public uint AvgPing { get; set; }
     public uint PingJitter { get; set; }
 
     // ----------------------------------------------------------------------------------------------------------------
-    public SimUdp(string host_, int port_, ITimeSource timeSource_, TestMessageQueue msgQueue_, uint avgPing_, uint pingJitter_ = 0)
+    public SimUdp(string host_, int port_, GGPOSharp.SimTimer timeSource_, TestMessageQueue msgQueue_, uint avgPing_, uint pingJitter_ = 0)
     {
       Host = host_;
       Port = port_;

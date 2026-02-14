@@ -1,12 +1,13 @@
 ﻿using GGPOSharp.Clients;
 using System.Diagnostics;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Reflection.Metadata;
 
 namespace GGPOSharp;
 
 // ==========================================================================================
-public interface ITimeSource
+public interface SimTimer
 {
   /// <summary>
   /// The current time in Milliseconds
@@ -16,7 +17,7 @@ public interface ITimeSource
 
 
 // ==============================================================================================================================
-public class ClockTimer : ITimeSource
+public class ClockTimer : SimTimer
 {
   private Stopwatch Clock = Stopwatch.StartNew();
   public int CurTime { get { return (int)Clock.ElapsedMilliseconds; } }
@@ -24,7 +25,7 @@ public class ClockTimer : ITimeSource
 
 
 // ==========================================================================================
-public interface IGGPOClient : ITimeSource
+public interface IGGPOClient : SimTimer
 {
   // Stopwatch Clock { get; }
   IUdpBlaster UDP { get; }
@@ -44,7 +45,7 @@ public class GGPOClient : IGGPOClient, IDisposable
 
   //public Stopwatch Clock { get; private set; } = Stopwatch.StartNew();
 
-  private ITimeSource Clock = null!;
+  private SimTimer Clock = null!;
   public int CurTime { get { return Clock.CurTime; } }
 
   public UInt32 ClientVersion { get { return this.Options.ClientVersion; } }
@@ -81,7 +82,7 @@ public class GGPOClient : IGGPOClient, IDisposable
   private ReplayEndpoint? ReplayClient = null;
 
   // ----------------------------------------------------------------------------------------
-  public GGPOClient(GGPOClientOptions options_, IUdpBlaster udp_, ITimeSource clock_)
+  public GGPOClient(GGPOClientOptions options_, IUdpBlaster udp_, SimTimer clock_)
   {
     Options = options_;
 
@@ -805,8 +806,6 @@ public class GGPOClient : IGGPOClient, IDisposable
     }
   }
 
-
-
   // ----------------------------------------------------------------------------------------
   /// <summary>
   /// Disallow new remotes / connections from being added.
@@ -818,7 +817,12 @@ public class GGPOClient : IGGPOClient, IDisposable
     IsLocked = true;
   }
 
-
+  // ----------------------------------------------------------------------------------------
+  public GGPOEndpoint GetLocalPlayer()
+  {
+    var res= (from x in _endpoints where x.IsLocalPlayer select x).SingleOrDefault();
+    return res;
+  }
 }
 
 // ==========================================================================================
