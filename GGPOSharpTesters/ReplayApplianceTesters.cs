@@ -12,22 +12,13 @@ using System.Runtime.InteropServices;
 namespace GGPOSharpTesters
 {
 
-
   // ==============================================================================================================================
   public class ReplayApplianceTesters
   {
     // --------------------------------------------------------------------------------------------------------------------------
     [SetUp]
     public void Setup()
-    {
-    }
-
-    //// --------------------------------------------------------------------------------------------------------------------------
-    //private static void NoOp_Rollback(int flags)
-    //{
-    //  // TODO: Logging...
-    //  GGPOSharp.Program.RunFrame(Client, TestInput);
-    //}
+    { }
 
     // --------------------------------------------------------------------------------------------------------------------------
     private static void NoOp_BeginGame(string gameName)
@@ -88,26 +79,6 @@ namespace GGPOSharpTesters
       // This is how we actually move the messages around....
       var timeSource = new SimTimer();
       var testQueue = new TestMessageQueue();
-
-
-      // So we have the basics all setup, but there needs to be some streamlining in terms of
-      // being able to have the SimUdp devices sending + receiving to the correct places.
-      // We might be able to use the 'SocketAddress useRemote' argument in IUdpBlaster.Send
-      // to get the actual, correct remote address, but that will need a bit of research.
-      // All the same, I need to review how we setup + deal with the remote/local ports, just so
-      // that I know.
-      // I may want to look into a better way to setup the appliance + its clients so that there
-      // are less options, etc. flying all over the place.
-      // throw new NotImplementedException();
-
-      //// This is the replay appliance.  It accepts connections from one of the normal clients.
-      //var applianceOps = new GGPOClientOptions(GGPOConsts.REPLAY_APPLIANCE_PLAYER_INDEX, RA_PORT, Defaults.PROTOCOL_VERSION, SESSION_ID);
-      //applianceOps.Callbacks = new GGPOSessionCallbacks()
-      //{
-      //  free_buffer = NoOp,
-      //  rollback_frame = NoOp,
-      //  begin_game = NoOp,
-      //};
 
       // This is typical of a local network.
       // NOTE: In reality we should have a way to register the simulate ping + jitter for EACH port -> port connection.
@@ -200,12 +171,7 @@ namespace GGPOSharpTesters
       var callbacks = new GGPOSessionCallbacks()
       {
         free_buffer = NoOp_FreeBuffer,
-        // rollback_frame = NoOp_Rollback,
         begin_game = NoOp_BeginGame,
-        // one day....
-        //on_event = (ref x) => {
-        //  return true;
-        //}
         on_event = NoOp_Event,
         save_game_state = NoOp_SaveGame,
         load_game_state = NoOp_LoadGame,
@@ -213,5 +179,23 @@ namespace GGPOSharpTesters
 
       return callbacks;
     }
+
   }
+
+
+  // ==============================================================================================================================
+  public class SimPlayerOptions
+  {
+
+  }
+
+  // ==============================================================================================================================
+  public class SimGameOptions
+  {
+
+  }
+
+
+
+
 }
