@@ -890,8 +890,11 @@ public class GGPOEndpoint
     // So this endpoint is responding to a sync request, so we should be replying with the name
     // of the local player....
     // I think that the sync requests should be the ones that have the player names set....
-    // _playerName = "abc";
-    reply.u.sync_reply.SetPlayerName(_playerName);
+    // Also, we should have the player names set as part of the options for security purposes!
+
+    // Only remote endpoints will be receiving sync requests.  Therefore the player name
+    // that we send over the wire should be that of the local player name.
+    reply.u.sync_reply.SetPlayerName(Client.LocalPlayerName);
 
     SendMsg(ref reply);
     return true;
@@ -918,7 +921,15 @@ public class GGPOEndpoint
 
       // TODO: The player names should be sent out with the sync request NOT the reply!
       string pn = msg.u.sync_reply.GetPlayerName();
-      evt.u.connected.SetText(pn);
+      evt.u.connected.SetPlayerName(pn);
+
+      evt.u.connected.player_index = msg.u.sync_reply.player_index;
+      evt.u.connected.delay = msg.u.sync_reply.delay;
+      evt.u.connected.runahead = msg.u.sync_reply.runahead;
+
+      // Set the player name on the endpoint.
+      this.SetPlayerName(pn);
+
       QueueEvent(evt);
 
       _connected = true;

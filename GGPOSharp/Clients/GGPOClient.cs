@@ -30,6 +30,7 @@ public interface IGGPOClient : SimTimer
   // Stopwatch Clock { get; }
   IUdpBlaster UDP { get; }
   UInt32 ClientVersion { get; }
+  string LocalPlayerName { get; }
 }
 
 // ==========================================================================================
@@ -80,6 +81,8 @@ public class GGPOClient : IGGPOClient, IDisposable
   private int _next_recommended_sleep = 0;
 
   private ReplayEndpoint? ReplayClient = null;
+  
+  public string LocalPlayerName { get; private set; }
 
   // ----------------------------------------------------------------------------------------
   public GGPOClient(GGPOClientOptions options_, IUdpBlaster udp_, SimTimer clock_)
@@ -192,6 +195,8 @@ public class GGPOClient : IGGPOClient, IDisposable
     LocalPlayer = res;
 
     this._endpoints.Add(res);
+
+    this.LocalPlayerName = playerName;
 
     return res;
   }
@@ -696,7 +701,7 @@ public class GGPOClient : IGGPOClient, IDisposable
         info.event_code = EEventCode.GGPO_EVENTCODE_CONNECTED_TO_PEER;
         info.player_index = playerIndex;
 
-        string name = evt.u.connected.GetText();
+        string name = evt.u.connected.GetPlayerName();
         _PlayerNames[playerIndex] = name;
         // strcpy_s(_PlayerNames[playerIndex], evt.u.connected.playerName);
 

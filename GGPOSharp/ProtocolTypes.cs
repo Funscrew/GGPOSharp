@@ -316,26 +316,29 @@ public unsafe struct ConnectData
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public unsafe struct PlayerConnectData
 {
-  public fixed byte text[GGPOConsts.MAX_NAME_SIZE + 1];
+  public fixed byte playerName[GGPOConsts.MAX_NAME_SIZE + 1];
+  public byte player_index;
+  public byte delay;
+  public int runahead;
 
   public int GetTextSize()
   {
-    fixed (byte* p = text)
+    fixed (byte* p = playerName)
     {
       return AnsiHelpers.PtrToAnsiStringLength(p, GGPOConsts.MAX_NAME_SIZE + 1);
     }
   }
-  public string GetText()
+  public string GetPlayerName()
   {
-    fixed (byte* p = text)
+    fixed (byte* p = playerName)
     {
       return AnsiHelpers.PtrToAnsiString(p, GGPOConsts.MAX_NAME_SIZE + 1);
     }
   }
 
-  public void SetText(string value)
+  public void SetPlayerName(string value)
   {
-    fixed (byte* p = text)
+    fixed (byte* p = playerName)
     {
       AnsiHelpers.WriteAnsiString(value, p, GGPOConsts.MAX_NAME_SIZE + 1);
     }

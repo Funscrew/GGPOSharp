@@ -129,8 +129,11 @@ namespace GGPOSharpTesters
       Assert.That(p2._current_state == EClientState.Running, "P2 should be listed as running!");
 
       // TODO: consider this logic.  The player names should be exchanged on handshake...
-      //Assert.That(p2.GetPlayerName(), Is.EqualTo(ops2.PlayerName));
-      //Assert.That(p1.GetPlayerName(), Is.EqualTo(ops1.PlayerName));
+      var p1l = p1GGPO.GetLocalPlayer();
+      var p2l = p2GGPO.GetLocalPlayer();
+
+      Assert.That(p2.GetPlayerName(), Is.EqualTo(ops2.PlayerName));
+      Assert.That(p1.GetPlayerName(), Is.EqualTo(ops1.PlayerName));
     }
 
 
