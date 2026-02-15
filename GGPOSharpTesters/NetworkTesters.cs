@@ -8,7 +8,7 @@ namespace GGPOSharpTesters
 {
 
   // ==============================================================================================================================
-  public class ReplayApplianceTesters
+  public class NetworkTesters
   {
     // This is typical of a local network.
     // NOTE: In reality we should have a way to register the simulate ping + jitter for EACH port -> port connection.
@@ -87,10 +87,6 @@ namespace GGPOSharpTesters
       const int PLAYER2_INDEX = 1;
       const string PLAYER2_HOST = "192.168.1.3";
       const int PLAYER2_PORT = 7001;
-
-      //byte[] p1Input = new byte[5 * MAX_PLAYERS];
-      //byte[] p2Input = new byte[5 * MAX_PLAYERS];
-
 
       var ops1 = new PlayerOptions()
       {
