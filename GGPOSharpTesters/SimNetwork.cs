@@ -1,17 +1,11 @@
 ﻿using GGPOSharp;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
-using System.Reflection.Metadata.Ecma335;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace GGPOSharpTesters
 {
 
   // ==================================================================================================================
-  internal class SimUdp : IUdpBlaster
+  public class SimUdp : IUdpBlaster
   {
     public GGPOSharp.SimTimer TimeSource { get; private set; }
     public TestMessageQueue MsgQueue { get; private set; }
@@ -58,7 +52,6 @@ namespace GGPOSharpTesters
     // ----------------------------------------------------------------------------------------------------------------
     public int Send(byte[] sendBuffer, int packetSize, SocketAddress useRemote)
     {
-
       // NOTE: This is a very roundabout way to get the host + address from 'useRemote'
       // There is very likely a better way to do this...
       var ep = new IPEndPoint(IPAddress.Any, 0);

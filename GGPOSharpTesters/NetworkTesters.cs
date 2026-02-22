@@ -1,8 +1,5 @@
-using drewCo.Tools;
 using drewCo.Tools.Logging;
 using GGPOSharp;
-using Microsoft.VisualStudio.TestPlatform.ObjectModel.DataCollection;
-using System.Reflection.Metadata;
 
 namespace GGPOSharpTesters
 {
@@ -13,8 +10,19 @@ namespace GGPOSharpTesters
     // This is typical of a local network.
     // NOTE: In reality we should have a way to register the simulate ping + jitter for EACH port -> port connection.
     // we can get all fany with that at some other point in time..
-    protected const int SIM_PING = 4;
-    protected const int SIM_JITTER = 0;
+    public const int SIM_PING = 4;
+    public const int SIM_JITTER = 0;
+
+    // NOTE: The hosts don't actually matter.  Just make them IP addresses.
+    public const int PLAYER1_INDEX = 0;
+    public const string PLAYER1_HOST = "127.0.0.1";
+    public const int PLAYER1_PORT = 7000;
+
+    public const int PLAYER2_INDEX = 1;
+    public const string PLAYER2_HOST = "192.168.1.3";
+    public const int PLAYER2_PORT = 7001;
+
+    public const UInt64 SESSION_ID = 12345;
 
 
     // --------------------------------------------------------------------------------------------------------------------------
@@ -70,25 +78,11 @@ namespace GGPOSharpTesters
     {
       const int MAX_PLAYERS = 4;      // GGPO Default.  Really should be two!
 
-
-      //const int RA_PORT = 7002;
-      const UInt64 SESSION_ID = 12345;
-
       // This is how we actually move the messages around....
       var timeSource = new SimTimer();
       var testQueue = new TestMessageQueue();
 
-
-      // NOTE: The hosts don't actually matter.  Just make them IP addresses.
-      const int PLAYER1_INDEX = 0;
-      const string PLAYER1_HOST = "127.0.0.1";
-      const int PLAYER1_PORT = 7000;
-
-      const int PLAYER2_INDEX = 1;
-      const string PLAYER2_HOST = "192.168.1.3";
-      const int PLAYER2_PORT = 7001;
-
-      var ops1 = new PlayerOptions()
+      var ops1 = new TestPlayerOptions()
       {
         PlayerIndex = PLAYER1_INDEX,
         Host = PLAYER1_HOST,
@@ -97,7 +91,7 @@ namespace GGPOSharpTesters
         InputBuffer = new byte[5 * MAX_PLAYERS],
         PlayerName = "Joe"
       };
-      var ops2 = new PlayerOptions()
+      var ops2 = new TestPlayerOptions()
       {
         PlayerIndex = PLAYER2_INDEX,
         Host = PLAYER2_HOST,
@@ -134,7 +128,7 @@ namespace GGPOSharpTesters
 
 
     // --------------------------------------------------------------------------------------------------------------------------
-    private unsafe GGPOSessionCallbacks CreateCallbacks(byte playerIndex)
+    protected unsafe GGPOSessionCallbacks CreateDefaultCallbacks(byte playerIndex)
     {
       var callbacks = new GGPOSessionCallbacks()
       {
@@ -149,10 +143,9 @@ namespace GGPOSharpTesters
     }
 
     // --------------------------------------------------------------------------------------------------------------------------
-    private GGPOClient CreateGGPOClient(PlayerOptions local, PlayerOptions remote, TestMessageQueue msgQueue, UInt64 sessionId, GGPOSessionCallbacks? callbacks = null)
+    protected GGPOClient CreateGGPOClient(TestPlayerOptions local, TestPlayerOptions remote, TestMessageQueue msgQueue, UInt64 sessionId, GGPOSessionCallbacks? callbacks = null)
     {
-      if (callbacks == null) { callbacks = CreateCallbacks(local.PlayerIndex); }
-
+      if (callbacks == null) { callbacks = CreateDefaultCallbacks(local.PlayerIndex); }
 
       var udp = new SimUdp(local.Host, local.Port, local.TimeSource, msgQueue, SIM_PING, SIM_JITTER);
       var clientOps = new GGPOClientOptions(local.PlayerIndex, local.Port, Defaults.PROTOCOL_VERSION, sessionId);
@@ -174,96 +167,5 @@ namespace GGPOSharpTesters
       return res;
     }
   }
-
-  // ==============================================================================================================================
-  public class PlayerOptions
-  {
-    public byte PlayerIndex { get; set; }
-    public string Host { get; set; }
-    public int Port { get; set; }
-    public SimTimer TimeSource { get; set; }
-    public byte[] InputBuffer { get; set; }
-    public string PlayerName { get; set; }
-  }
-
-  //// ==============================================================================================================================
-  //public class CreateGGPOClient
-  //{
-  //  public PlayerOptions PlayerOptions { get; private set; } = default!;
-  //}
-
-  // ==============================================================================================================================
-  public class TestContext
-  {
-    const int TIME_INTERVAL = 1;
-    const int FRAME_INTERVAL = 16;
-
-    private SimTimer TimeSource = default!;
-    private List<GGPOClient> AllClients = new List<GGPOClient>();
-    private List<byte[]> InputBuffers = new List<byte[]>();
-
-    // --------------------------------------------------------------------------------------------------------------------------
-    public TestContext(SimTimer timeSource_, IList<GGPOClient> allClients_, IList<byte[]> inputBuffers_)
-    {
-      TimeSource = timeSource_;
-      AllClients.AddRange(allClients_);
-      InputBuffers.AddRange(inputBuffers_);
-    }
-
-
-    // --------------------------------------------------------------------------------------------------------------------------
-    public void RunGame(int totalFrameCount)
-    {
-
-      // The total number of 'frames' that we want to simulate in this case.
-      //  const int MAX_FRAMES = 50;
-      for (int i = 0; i < totalFrameCount; i++)
-      {
-        TimeSource.AddTime(TIME_INTERVAL);
-
-        if (i % FRAME_INTERVAL == 0)
-        {
-          // TODO: I want to change the inputs per frame.  Data doesn't matter, just that it can be exchanged.
-          // Probably just increment the bits....
-          // p1Input[0] = (byte)(i & 0xFF);
-
-          int len = AllClients.Count;
-          for (int j = 0; j < len; j++)
-          {
-            var c = AllClients[j];
-            Program.RunFrame(c, InputBuffers[j]);
-          }
-
-        }
-        else
-        {
-          // TODO: A proper idle() function.....    (see Program.cs for example)
-          // This is where we would send out the player inputs and so on....
-          int len = AllClients.Count;
-          for (int j = 0; j < len; j++)
-          {
-            var c = AllClients[j];
-            c.Idle();
-          }
-        }
-      }
-
-    }
-  }
-
-  // ==============================================================================================================================
-  public class SimPlayerOptions
-  {
-
-  }
-
-  // ==============================================================================================================================
-  public class SimGameOptions
-  {
-
-  }
-
-
-
 
 }

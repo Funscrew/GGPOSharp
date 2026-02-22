@@ -8,7 +8,7 @@ namespace GGPOSharpTesters
   /// based GGPO client, and others.
   /// </summary>
   /// REFACTOR: This is basically our "test network" so its name should reflect that.
-  internal class TestMessageQueue
+  public class TestMessageQueue
   {
     // NOTE: We shouldn't expect to see a huge number of entries in this as we will
     // tend to receive them in order, and will remove all messages that have been received, etc.
@@ -40,7 +40,8 @@ namespace GGPOSharpTesters
         }
       }
 
-      if (index != -1) { 
+      if (index != -1)
+      {
         MsgQueue.RemoveAt(index);
       }
 
@@ -54,18 +55,17 @@ namespace GGPOSharpTesters
     }
   }
 
+}
 
-  // ==============================================================================================================================
-  public class SimUdpMessage
-  {
-    public const int MAX_MSG_SIZE = 1024;
+// ==============================================================================================================================
+public class SimUdpMessage
+{
+  public const int MAX_MSG_SIZE = 1024;
 
-    // NOTE: Host + port are used for sending the message to the correct place...
-    public string DestHost { get; set; }
-    public int DestPort { get; set; }
+  // NOTE: Host + port are used for sending the message to the correct place...
+  public string DestHost { get; set; }
+  public int DestPort { get; set; }
 
-    public byte[] Data { get; set; } = null;
-    public int ReceiveTime { get; set; }
-  }
-
+  public byte[] Data { get; set; } = null;
+  public int ReceiveTime { get; set; }
 }
