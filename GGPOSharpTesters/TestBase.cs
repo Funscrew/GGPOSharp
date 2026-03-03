@@ -7,6 +7,8 @@ namespace GGPOSharpTesters
   // ==============================================================================================================================
   public class TestBase
   {
+    public const int MAX_PLAYERS = 4;      // GGPO Default.  Really should be two!
+
     // This is typical of a local network.
     // NOTE: In reality we should have a way to register the simulate ping + jitter for EACH port -> port connection.
     // we can get all fany with that at some other point in time..
@@ -21,6 +23,9 @@ namespace GGPOSharpTesters
     public const int PLAYER2_INDEX = 1;
     public const string PLAYER2_HOST = "192.168.1.3";
     public const int PLAYER2_PORT = 7001;
+
+    public const string REPLAY_APPLIANCE_HOST = "10.25.199.123";
+    public const int REPLAY_APPLIANCE_PORT = 7003;
 
     public const UInt64 SESSION_ID = 12345;
 
@@ -63,7 +68,7 @@ namespace GGPOSharpTesters
 
 
     // --------------------------------------------------------------------------------------------------------------------------
-    protected unsafe GGPOSessionCallbacks CreateDefaultCallbacks(byte playerIndex)
+    protected unsafe GGPOSessionCallbacks CreateDefaultCallbacks()
     {
       var callbacks = new GGPOSessionCallbacks()
       {
@@ -80,7 +85,7 @@ namespace GGPOSharpTesters
     // --------------------------------------------------------------------------------------------------------------------------
     protected GGPOClient CreateGGPOClient(TestPlayerOptions local, TestPlayerOptions remote, TestMessageQueue msgQueue, UInt64 sessionId, GGPOSessionCallbacks? callbacks = null)
     {
-      if (callbacks == null) { callbacks = CreateDefaultCallbacks(local.PlayerIndex); }
+      if (callbacks == null) { callbacks = CreateDefaultCallbacks(); }
 
       var udp = new SimUdp(local.Host, local.Port, local.TimeSource, msgQueue, SIM_PING, SIM_JITTER);
       var clientOps = new GGPOClientOptions(local.PlayerIndex, local.Port, Defaults.PROTOCOL_VERSION, sessionId);

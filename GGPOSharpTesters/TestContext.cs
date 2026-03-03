@@ -1,4 +1,5 @@
 using GGPOSharp;
+using GGPOSharp.Clients;
 
 namespace GGPOSharpTesters
 {
@@ -8,40 +9,69 @@ namespace GGPOSharpTesters
     const int TIME_INTERVAL = 1;
     const int FRAME_INTERVAL = 16;
 
-    private SimTimer TimeSource = default!;
+    public SimTimer TimeSource { get; private set; }
+    public TestMessageQueue MsgQueue { get; private set; }
     private List<GGPOClient> AllClients = new List<GGPOClient>();
     private List<byte[]> InputBuffers = new List<byte[]>();
+    public ReplayAppliance? ReplayAppliance { get; private set; } = null;
 
     // --------------------------------------------------------------------------------------------------------------------------
-    public TestContext(SimTimer timeSource_, IList<GGPOClient> allClients_, IList<byte[]> inputBuffers_)
+    public TestContext(SimTimer timeSource_, TestMessageQueue msgQueue_, IList<GGPOClient> allClients_, IList<byte[]> inputBuffers_, ReplayAppliance? replay_ = null)
     {
       TimeSource = timeSource_;
+      MsgQueue = msgQueue_;
       AllClients.AddRange(allClients_);
       InputBuffers.AddRange(inputBuffers_);
+      ReplayAppliance = replay_;
     }
+
+    public GGPOClient Player1Client { get { return AllClients[0]; } }
+    public GGPOClient Player2Client { get { return AllClients[1]; } }
+
+    public GGPOEndpoint Player1 { get { return AllClients[1].GetRemotePlayer(); } }
+    public GGPOEndpoint Player2 { get { return AllClients[0].GetRemotePlayer(); } }
 
 
     // --------------------------------------------------------------------------------------------------------------------------
-    public void RunGame(int totalFrameCount)
+    // TEMP: We will use a contructor based version later....  maybe....
+    public void SetReplayAppliance(ReplayAppliance replay_)
+    {
+      this.ReplayAppliance = replay_;
+    }
+
+    // --------------------------------------------------------------------------------------------------------------------------
+    /// <param name="setInputs">Callback for each frame and player so their inputs for the frame can be set.</param>
+    public void RunGame(int totalFrameCount, Action<byte[], int, int>? setInputs = null)
     {
 
       // The total number of 'frames' that we want to simulate in this case.
       //  const int MAX_FRAMES = 50;
-      for (int i = 0; i < totalFrameCount; i++)
+      for (int frameNumber = 0; frameNumber < totalFrameCount; frameNumber++)
       {
         TimeSource.AddTime(TIME_INTERVAL);
 
-        if (i % FRAME_INTERVAL == 0)
+
+        if (ReplayAppliance != null)
+        {
+          ReplayAppliance.DoPoll(0);
+        }
+
+        if (frameNumber % FRAME_INTERVAL == 0)
         {
           // TODO: I want to change the inputs per frame.  Data doesn't matter, just that it can be exchanged.
           // Probably just increment the bits....
           // p1Input[0] = (byte)(i & 0xFF);
-
           int len = AllClients.Count;
-          for (int j = 0; j < len; j++)
+          for (int clientIndex = 0; clientIndex < len; clientIndex++)
           {
-            var c = AllClients[j];
-            Program.RunFrame(c, InputBuffers[j]);
+            var c = AllClients[clientIndex];
+
+            if (setInputs != null)
+            {
+              setInputs(InputBuffers[clientIndex], c.GetLocalPlayer().PlayerIndex, frameNumber);
+            }
+
+            Program.RunFrame(c, InputBuffers[clientIndex]);
           }
 
         }

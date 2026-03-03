@@ -1,8 +1,5 @@
 ﻿using GGPOSharp.Clients;
 using System.Diagnostics;
-using System.Net;
-using System.Net.Http.Headers;
-using System.Reflection.Metadata;
 
 namespace GGPOSharp;
 
@@ -138,6 +135,9 @@ public class GGPOClient : IGGPOClient, IDisposable
       ep.Synchronize();
     }
 
+    if (ReplayClient != null) { 
+      ReplayClient.Synchronize();
+    }
   }
 
   // ----------------------------------------------------------------------------------------
@@ -164,9 +164,10 @@ public class GGPOClient : IGGPOClient, IDisposable
       PlayerName = LocalPlayer.GetPlayerName(),
       RemoteHost = host,
       RemotePort = port,
+      IsReplayAppliance = true
     };
 
-    var replayClient = new ReplayEndpoint(this, epOps, null);
+    var replayClient = new ReplayEndpoint(this, epOps, this._local_connect_status);
     this.ReplayClient = replayClient;
 
     return this.ReplayClient;
@@ -563,6 +564,10 @@ public class GGPOClient : IGGPOClient, IDisposable
       {
         var ep = _endpoints[i];
         ep.SendInput(ref input);
+      }
+
+      if (ReplayClient != null ) { 
+        ReplayClient.SendInput(ref input);
       }
     }
 

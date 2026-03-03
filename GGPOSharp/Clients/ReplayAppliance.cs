@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 
 namespace GGPOSharp.Clients
 {
+
   // ==============================================================================================================================
   /// <summary>
   /// This is the class that will be responsible for receiving and logging input data from
@@ -36,12 +37,14 @@ namespace GGPOSharp.Clients
     const int PLAYER_COUNT = 2;
     private ReplayEndpoint[] Endpoints = new ReplayEndpoint[PLAYER_COUNT];
 
+    // TODO: This is something we will care about later....
+    // private List<SpectateEndpoints> Spectators = new List<SpectateEndpoints>();
+
     // --------------------------------------------------------------------------------------------------------------------------
     public ReplayAppliance(GGPOClientOptions ggpoOps_, ReplayListenOptions ops_, IUdpBlaster udp_, SimTimer clock_)
       : base(ggpoOps_, udp_, clock_)
     {
       Options = ops_;
-
 
       RemoteIP = new IPEndPoint(IPAddress.Any, 0);
       RemoteEP = RemoteIP;
@@ -54,6 +57,12 @@ namespace GGPOSharp.Clients
       }
     }
 
+    public int ClientCount { get { return this.ConnectedClients.Count ; } }
+    public ReplayEndpoint GetEndpoint(int index)
+    {
+      return Endpoints[index];
+    }
+
     // --------------------------------------------------------------------------------------------------------------------------
     public override void DoPoll(int timeout)
     {
@@ -64,7 +73,7 @@ namespace GGPOSharp.Clients
 
       if (this.ConnectedClients.Count > 0) // AllConnected)
       {
-        ReplayPoll(timeout);
+        ReplayPoll();
       }
       else
       {
@@ -128,7 +137,7 @@ namespace GGPOSharp.Clients
     /// <summary>
     /// This is modeled after the base class's DoPoll function.
     /// </summary>
-    private void ReplayPoll(int timeout)
+    private void ReplayPoll()
     {
       //base.DoPoll(timeout);
 
@@ -149,6 +158,17 @@ namespace GGPOSharp.Clients
 
 
       // This is where we will check the sync + the input queues to 
+
+      // Get inputs from all connected clients.
+      // Do the merge.
+      // NOTE: This is where we may receive redundant inputs if the previous ACKS got lost or whatever...
+      // That is OK, we will just plow over them..
+      // Send out the ACKS.
+
+      // If there are connected live spectators, send them the latest set of settled inputs.
+      // TODO: This is something that will happen way later!
+
+      ///throw new NotImplementedException();
 
     }
 
@@ -210,5 +230,6 @@ namespace GGPOSharp.Clients
       // Do nothing, we don't have local inputs!
       return true;
     }
+
   }
 }

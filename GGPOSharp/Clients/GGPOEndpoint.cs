@@ -151,6 +151,7 @@ public class GGPOEndpoint
   public GGPOEndpoint(IGGPOClient client_, GGPOEndpointOptions ops_, ConnectStatus[] localConnectStatus_)
   {
     if (client_ == null) { throw new ArgumentNullException(nameof(client_)); }
+    if (localConnectStatus_ == null) { throw new ArgumentNullException(nameof(localConnectStatus_));} 
 
     MsgHandlers[(byte)EMsgType.Invalid] = OnInvalid;
     MsgHandlers[(byte)EMsgType.SyncRequest] = OnSyncRequest;

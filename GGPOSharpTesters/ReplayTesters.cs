@@ -6,7 +6,13 @@ using System.Threading.Tasks;
 
 namespace GGPOSharpTesters
 {
-  internal class ReplayTesters
+
+  // ==============================================================================================================================
+  internal class ReplayTesters  :TestBase
   {
+
+
+
   }
+
 }
