@@ -29,6 +29,16 @@ namespace GGPOSharp.Clients
     // The two clients that we expect to receive data from.  These will be the remote endpoints that we
     // then set up.
     private HashSet<SocketAddress> ConnectedClients = new HashSet<SocketAddress>();
+
+    public List<string> Errors { get; private set; } = new List<string>();
+
+    /// <summary>
+    /// Certain endpoints are blacklisted if they send bad player / session ids.
+    /// </summary>
+    private HashSet<SocketAddress> Blacklisted = new HashSet<SocketAddress>();
+
+    private List<int> ConnectedPlayerIndexes = new List<int>();
+
     private bool AllConnected = false;
 
     private Stopwatch Clock = default!;
@@ -57,7 +67,9 @@ namespace GGPOSharp.Clients
       }
     }
 
-    public int ClientCount { get { return this.ConnectedClients.Count ; } }
+    public int ClientCount { get { return this.ConnectedClients.Count; } }
+
+    // --------------------------------------------------------------------------------------------------------------------------
     public ReplayEndpoint GetEndpoint(int index)
     {
       return Endpoints[index];
@@ -75,12 +87,14 @@ namespace GGPOSharp.Clients
       {
         ReplayPoll();
       }
-      else
+
+      // Look for new connections.
+      if (this.ConnectedClients.Count < 2)
       {
         while (true)
         {
-          int msgSize = UDP.Receive(ReceiveBuffer, ref RemoteEP);
-          if (msgSize > 0)
+          int msgLen = UDP.Receive(ReceiveBuffer, ref RemoteEP);
+          if (msgLen > 0)
           {
             var ipa = RemoteEP.Serialize();
             if (!this.ConnectedClients.Contains(ipa))
@@ -89,16 +103,37 @@ namespace GGPOSharp.Clients
               Log.Info("Got packet from remote... checking for session id...");
 
               UdpMsg msg = new UdpMsg();
-              UdpMsg.FromBytes(ReceiveBuffer, ref msg, msgSize);
+              UdpMsg.FromBytes(ReceiveBuffer, ref msg, msgLen);
 
               if (msg.header.type == EMsgType.SyncRequest)
               {
-                Log.Info($"Received a sync request with session id: {msg.u.sync_request.session_id}");
+               // Log.Info($"Received a sync request with session id: {msg.u.sync_request.session_id}");
+
+                // Make sure that session id + player index are correct....
+                var sid = msg.u.sync_request.session_id;
+                if (sid != Options.SessionId)
+                {
+                  // We don't want to receive from this endpoint anymore.....
+                  // How can we block receiving?
+                  AddError("Connection attempt with invalid session id! [adding to blacklist]");
+                  UDP.AddToBlacklist(ipa);
+                  return;
+                }
+
+                // We also want to check to see if we are getting the correct player index.
+                // NOTE: If a certain player index is already connected, then we want to
+                // reject those other connections that are reporting the wrong one!
+                var pi = msg.u.sync_request.player_index;
+                if (ConnectedPlayerIndexes.Contains(pi)) {
+                  AddError($"The player with index: {pi} has already been connected! [adding to blacklist]");
+                  UDP.AddToBlacklist(ipa);
+                  return;
+                }
 
                 // NOTE: We should have a sync request with the correct request ID set!
                 // Don't know what to do if we don't... probably just ignore it...
                 var rip = (IPEndPoint)RemoteEP;
-                AddReplayEndpoint(rip.Address.ToString(), rip.Port, msg);
+                var rep = AddReplayEndpoint(rip.Address.ToString(), rip.Port, msg);
 
                 Log.Info("A remote endpoint was added...");
 
@@ -109,6 +144,8 @@ namespace GGPOSharp.Clients
                   Log.Info("All clients are setup...");
                 }
 
+                // Send the sync reply, immediately.
+                rep.OnSyncRequest(ref msg, msgLen);
 
               }
               else
@@ -126,11 +163,18 @@ namespace GGPOSharp.Clients
           }
         }
       }
-
-
+      //else
+      //{
+      //}
 
       //// this is where we can check the endpoint for data / connection?
       //base.DoPoll(timeout);
+    }
+
+    // --------------------------------------------------------------------------------------------------------------------------
+    private void AddError(string msg)
+    {
+      this.Errors.Add(msg);
     }
 
     // --------------------------------------------------------------------------------------------------------------------------
@@ -197,7 +241,7 @@ namespace GGPOSharp.Clients
     }
 
     // --------------------------------------------------------------------------------------------------------------------------
-    private void AddReplayEndpoint(string remoteHost, int remotePort, UdpMsg msg)
+    private GGPOEndpoint AddReplayEndpoint(string remoteHost, int remotePort, UdpMsg msg)
     {
       var playerIndex = msg.u.sync_request.player_index;
       var ops = new GGPOEndpointOptions()
@@ -209,12 +253,19 @@ namespace GGPOSharp.Clients
         RemoteHost = remoteHost,
         RemotePort = remotePort,
         Runahead = 0,
+        IsReplayClient = true,
         TestOptions = new TestOptions()
       };
 
 
+      // NOTE: We may not want to send out the sync request immediately on these endpoints?
+      // Nah -> it should be OK that they bounce around.....
       var remote = new ReplayEndpoint(this, ops, _local_connect_status);
-      this.Endpoints[msg.u.sync_request.player_index] = remote;
+      this.Endpoints[playerIndex] = remote;
+
+      ConnectedPlayerIndexes.Add(playerIndex);
+
+      return remote;
     }
 
     // --------------------------------------------------------------------------------------------------------------------------

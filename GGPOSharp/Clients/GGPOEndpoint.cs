@@ -145,13 +145,13 @@ public class GGPOEndpoint
   public byte PlayerIndex { get { return Options.PlayerIndex; } }
 
   public bool IsLocalPlayer { get { return Options.IsLocal; } }
-  public bool IsReplayAppliance { get { return Options.IsReplayAppliance; } }
+  public bool IsReplayClient { get { return Options.IsReplayClient; } }
 
   // -------------------------------------------------------------------------------------
   public GGPOEndpoint(IGGPOClient client_, GGPOEndpointOptions ops_, ConnectStatus[] localConnectStatus_)
   {
     if (client_ == null) { throw new ArgumentNullException(nameof(client_)); }
-    if (localConnectStatus_ == null) { throw new ArgumentNullException(nameof(localConnectStatus_));} 
+    if (localConnectStatus_ == null) { throw new ArgumentNullException(nameof(localConnectStatus_)); }
 
     MsgHandlers[(byte)EMsgType.Invalid] = OnInvalid;
     MsgHandlers[(byte)EMsgType.SyncRequest] = OnSyncRequest;
@@ -508,10 +508,10 @@ public class GGPOEndpoint
 
     var msg = new UdpMsg(EMsgType.SyncRequest);
     msg.u.sync_request.random_request = SyncState.random;
+    msg.u.sync_request.player_index = this.PlayerIndex;
     msg.u.sync_request.session_id = this.SessionId;
     SendMsg(ref msg);
 
-    // throw new NotImplementedException();
   }
 
   // -------------------------------------------------------------------------------------
@@ -544,7 +544,7 @@ public class GGPOEndpoint
     if (Options.IsLocal) { return; }
 
     // TEMP:
-    if (Options.IsReplayAppliance)
+    if (Options.IsReplayClient)
     {
       int x = 10;
     }
@@ -571,12 +571,9 @@ public class GGPOEndpoint
 
   // -------------------------------------------------------------------------------------
   // REFACTOR: Rename to 'DoPoll' or 'Poll' or whatever.
-  public void OnLoopPoll()
+  public virtual void OnLoopPoll()
   {
     if (Options.IsLocal || _current_state == EClientState.Disconnected) { return; }
-
-    // Receive messages here!
-    ReceiveMessages();
 
     PumpSendQueue();
 
@@ -770,33 +767,33 @@ public class GGPOEndpoint
     SendMsg(ref msg);
   }
 
+  //// ------------------------------------------------------------------------
+  //private void ReceiveMessages()
+  //{
+  //  // Pull in all messages, while they are available.
+  //  //while (Client.Available > 0)
+  //  //{
+  //  while (true)
+  //  {
+  //    // Get the next message.....
+  //    // byte[] data = Client.Receive
+  //    int received = Client.UDP.Receive(ReceiveBuffer, ref RemoteEP);
+  //    if (received == 0)
+  //    {
+  //      break;
+  //    }
+
+  //    UdpMsg msg = new UdpMsg();
+  //    UdpMsg.FromBytes(ReceiveBuffer, ref msg, received);
+
+  //    // Now that we have the message we can do something with it....
+  //    HandleMessage(ref msg, received);
+  //  }
+  //}
+
+
   // ------------------------------------------------------------------------
-  private void ReceiveMessages()
-  {
-    // Pull in all messages, while they are available.
-    //while (Client.Available > 0)
-    //{
-    while (true)
-    {
-      // Get the next message.....
-      // byte[] data = Client.Receive
-      int received = Client.UDP.Receive(ReceiveBuffer, ref RemoteEP);
-      if (received == 0)
-      {
-        break;
-      }
-
-      UdpMsg msg = new UdpMsg();
-      UdpMsg.FromBytes(ReceiveBuffer, ref msg, received);
-
-      // Now that we have the message we can do something with it....
-      HandleMessage(ref msg, received);
-    }
-  }
-
-
-  // ------------------------------------------------------------------------
-  private void HandleMessage(ref UdpMsg msg, int msgLen)
+  public void HandleMessage(ref UdpMsg msg, int msgLen)
   {
 
     // filter out messages that don't match what we expect
@@ -806,7 +803,7 @@ public class GGPOEndpoint
       if (msg.header.magic != _remote_magic_number)
       {
         Utils.LogIt(LogCategories.MESSAGE, "magic-mismatch");
-        return;
+        return ;
       }
 
       // filter out out-of-order packets
@@ -815,7 +812,7 @@ public class GGPOEndpoint
       if (skipped > GGPOConsts.MAX_SEQ_DISTANCE)
       {
         Utils.LogIt(LogCategories.ENDPOINT, "OOP dropped: (seq: %d, last seq:%d)", seq, _next_recv_seq);
-        return;
+        return ;
       }
     }
 
@@ -874,7 +871,7 @@ public class GGPOEndpoint
   }
 
   // ------------------------------------------------------------------------
-  private bool OnSyncRequest(ref UdpMsg msg, int msgLen)
+  internal bool OnSyncRequest(ref UdpMsg msg, int msgLen)
   {
     if (_remote_magic_number != 0 && msg.header.magic != _remote_magic_number)
     {
@@ -1065,7 +1062,15 @@ public class GGPOEndpoint
     bool res = this._current_state == EClientState.Disconnected;
     return res;
   }
+
+  // ------------------------------------------------------------------------
+  internal bool HasAddress(EndPoint receivedOn)
+  {
+    bool res = this.RemoteEP.Equals(receivedOn);
+    return res;
+  }
 }
+
 
 
 // ================================================================================================================
@@ -1358,7 +1363,7 @@ public class GGPOEndpointOptions
   /// <summary>
   /// Is this endpoint pointed at a replay appliance?
   /// </summary>
-  public bool IsReplayAppliance { get; set; }
+  public bool IsReplayClient { get; set; }
 
   // TODO: Is this really used?
   public int ConnectTimeout { get; set; } = GGPOConsts.UNLIMITED_TIME;

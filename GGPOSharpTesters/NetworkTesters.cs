@@ -44,15 +44,21 @@ namespace GGPOSharpTesters
       p2.AddReplayEndpoint(REPLAY_APPLIANCE_HOST, REPLAY_APPLIANCE_PORT);
 
 
+      // NOTE: Choose as few frames as possible to get the clients synced.
       const int STARTUP_FRAMES = 50;
       context.RunGame(STARTUP_FRAMES);
+
+      Assert.That(replayAppliance.Errors.Count, Is.EqualTo(0), "There should be no listed errors!");
 
       // At this point we should have two connected clients on the replay appliance.
       Assert.That(replayAppliance.ClientCount, Is.EqualTo(2), "There should be two connected clients!");
       
       // Confirm that both of the endpoints are syned.
       var rc1 = replayAppliance.GetEndpoint(0);
+      Assert.NotNull(rc1);
+
       var rc2 = replayAppliance.GetEndpoint(1);
+      Assert.NotNull(rc2);
 
       Assert.That(rc1._current_state, Is.EqualTo(EClientState.Running), "Client 1 should be synced!");
       Assert.That(rc2._current_state, Is.EqualTo(EClientState.Running), "Client 2 should be synced!");

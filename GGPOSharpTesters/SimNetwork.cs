@@ -1,5 +1,6 @@
 ﻿using GGPOSharp;
 using System.Net;
+using System.Runtime.Intrinsics.Arm;
 
 namespace GGPOSharpTesters
 {
@@ -31,6 +32,19 @@ namespace GGPOSharpTesters
     // NOTE: This does matter as it is how we are going to track the replays...
     public int Port { get; private set; }
 
+    public HashSet<SocketAddress> Blacklist { get; private set; } = new HashSet<SocketAddress>();
+
+    // ------------------------------------------------------------------------------------------------------------
+    public void AddToBlacklist(SocketAddress at)
+    {
+      Blacklist.Add(at);
+    }
+
+    // ------------------------------------------------------------------------------------------------------------
+    public void RemoveFromBlacklist(SocketAddress at)
+    {
+      Blacklist.Remove(at);
+    }
 
     // ----------------------------------------------------------------------------------------------------------------
     public int Receive(byte[] receiveBuffer, ref EndPoint remoteEP)
@@ -41,25 +55,35 @@ namespace GGPOSharpTesters
         return 0;
       }
 
-      int res = msg.Data.Length;
-      for (int i = 0; i < res; i++)
+      // TODO: This is going to create a lot of garbage.....
+      remoteEP = new IPEndPoint(IPAddress.Parse(msg.SrcHost), msg.SrcPort);
+      // TODO: This will make extra garbage too.....
+      if (Blacklist.Contains(remoteEP.Serialize()))
       {
-        receiveBuffer[i] = msg.Data[i];
+        return 0;
       }
+
+      // NOTE: There is probably a better way to do this....
+      // Utils.CopyMem
+      int res = msg.Data.Length;
+      Buffer.BlockCopy(msg.Data, 0, receiveBuffer, 0, res);
+
       return res;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
     public int Send(byte[] sendBuffer, int packetSize, SocketAddress useRemote)
     {
+      if (Blacklist.Contains(useRemote)) { return 0; }
+
       // NOTE: This is a very roundabout way to get the host + address from 'useRemote'
       // There is very likely a better way to do this...
       var ep = new IPEndPoint(IPAddress.Any, 0);
-      var x  = ep.Create(useRemote);
+      var x = ep.Create(useRemote);
       IPEndPoint ipEndPoint = (IPEndPoint)x;
 
       string useHost = ipEndPoint.Address.ToString();
-      int usePort=  ipEndPoint.Port;
+      int usePort = ipEndPoint.Port;
 
       uint usePing = ComputePing();
 
@@ -67,6 +91,9 @@ namespace GGPOSharpTesters
       {
         Data = CopyBytes(sendBuffer, packetSize),
         ReceiveTime = (int)(TimeSource.CurTime + usePing),
+
+        SrcHost = this.Host,
+        SrcPort = this.Port,
 
         DestHost = useHost,
         DestPort = usePort
@@ -83,8 +110,9 @@ namespace GGPOSharpTesters
     public static byte[] CopyBytes(byte[] sendBuffer, int packetSize)
     {
       var res = new byte[packetSize];
-      for (int i = 0; i < packetSize; i++) { 
-        res[i]= sendBuffer[i];
+      for (int i = 0; i < packetSize; i++)
+      {
+        res[i] = sendBuffer[i];
       }
       return res;
     }
@@ -93,7 +121,8 @@ namespace GGPOSharpTesters
     private uint ComputePing()
     {
       uint res = this.AvgPing;
-      if (this.PingJitter > 0) {
+      if (this.PingJitter > 0)
+      {
         throw new NotSupportedException("Ping jitter is not supported at this time!");
         // TODO: LATER:
         // Do a normal distribution with the jitter (variance) so that

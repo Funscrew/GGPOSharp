@@ -1,34 +1,9 @@
 ﻿using GGPOSharp.Clients;
 using System.Diagnostics;
+using System.IO.Pipes;
+using System.Net;
 
 namespace GGPOSharp;
-
-// ==========================================================================================
-public interface SimTimer
-{
-  /// <summary>
-  /// The current time in Milliseconds
-  /// </summary>
-  public int CurTime { get; }
-}
-
-
-// ==============================================================================================================================
-public class ClockTimer : SimTimer
-{
-  private Stopwatch Clock = Stopwatch.StartNew();
-  public int CurTime { get { return (int)Clock.ElapsedMilliseconds; } }
-}
-
-
-// ==========================================================================================
-public interface IGGPOClient : SimTimer
-{
-  // Stopwatch Clock { get; }
-  IUdpBlaster UDP { get; }
-  UInt32 ClientVersion { get; }
-  string LocalPlayerName { get; }
-}
 
 // ==========================================================================================
 /// <summary>
@@ -78,7 +53,7 @@ public class GGPOClient : IGGPOClient, IDisposable
   private int _next_recommended_sleep = 0;
 
   private ReplayEndpoint? ReplayClient = null;
-  
+
   public string LocalPlayerName { get; private set; }
 
   // ----------------------------------------------------------------------------------------
@@ -135,7 +110,8 @@ public class GGPOClient : IGGPOClient, IDisposable
       ep.Synchronize();
     }
 
-    if (ReplayClient != null) { 
+    if (ReplayClient != null)
+    {
       ReplayClient.Synchronize();
     }
   }
@@ -153,7 +129,8 @@ public class GGPOClient : IGGPOClient, IDisposable
   // ----------------------------------------------------------------------------------------
   public GGPOEndpoint AddReplayEndpoint(string host, int port)
   {
-    if (LocalPlayer == null)  {
+    if (LocalPlayer == null)
+    {
       throw new InvalidOperationException("The local player must be set to add a replay client!");
     }
 
@@ -164,7 +141,7 @@ public class GGPOClient : IGGPOClient, IDisposable
       PlayerName = LocalPlayer.GetPlayerName(),
       RemoteHost = host,
       RemotePort = port,
-      IsReplayAppliance = true
+      IsReplayClient = true
     };
 
     var replayClient = new ReplayEndpoint(this, epOps, this._local_connect_status);
@@ -230,7 +207,7 @@ public class GGPOClient : IGGPOClient, IDisposable
     var ops = new GGPOEndpointOptions()
     {
       IsLocal = false,
-      IsReplayAppliance = true,
+      IsReplayClient = true,
       RemoteHost = replayHost,
       RemotePort = replayPort,
       ConnectTimeout = replayTimeout
@@ -280,14 +257,50 @@ public class GGPOClient : IGGPOClient, IDisposable
   }
 
   // ----------------------------------------------------------------------------------------
+  private byte[] _ReceiveBuffer = new byte[8192];
+  // private IPEndPoint IP = new IPEndPoint(IPAddress.Any
+  private EndPoint ReceivedFrom;
   public virtual void DoPoll(int timeout)
   {
-    // Endpoints get updated first so that we can get events, inputs, etc.
     int epCount = _endpoints.Count;
+
+    // Receive all messages + send them off to the correct endpoints.
+    // This is basically a soft-router.
+    while (true)
+    {
+      int received = this.UDP.Receive(_ReceiveBuffer, ref ReceivedFrom);
+      if (received == 0) { break; }
+
+      UdpMsg msg = new UdpMsg();
+      UdpMsg.FromBytes(_ReceiveBuffer, ref msg, received);
+
+      // Endpoints get updated first so that we can get events, inputs, etc.
+      for (int i = 0; i < epCount; i++)
+      {
+        var ep = _endpoints[i];
+        if (!ep.IsLocalPlayer && ep.HasAddress(ReceivedFrom)) {
+          ep.HandleMessage(ref msg, received);
+          break;
+        }
+        else { 
+          int x = 10;
+        }
+      }
+    }
+
+    // Now we can do the normal polling for the endpoints.
     for (int i = 0; i < epCount; i++)
     {
       _endpoints[i].OnLoopPoll();
     }
+
+
+    //// Endpoints get updated first so that we can get events, inputs, etc.
+    //int epCount = _endpoints.Count;
+    //for (int i = 0; i < epCount; i++)
+    //{
+    //  _endpoints[i].OnLoopPoll();
+    //}
 
     // Now we can handle the results of the endpoint updates (events, etc.)
     // Handle events!
@@ -355,6 +368,19 @@ public class GGPOClient : IGGPOClient, IDisposable
         Thread.Sleep(1);
       }
     }
+
+    // NOTE: Replay client is going to be converted into another type of endpoint!
+    UpdateReplayClient();
+  }
+
+  // ----------------------------------------------------------------------------------------------------------
+  private void UpdateReplayClient()
+  {
+    if (ReplayClient != null)
+    {
+      // Events are handled internally.
+      ReplayClient.OnLoopPoll();
+    }
   }
 
   // ----------------------------------------------------------------------------------------------------------
@@ -371,6 +397,7 @@ public class GGPOClient : IGGPOClient, IDisposable
     for (i = 0; i < _endpoints.Count; i++)
     {
       GGPOEndpoint ep = _endpoints[i];
+
       byte epi = ep.PlayerIndex;
 
       // We only care if the queue is connected so that we can maybe disconnect it.
@@ -566,7 +593,8 @@ public class GGPOClient : IGGPOClient, IDisposable
         ep.SendInput(ref input);
       }
 
-      if (ReplayClient != null ) { 
+      if (ReplayClient != null)
+      {
         ReplayClient.SendInput(ref input);
       }
     }
@@ -801,7 +829,7 @@ public class GGPOClient : IGGPOClient, IDisposable
 
         // xxx: IsInitialized() must go... we're actually using it as a proxy for "represents the local player"
         // NOTE: The above comment is a bit misleading.  'Is initialized' means that the endpoint is remote.
-        if (!ep.IsLocalPlayer && !ep.IsReplayAppliance &&
+        if (!ep.IsLocalPlayer && !ep.IsReplayClient &&
             !ep.IsSynchronized() &&
             !_local_connect_status[epi].disconnected)
         {
@@ -830,7 +858,7 @@ public class GGPOClient : IGGPOClient, IDisposable
   // ----------------------------------------------------------------------------------------
   public GGPOEndpoint GetLocalPlayer()
   {
-    var res= (from x in _endpoints where x.IsLocalPlayer select x).SingleOrDefault();
+    var res = (from x in _endpoints where x.IsLocalPlayer select x).SingleOrDefault();
     return res;
   }
 
@@ -914,4 +942,32 @@ public static class Defaults
   public const int REPLAY_TIMEOUT = 5000;
 }
 
+
+
+// ==========================================================================================
+public interface SimTimer
+{
+  /// <summary>
+  /// The current time in Milliseconds
+  /// </summary>
+  public int CurTime { get; }
+}
+
+
+// ==============================================================================================================================
+public class ClockTimer : SimTimer
+{
+  private Stopwatch Clock = Stopwatch.StartNew();
+  public int CurTime { get { return (int)Clock.ElapsedMilliseconds; } }
+}
+
+
+// ==========================================================================================
+public interface IGGPOClient : SimTimer
+{
+  // Stopwatch Clock { get; }
+  IUdpBlaster UDP { get; }
+  UInt32 ClientVersion { get; }
+  string LocalPlayerName { get; }
+}
 

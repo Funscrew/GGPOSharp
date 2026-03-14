@@ -8,8 +8,19 @@ namespace GGPOSharp
   // ========================================================================================================================
   public interface IUdpBlaster : IDisposable
   {
+    /// <returns>The number of bytes that were received.</returns>
     int Receive(byte[] receiveBuffer, ref EndPoint remoteEP);
+
+    /// <returns>The number of bytes that were sent.</returns>
     int Send(byte[] sendBuffer, int packetSize, SocketAddress useRemote);
+
+    /// <summary>
+    /// Set of addresses that we will not send or receive data from.  In the case of receiving,
+    /// the client will filter those packets and return 0.
+    /// </summary>
+    HashSet<SocketAddress> Blacklist { get; }
+    void AddToBlacklist(SocketAddress address);
+    void RemoveFromBlacklist(SocketAddress address);
   }
 
   // ========================================================================================================================
@@ -24,10 +35,24 @@ namespace GGPOSharp
     // OPTIONS:
     const int RECEIVE_BUFFER_SIZE = 8192;
 
+    public HashSet<SocketAddress> Blacklist { get; private set; } = new HashSet<SocketAddress>();
+
     // ------------------------------------------------------------------------------------------------------------
     public UdpBlaster(int localPort)
         : this(localPort, IPAddress.Any)
     { }
+
+    // ------------------------------------------------------------------------------------------------------------
+    public void AddToBlacklist(SocketAddress at)
+    {
+      Blacklist.Add(at);
+    }
+
+    // ------------------------------------------------------------------------------------------------------------
+    public void RemoveFromBlacklist(SocketAddress at)
+    {
+      Blacklist.Remove(at);
+    }
 
     // ------------------------------------------------------------------------------------------------------------
     // Use port zero (0) to use an ephemeral port.
@@ -94,7 +119,7 @@ namespace GGPOSharp
     }
 
     // ------------------------------------------------------------------------------------------
-    public int Send(byte[] buffer, int size,  SocketAddress remoteEndPoint)
+    public int Send(byte[] buffer, int size, SocketAddress remoteEndPoint)
     {
       if (buffer == null)
       {
@@ -110,8 +135,8 @@ namespace GGPOSharp
       // In reality, we will use the network family that we initialize this with!
       // TODO: This is probably making garbage....
       //  EndPoint ep = remoteEndPoint; // ForceIPv6(remoteEndPoint);
-      var span = new ReadOnlySpan<byte>(buffer, 0, size); 
-      int sent = Socket.SendTo(span, SocketFlags.None, remoteEndPoint); 
+      var span = new ReadOnlySpan<byte>(buffer, 0, size);
+      int sent = Socket.SendTo(span, SocketFlags.None, remoteEndPoint);
       //int sent = Socket.SendTo(buffer, 0, size, SocketFlags.None, remoteEndPoint);
       return sent;
     }

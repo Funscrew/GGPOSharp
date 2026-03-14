@@ -1,4 +1,6 @@
 ﻿
+using System.Diagnostics;
+
 namespace GGPOSharpTesters
 {
   // ==================================================================================================================
@@ -15,6 +17,9 @@ namespace GGPOSharpTesters
     private List<SimUdpMessage> MsgQueue = new List<SimUdpMessage>();
 
     // ----------------------------------------------------------------------------------------------------------------
+    /// <summary>
+    /// host + port are used to make sure that we only get the data that is intended for this endpoint.
+    /// </summary>
     public SimUdpMessage? GetNextMessage(SimUdp udp)
     {
       int minTime = int.MaxValue;
@@ -58,9 +63,14 @@ namespace GGPOSharpTesters
 }
 
 // ==============================================================================================================================
+[DebuggerDisplay("{SrcHost}:{SrcPort} -> {DestHost}:{DestPort}")]
 public class SimUdpMessage
 {
   public const int MAX_MSG_SIZE = 1024;
+
+  // This is where the data originally came from.
+  public string SrcHost { get; set; }
+  public int SrcPort { get; set; }
 
   // NOTE: Host + port are used for sending the message to the correct place...
   public string DestHost { get; set; }
