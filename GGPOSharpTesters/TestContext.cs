@@ -41,12 +41,12 @@ namespace GGPOSharpTesters
 
     // --------------------------------------------------------------------------------------------------------------------------
     /// <param name="setInputs">Callback for each frame and player so their inputs for the frame can be set.</param>
-    public void RunGame(int totalFrameCount, Action<byte[], int, int>? setInputs = null)
+    public void RunGame(int totalTime, Action<byte[], int, int>? setInputs = null)
     {
 
       // The total number of 'frames' that we want to simulate in this case.
       //  const int MAX_FRAMES = 50;
-      for (int frameNumber = 0; frameNumber < totalFrameCount; frameNumber++)
+      for (int curTime = 0; curTime < totalTime; curTime++)
       {
         TimeSource.AddTime(TIME_INTERVAL);
 
@@ -56,7 +56,7 @@ namespace GGPOSharpTesters
           ReplayAppliance.DoPoll(0);
         }
 
-        if (frameNumber % FRAME_INTERVAL == 0)
+        if (curTime % FRAME_INTERVAL == 0)
         {
           // TODO: I want to change the inputs per frame.  Data doesn't matter, just that it can be exchanged.
           // Probably just increment the bits....
@@ -68,7 +68,7 @@ namespace GGPOSharpTesters
 
             if (setInputs != null)
             {
-              setInputs(InputBuffers[clientIndex], c.GetLocalPlayer().PlayerIndex, frameNumber);
+              setInputs(InputBuffers[clientIndex], c.GetLocalPlayer().PlayerIndex, curTime);
             }
 
             Program.RunFrame(c, InputBuffers[clientIndex]);

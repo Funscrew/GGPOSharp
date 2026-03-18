@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO.Pipes;
 using System.Net;
+using System.Net.Sockets;
 
 namespace GGPOSharp;
 
@@ -13,6 +14,8 @@ public class GGPOClient : IGGPOClient, IDisposable
 {
   private GGPOClientOptions Options = null!;
   protected List<GGPOEndpoint> _endpoints = new List<GGPOEndpoint>();
+  protected GGPOEndpoint[] _Players = new GGPOEndpoint[GGPOConsts.MAX_PLAYERS];
+  protected int _ConnectedPlayerCount = 0;
 
   public IUdpBlaster UDP { get; private set; } = null!;
 
@@ -38,7 +41,7 @@ public class GGPOClient : IGGPOClient, IDisposable
 
   protected ConnectStatus[] _local_connect_status = null!;
 
-  private string[] _PlayerNames = new string[GGPOConsts.UDP_MSG_MAX_PLAYERS];
+  private string[] _PlayerNames = new string[GGPOConsts.MAX_PLAYERS];
   protected GGPOSessionCallbacks _callbacks;
 
 
@@ -52,8 +55,6 @@ public class GGPOClient : IGGPOClient, IDisposable
 
   private int _next_recommended_sleep = 0;
 
-  private ReplayEndpoint? ReplayClient = null;
-
   public string LocalPlayerName { get; private set; }
 
   // ----------------------------------------------------------------------------------------
@@ -66,8 +67,8 @@ public class GGPOClient : IGGPOClient, IDisposable
     UDP = udp_;
     Clock = clock_;
 
-    _local_connect_status = new ConnectStatus[GGPOConsts.UDP_MSG_MAX_PLAYERS];
-    for (int i = 0; i < GGPOConsts.UDP_MSG_MAX_PLAYERS; i++)
+    _local_connect_status = new ConnectStatus[GGPOConsts.MAX_PLAYERS];
+    for (int i = 0; i < GGPOConsts.MAX_PLAYERS; i++)
     {
       _local_connect_status[i].last_frame = -1;
     }
@@ -109,11 +110,6 @@ public class GGPOClient : IGGPOClient, IDisposable
       var ep = _endpoints[i];
       ep.Synchronize();
     }
-
-    if (ReplayClient != null)
-    {
-      ReplayClient.Synchronize();
-    }
   }
 
   // ----------------------------------------------------------------------------------------
@@ -127,7 +123,11 @@ public class GGPOClient : IGGPOClient, IDisposable
 
 
   // ----------------------------------------------------------------------------------------
-  public GGPOEndpoint AddReplayEndpoint(string host, int port)
+  /// <summary>
+  /// Add a connection to the replay appliance.  Send out inputs, etc. to this endpoint
+  /// so that recordings can be made, and other can spectate.
+  /// </summary>
+  public GGPOEndpoint AddReplayAppliance(string host, int port, int replayTimeout)
   {
     if (LocalPlayer == null)
     {
@@ -137,17 +137,17 @@ public class GGPOClient : IGGPOClient, IDisposable
     // This is one of the clients that will be sending the input, etc. data to the replay appliance.
     var epOps = new GGPOEndpointOptions()
     {
-      PlayerIndex = LocalPlayer.PlayerIndex,
+      PlayerIndex = LocalPlayer.PlayerIndex, // GGPOConsts.REPLAY_APPLIANCE_PLAYER_INDEX,
       PlayerName = LocalPlayer.GetPlayerName(),
       RemoteHost = host,
       RemotePort = port,
-      IsReplayClient = true
+      IsReplayClient = true,
+      SessionId = this.SessionId,
     };
 
     var replayClient = new ReplayEndpoint(this, epOps, this._local_connect_status);
-    this.ReplayClient = replayClient;
-
-    return this.ReplayClient;
+    this._endpoints.Add(replayClient);
+    return replayClient;
   }
 
   // ----------------------------------------------------------------------------------------
@@ -175,6 +175,8 @@ public class GGPOClient : IGGPOClient, IDisposable
     this._endpoints.Add(res);
 
     this.LocalPlayerName = playerName;
+    this._Players[this._ConnectedPlayerCount] = res;
+    this._ConnectedPlayerCount++;
 
     return res;
   }
@@ -196,27 +198,30 @@ public class GGPOClient : IGGPOClient, IDisposable
     var res = new GGPOEndpoint(this, ops, _local_connect_status);
     this._endpoints.Add(res);
 
+    this._Players[this._ConnectedPlayerCount] = res;
+    this._ConnectedPlayerCount++;
+
     return res;
   }
 
-  // ----------------------------------------------------------------------------------------
-  internal ReplayEndpoint AddReplayClient(string replayHost, int replayPort, int replayTimeout)
-  {
-    if (ReplayClient != null) { throw new InvalidOperationException("The replay client has already been added!"); }
+  //// ----------------------------------------------------------------------------------------
+  //internal ReplayEndpoint AddReplayClient(string replayHost, int replayPort, int replayTimeout)
+  //{
+  //  if (ReplayClient != null) { throw new InvalidOperationException("The replay client has already been added!"); }
 
-    var ops = new GGPOEndpointOptions()
-    {
-      IsLocal = false,
-      IsReplayClient = true,
-      RemoteHost = replayHost,
-      RemotePort = replayPort,
-      ConnectTimeout = replayTimeout
-    };
-    var ep = new ReplayEndpoint(this, ops, this._local_connect_status);
-    ReplayClient = ep;
+  //  var ops = new GGPOEndpointOptions()
+  //  {
+  //    IsLocal = false,
+  //    IsReplayClient = true,
+  //    RemoteHost = replayHost,
+  //    RemotePort = replayPort,
+  //    ConnectTimeout = replayTimeout
+  //  };
+  //  var ep = new ReplayEndpoint(this, ops, this._local_connect_status);
+  //  ReplayClient = ep;
 
-    return ep;
-  }
+  //  return ep;
+  //}
 
   //// ----------------------------------------------------------------------------------------
   //// TODO: Maybe there should be an option to (optionally) set the remote player name, and then it
@@ -278,11 +283,13 @@ public class GGPOClient : IGGPOClient, IDisposable
       for (int i = 0; i < epCount; i++)
       {
         var ep = _endpoints[i];
-        if (!ep.IsLocalPlayer && ep.HasAddress(ReceivedFrom)) {
+        if (!ep.IsLocalPlayer && ep.HasAddress(ReceivedFrom))
+        {
           ep.HandleMessage(ref msg, received);
           break;
         }
-        else { 
+        else
+        {
           int x = 10;
         }
       }
@@ -320,7 +327,7 @@ public class GGPOClient : IGGPOClient, IDisposable
       }
 
       int total_min_confirmed;
-      if (_endpoints.Count == 2)
+      if (_ConnectedPlayerCount == 2)
       {
         // We are connected to one other player....
         total_min_confirmed = Poll2Players(current_frame);
@@ -370,18 +377,18 @@ public class GGPOClient : IGGPOClient, IDisposable
     }
 
     // NOTE: Replay client is going to be converted into another type of endpoint!
-    UpdateReplayClient();
+    // UpdateReplayClient();
   }
 
-  // ----------------------------------------------------------------------------------------------------------
-  private void UpdateReplayClient()
-  {
-    if (ReplayClient != null)
-    {
-      // Events are handled internally.
-      ReplayClient.OnLoopPoll();
-    }
-  }
+  //// ----------------------------------------------------------------------------------------------------------
+  //private void UpdateReplayClient()
+  //{
+  //  if (ReplayClient != null)
+  //  {
+  //    // Events are handled internally.
+  //    ReplayClient.OnLoopPoll();
+  //  }
+  //}
 
   // ----------------------------------------------------------------------------------------------------------
   private unsafe int Poll2Players(int current_frame)
@@ -394,9 +401,9 @@ public class GGPOClient : IGGPOClient, IDisposable
     // NOTE: because the replay appliance is another endpoint, things get a bit weird...
     // In a future iteration, I think that we would keep track of player endpoints, and 'other' endpoints
     // to make the distinction a bit more clear, and so we don't have to keep indexes in sync across components.
-    for (i = 0; i < _endpoints.Count; i++)
+    for (i = 0; i < _ConnectedPlayerCount; i++)
     {
-      GGPOEndpoint ep = _endpoints[i];
+      GGPOEndpoint ep = _Players[i];
 
       byte epi = ep.PlayerIndex;
 
@@ -415,7 +422,7 @@ public class GGPOClient : IGGPOClient, IDisposable
       if (!queue_connected && !_local_connect_status[epi].disconnected)
       {
         Utils.LogIt(LogCategories.ENDPOINT, "disconnect by request: %d", i);
-        DisconnectPlayer(epi, total_min_confirmed);
+        DisconnectEndpoint(ep, total_min_confirmed);
       }
     }
     return total_min_confirmed;
@@ -593,10 +600,10 @@ public class GGPOClient : IGGPOClient, IDisposable
         ep.SendInput(ref input);
       }
 
-      if (ReplayClient != null)
-      {
-        ReplayClient.SendInput(ref input);
-      }
+      //if (ReplayClient != null)
+      //{
+      //  ReplayClient.SendInput(ref input);
+      //}
     }
 
     return true;
@@ -616,117 +623,145 @@ public class GGPOClient : IGGPOClient, IDisposable
       // NOTE: Local players aren't really going to have events because they don't poll or receive messages.
       while (ep.GetEvent(ref evt))
       {
-        OnUdpProtocolPeerEvent(ref evt, ep.PlayerIndex);
+        OnUdpProtocolPeerEvent(ref evt, ep);
       }
     }
   }
 
   // ----------------------------------------------------------------------------------------------------------
-  protected virtual void OnUdpProtocolPeerEvent(ref UdpEvent evt, byte playerIndex)
+  protected virtual void OnUdpProtocolPeerEvent(ref UdpEvent evt, GGPOEndpoint endpoint) //  byte playerIndex)
   {
+    var playerIndex = endpoint.PlayerIndex;
+
     // int playerIndex = -1;
-    OnUdpProtocolEvent(ref evt, playerIndex);
+    OnUdpProtocolEvent(ref evt, endpoint);
+
     switch (evt.type)
     {
       case EEventType.Input:
-        if (!_local_connect_status[playerIndex].disconnected)
+        // An input was received:
+        if (!endpoint.IsReplayClient)
         {
+          if (!_local_connect_status[playerIndex].disconnected)
+          {
 
-          int current_remote_frame = _local_connect_status[playerIndex].last_frame;
-          int new_remote_frame = evt.u.input.frame;
-          Utils.ASSERT(current_remote_frame == -1 || new_remote_frame == (current_remote_frame + 1));
+            int current_remote_frame = _local_connect_status[playerIndex].last_frame;
+            int new_remote_frame = evt.u.input.frame;
+            Utils.ASSERT(current_remote_frame == -1 || new_remote_frame == (current_remote_frame + 1));
 
-          _sync.AddRemoteInput(playerIndex, ref evt.u.input);
+            _sync.AddRemoteInput(playerIndex, ref evt.u.input);
 
-          // Notify the other endpoints which frame we received from a peer
-          Utils.LogIt(LogCategories.INPUT, "remote frame for: %d - %d", playerIndex, evt.u.input.frame);
-          _local_connect_status[playerIndex].last_frame = evt.u.input.frame;
+            // Notify the other endpoints which frame we received from a peer
+            Utils.LogIt(LogCategories.INPUT, "remote frame for: %d - %d", playerIndex, evt.u.input.frame);
+            _local_connect_status[playerIndex].last_frame = evt.u.input.frame;
+          }
+        }
+        else
+        {
+          int x = 10;
         }
         break;
 
       case EEventType.Disconnected:
-        DisconnectPlayer(playerIndex);
+        DisconnectEndpoint(endpoint);
         break;
 
     }
   }
 
   // ----------------------------------------------------------------------------------------------------------
-  bool DisconnectPlayer(byte playerIndex)
+  bool DisconnectEndpoint(GGPOEndpoint endpoint)
   {
-    // REFACTOR:  We can skip the assignment here.....
-    byte queue = playerIndex;
-    //	GGPOErrorCode result;
-
-    // if (player > MAX_PLA
-    //result = PlayerHandleToQueue(player, &playerIndex);
-    //if (!GGPO_SUCCEEDED(result)) {
-    //	return result;
-    //}
-
-    if (_local_connect_status[queue].disconnected)
+    if (!endpoint.IsReplayClient)
     {
-      // TODO: Log this !
-      return false; //GGPO_ERRORCODE_PLAYER_DISCONNECTED;
-    }
+      byte playerIndex = endpoint.PlayerIndex;
 
-    if (!_endpoints[queue].IsInitialized())
-    {
-      int current_frame = _sync.GetFrameCount();
-      // xxx: we should be tracking who the local player is, but for now assume
-      // that if the endpoint is not initalized, this must be the local player.
-      Utils.LogIt(LogCategories.ENDPOINT, "Disconnecting local player %d at frame %d by user request.", playerIndex, _local_connect_status[playerIndex].last_frame);
-      int epCount = _endpoints.Count;
-      for (UInt16 i = 0; i < epCount; i++)
+      if (_local_connect_status[playerIndex].disconnected)
       {
-        var ep = _endpoints[i];
-        if (ep.IsInitialized())
+        // TODO: Log this !
+        return false; //GGPO_ERRORCODE_PLAYER_DISCONNECTED;
+      }
+
+      if (!_endpoints[playerIndex].IsInitialized())
+      {
+        int current_frame = _sync.GetFrameCount();
+        // xxx: we should be tracking who the local player is, but for now assume
+        // that if the endpoint is not initalized, this must be the local player.
+        Utils.LogIt(LogCategories.ENDPOINT, "Disconnecting local player %d at frame %d by user request.", playerIndex, _local_connect_status[playerIndex].last_frame);
+        int epCount = _endpoints.Count;
+        for (UInt16 i = 0; i < epCount; i++)
         {
-          DisconnectPlayer(ep.PlayerIndex, current_frame);
+          var ep = _endpoints[i];
+          if (ep.IsInitialized())
+          {
+            DisconnectEndpoint(ep, current_frame);
+          }
         }
+      }
+      else
+      {
+        Utils.LogIt(LogCategories.ENDPOINT, "Disconnecting player: %d at frame: %d by user request.", playerIndex, _local_connect_status[playerIndex].last_frame);
+        DisconnectEndpoint(endpoint, _local_connect_status[playerIndex].last_frame); // playerIndex, _local_connect_status[playerIndex].last_frame);
       }
     }
     else
     {
-      Utils.LogIt(LogCategories.ENDPOINT, "Disconnecting player: %d at frame: %d by user request.", playerIndex, _local_connect_status[playerIndex].last_frame);
-      DisconnectPlayer(queue, _local_connect_status[queue].last_frame);
+      // We need to remove the replay client.
+      // NOTE: At this point, the disconnect logic isn't very good.
     }
+
 
     return true;
   }
 
 
   // --------------------------------------------------------------------------------------------------------------
-  void DisconnectPlayer(byte playerIndex, int syncto)
+  //void DisconnectPlayer(byte playerIndex, int syncto)
+  void DisconnectEndpoint(GGPOEndpoint endpoint, int syncto)
   {
-    GGPOEvent info = new GGPOEvent();
-    int framecount = _sync.GetFrameCount();
-
-    _endpoints[playerIndex].Disconnect();
-
-    Utils.LogIt(LogCategories.ENDPOINT, "Changing player: %d local connect status for last frame from %d to %d on disconnect request (current: %d).", playerIndex, _local_connect_status[playerIndex].last_frame, syncto, framecount);
-
-    _local_connect_status[playerIndex].disconnected = true;
-    _local_connect_status[playerIndex].last_frame = syncto;
-
-    if (syncto < framecount)
+    if (!endpoint.IsReplayClient)
     {
-      Utils.LogIt(LogCategories.ENDPOINT, "adjusting simulation to account for the fact that %d disconnected @ %d.", playerIndex, syncto);
-      _sync.AdjustSimulation(syncto);
-      Utils.LogIt(LogCategories.ENDPOINT, "finished adjusting simulation.");
+      var playerIndex = endpoint.PlayerIndex;
+
+      GGPOEvent info = new GGPOEvent();
+      int framecount = _sync.GetFrameCount();
+
+      _endpoints[playerIndex].Disconnect();
+
+      Utils.LogIt(LogCategories.ENDPOINT, "Changing player: %d local connect status for last frame from %d to %d on disconnect request (current: %d).", playerIndex, _local_connect_status[playerIndex].last_frame, syncto, framecount);
+
+      _local_connect_status[playerIndex].disconnected = true;
+      _local_connect_status[playerIndex].last_frame = syncto;
+
+      if (syncto < framecount)
+      {
+        Utils.LogIt(LogCategories.ENDPOINT, "adjusting simulation to account for the fact that %d disconnected @ %d.", playerIndex, syncto);
+        _sync.AdjustSimulation(syncto);
+        Utils.LogIt(LogCategories.ENDPOINT, "finished adjusting simulation.");
+      }
+
+      info.event_code = EEventCode.GGPO_EVENTCODE_DISCONNECTED_FROM_PEER;
+      info.player_index = playerIndex;
+      _callbacks.on_event(ref info);
+
+      CheckInitialSync();
     }
-
-    info.event_code = EEventCode.GGPO_EVENTCODE_DISCONNECTED_FROM_PEER;
-    info.player_index = playerIndex;
-    _callbacks.on_event(ref info);
-
-    CheckInitialSync();
+    else
+    {
+      // NOTE: All endpoints should be disconnected this way.....
+      endpoint.Disconnect();
+    }
   }
 
   // ----------------------------------------------------------------------------------------------------------
-  internal unsafe void OnUdpProtocolEvent(ref UdpEvent evt, byte playerIndex)
+  protected unsafe virtual void OnUdpProtocolEvent(ref UdpEvent evt, GGPOEndpoint endpoint)
   {
+    byte playerIndex = endpoint.PlayerIndex;
+    bool isReplay = endpoint.IsReplayClient;
+
     GGPOEvent info = new GGPOEvent();
+    info.player_index = playerIndex;
+    info.isReplayEndpoint = isReplay;
 
     switch (evt.type)
     {
@@ -734,10 +769,12 @@ public class GGPOClient : IGGPOClient, IDisposable
         info.event_code = EEventCode.GGPO_EVENTCODE_CONNECTED_TO_PEER;
         info.player_index = playerIndex;
 
-        string name = evt.u.connected.GetPlayerName();
-        _PlayerNames[playerIndex] = name;
+        if (!isReplay)
+        {
+          string name = evt.u.connected.GetPlayerName();
+          _PlayerNames[playerIndex] = name;
+        }
         // strcpy_s(_PlayerNames[playerIndex], evt.u.connected.playerName);
-
         // strcpy_s(info.u.connected.playerName, evt.u.connected.playerName);
 
         _callbacks.on_event(ref info);
@@ -865,7 +902,7 @@ public class GGPOClient : IGGPOClient, IDisposable
   // ----------------------------------------------------------------------------------------
   public GGPOEndpoint GetRemotePlayer()
   {
-    var res = (from x in _endpoints where !x.IsLocalPlayer select x).SingleOrDefault();
+    var res = (from x in _endpoints where !x.IsLocalPlayer && !x.IsReplayClient select x).SingleOrDefault();
     return res;
   }
 }

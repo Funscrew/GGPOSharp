@@ -1,5 +1,6 @@
 ﻿using drewCo.Tools.Logging;
 using GGPOSharp;
+using System.Dynamic;
 
 namespace GGPOSharpTesters
 {
@@ -26,6 +27,8 @@ namespace GGPOSharpTesters
 
     public const string REPLAY_APPLIANCE_HOST = "10.25.199.123";
     public const int REPLAY_APPLIANCE_PORT = 7003;
+
+    public const int REPLAY_APPLIANCE_TIMEOUT = 5000;
 
     public const UInt64 SESSION_ID = 12345;
 

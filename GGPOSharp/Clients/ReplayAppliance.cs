@@ -56,6 +56,9 @@ namespace GGPOSharp.Clients
     {
       Options = ops_;
 
+      // Validate options:
+      if (Options.SessionId == 0 ) { throw new InvalidOperationException("Invalid session id!"); }
+
       RemoteIP = new IPEndPoint(IPAddress.Any, 0);
       RemoteEP = RemoteIP;
 

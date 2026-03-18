@@ -87,7 +87,7 @@ public class GGPOEndpoint
   // NOTE: I'm not a super fan of how the local / peer connect statuses are represented....
   // There is a bit of a disconnect between the player index and the index of *_connect_status*
   ConnectStatus[] _local_connect_status = null!;
-  ConnectStatus[] _peer_connect_status = new ConnectStatus[GGPOConsts.UDP_MSG_MAX_PLAYERS];
+  ConnectStatus[] _peer_connect_status = new ConnectStatus[GGPOConsts.MAX_PLAYERS];
   // UdpMsg::connect_status _peer_connect_status[ProtoConsts.UDP_MSG_MAX_PLAYERS];
 
   public EClientState _current_state { get; private set; } = EClientState.Disconnected;
@@ -751,7 +751,7 @@ public class GGPOEndpoint
     // Let's just proceed like we always have this data for now....
     //    if (_local_connect_status)  
     //    {
-    for (int i = 0; i < GGPOConsts.UDP_MSG_MAX_PLAYERS; i++)
+    for (int i = 0; i < GGPOConsts.MAX_PLAYERS; i++)
     {
       msg.u.input.SetPeerConnectStatus(i, _local_connect_status[i]);
     }

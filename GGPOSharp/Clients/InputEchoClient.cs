@@ -76,9 +76,9 @@ namespace GGPOSharp.Clients
 
 
     // --------------------------------------------------------------------------------------------------------------------------
-    protected unsafe override void OnUdpProtocolPeerEvent(ref UdpEvent evt, byte playerIndex)
+    protected unsafe override void OnUdpProtocolPeerEvent(ref UdpEvent evt, GGPOEndpoint endpoint)
     {
-      base.OnUdpProtocolPeerEvent(ref evt, playerIndex);
+      base.OnUdpProtocolPeerEvent(ref evt, endpoint);
       if (evt.type == EEventType.Input)
       {
 
@@ -116,7 +116,7 @@ namespace GGPOSharp.Clients
 
             Array.Copy(Buttons, Echoes[EchoWriteIndex].Buttons, BUTTON_COUNT);
             Echoes[EchoWriteIndex].EchoFrame = _sync.GetFrameCount() + EchoOptions.DelayFrameCount;
-            Echoes[EchoWriteIndex].PlayerIndex = playerIndex;
+            Echoes[EchoWriteIndex].PlayerIndex = endpoint.PlayerIndex; // playerIndex;
           }
         }
 

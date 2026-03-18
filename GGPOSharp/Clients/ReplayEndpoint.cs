@@ -17,37 +17,43 @@ namespace GGPOSharp.Clients
     public ReplayEndpoint(IGGPOClient client_, GGPOEndpointOptions ops_, ConnectStatus[] localConnectStatus_)
       : base(client_, ops_, localConnectStatus_)
     {
+
     }
-
-
 
     // --------------------------------------------------------------------------------------------------------------------------  
     public override void OnLoopPoll()
     {
       base.OnLoopPoll();
-
-      // NOTE: Personally, I think that all of the endpoints should be responsible for handling
-      // the events internally.  That is something we can care about later however...
-      var evt = new UdpEvent();
-      while (this.GetEvent(ref evt))
-      {
-
-
-        switch (evt.type)
-        {
-          case EEventType.Connected:
-          case EEventType.Synchronizing:
-          case EEventType.Synchronized:
-          int x = 10;
-          break;
-
-          default:
-            throw new ArgumentOutOfRangeException($"No support for event type: {evt.type}");
-        }
-
-
-      }
-
     }
+
+    //// --------------------------------------------------------------------------------------------------------------------------  
+    //public override void OnLoopPoll()
+    //{
+    //  base.OnLoopPoll();
+
+    //  // NOTE: Personally, I think that all of the endpoints should be responsible for handling
+    //  // the events internally.  That is something we can care about later however...
+    //  var evt = new UdpEvent();
+    //  while (this.GetEvent(ref evt))
+    //  {
+
+
+    //    switch (evt.type)
+    //    {
+    //      case EEventType.Connected:
+    //      case EEventType.Synchronizing:
+    //      case EEventType.Synchronized:
+    //      int x = 10;
+    //      break;
+
+    //      default:
+    //        throw new ArgumentOutOfRangeException($"No support for event type: {evt.type}");
+    //    }
+
+
+    //  }
+    //}
+
+
   }
 }

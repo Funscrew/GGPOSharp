@@ -33,7 +33,7 @@ public class Program
   // The rest of the array data is reserved for the rest of the player inputs.
   // REFACTOR: Move this elsehere....  Might not even want to use a const so mem can be dynamic for different games.....
   public const int INPUT_SIZE = 5;
-  static byte[] TestInput = new byte[INPUT_SIZE * GGPOConsts.UDP_MSG_MAX_PLAYERS];
+  static byte[] TestInput = new byte[INPUT_SIZE * GGPOConsts.MAX_PLAYERS];
 
   // NOTE: We are assuming one connected client still...
   private const int RECONNECT_WAIT_TIME = 250;
@@ -128,7 +128,7 @@ public class Program
   {
     if (!c._synchronizing)
     {
-      bool syncOK = c.SyncInput(testInput, INPUT_SIZE, GGPOConsts.UDP_MSG_MAX_PLAYERS);
+      bool syncOK = c.SyncInput(testInput, INPUT_SIZE, GGPOConsts.MAX_PLAYERS);
 
       // Tell the client that we have moved ahead one frame.
       if (syncOK)
@@ -242,7 +242,7 @@ public class Program
 
           if (ClientOptions.ReplayHost != null)
           {
-            Client.AddReplayClient(ClientOptions.ReplayHost, ClientOptions.ReplayPort, ClientOptions.ReplayTimeout);
+            Client.AddReplayAppliance(ClientOptions.ReplayHost, ClientOptions.ReplayPort, ClientOptions.ReplayTimeout);
           }
 
           // No more endpoints can be added!

@@ -10,7 +10,7 @@ namespace GGPOSharp;
 public static class GGPOConsts
 {
   public const int MAX_NAME_SIZE = 16;
-  public const int UDP_MSG_MAX_PLAYERS = 4;
+  public const int MAX_PLAYERS = 4;
   public const int MAX_COMPRESSED_BITS = 4096;
   public const int MAX_GGPO_DATA_SIZE = 128;
 
@@ -21,7 +21,7 @@ public static class GGPOConsts
   public const int RECOMMENDATION_INTERVAL = 240;
 
   public const byte PLAYER_NOT_SET = 0xFF;
-  public const byte REPLAY_APPLIANCE_PLAYER_INDEX = 0xFE;
+  public const byte REPLAY_APPLIANCE_PLAYER_INDEX = 0xFF;
 
   public const int MAX_SEQ_DISTANCE = (1 << 15);
 
@@ -195,7 +195,7 @@ public unsafe struct InputMsg
   //public fixed byte peer_connect_status_bytes[PeerConnectStatubytes];
   // public const int CONNECT_STATUS_SIZE = sizeof(int) * ProtoConsts.UDP_MSG_MAX_PLAYERS;
   // private fixed byte peer_connect_status_bytes[CONNECT_STATUS_SIZE];
-  private fixed int peer_connect_data[GGPOConsts.UDP_MSG_MAX_PLAYERS];
+  private fixed int peer_connect_data[GGPOConsts.MAX_PLAYERS];
 
   public UInt32 start_frame;
 
@@ -223,7 +223,7 @@ public unsafe struct InputMsg
   // Helpers to get/set a ConnectStatus by index (unsafe)
   internal ConnectStatus GetPeerConnectStatus(int index)
   {
-    if (index >= GGPOConsts.UDP_MSG_MAX_PLAYERS)
+    if (index >= GGPOConsts.MAX_PLAYERS)
     {
       throw new ArgumentOutOfRangeException(nameof(index));
     }
@@ -244,7 +244,7 @@ public unsafe struct InputMsg
   // ------------------------------------------------------------------------------------------
   internal void SetPeerConnectStatus(int index, in ConnectStatus value)
   {
-    if (index >= GGPOConsts.UDP_MSG_MAX_PLAYERS)
+    if (index >= GGPOConsts.MAX_PLAYERS)
     {
       throw new ArgumentOutOfRangeException(nameof(index));
     }
@@ -523,6 +523,7 @@ public struct GGPOEvent
 {
   public EEventCode event_code;
   public byte player_index;
+  public bool isReplayEndpoint;
   public EventUnion u;
 }
 

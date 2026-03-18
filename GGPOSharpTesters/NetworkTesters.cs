@@ -29,7 +29,7 @@ namespace GGPOSharpTesters
 
       var replayOps = new ReplayListenOptions()
       {
-
+        SessionId = SESSION_ID
       };
       var blaster = new SimUdp(REPLAY_APPLIANCE_HOST, REPLAY_APPLIANCE_PORT, context.TimeSource, context.MsgQueue, SIM_PING, SIM_JITTER);
       var replayAppliance = new ReplayAppliance(ops, replayOps, blaster, context.TimeSource);
@@ -38,21 +38,30 @@ namespace GGPOSharpTesters
 
       // Each of the players will need to send their data to the replay appliance.
       var p1 = context.Player1Client;
-      p1.AddReplayEndpoint(REPLAY_APPLIANCE_HOST, REPLAY_APPLIANCE_PORT);
+      p1.AddReplayAppliance(REPLAY_APPLIANCE_HOST, REPLAY_APPLIANCE_PORT, REPLAY_APPLIANCE_TIMEOUT);
 
       var p2 = context.Player2Client;
-      p2.AddReplayEndpoint(REPLAY_APPLIANCE_HOST, REPLAY_APPLIANCE_PORT);
+      p2.AddReplayAppliance(REPLAY_APPLIANCE_HOST, REPLAY_APPLIANCE_PORT, REPLAY_APPLIANCE_TIMEOUT);
 
 
-      // NOTE: Choose as few frames as possible to get the clients synced.
-      const int STARTUP_FRAMES = 50;
-      context.RunGame(STARTUP_FRAMES);
+      // NOTE: Choose as little time as possible to get the clients synced.
+      const int STARTUP_TIME = 50;
+      context.RunGame(STARTUP_TIME);
 
       Assert.That(replayAppliance.Errors.Count, Is.EqualTo(0), "There should be no listed errors!");
 
       // At this point we should have two connected clients on the replay appliance.
       Assert.That(replayAppliance.ClientCount, Is.EqualTo(2), "There should be two connected clients!");
       
+      // Make sure that the players are synced up as well as the GGPO client itself.
+      var remote1 = context.Player1Client.GetRemotePlayer();
+      Assert.That(context.Player1Client._synchronizing, Is.False);
+      Assert.That(remote1._current_state, Is.EqualTo(EClientState.Running));
+
+      var remote2 = context.Player2Client.GetRemotePlayer();
+      Assert.That(context.Player2Client._synchronizing, Is.False);
+      Assert.That(remote2._current_state, Is.EqualTo(EClientState.Running));
+
       // Confirm that both of the endpoints are syned.
       var rc1 = replayAppliance.GetEndpoint(0);
       Assert.NotNull(rc1);
@@ -85,8 +94,8 @@ namespace GGPOSharpTesters
       var p1GGPO = context.Player1Client;
       var p2GGPO = context.Player2Client;
 
-      const int MAX_FRAMES = 50;
-      context.RunGame(MAX_FRAMES);
+      const int MAX_TIME = 50;
+      context.RunGame(MAX_TIME);
 
       // Here we can check to see if the players are synced or not...
       Assert.That(p1._current_state == EClientState.Running, "P1 should be listed as running!");
