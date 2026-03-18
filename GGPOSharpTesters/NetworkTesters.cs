@@ -72,6 +72,11 @@ namespace GGPOSharpTesters
       Assert.That(rc1._current_state, Is.EqualTo(EClientState.Running), "Client 1 should be synced!");
       Assert.That(rc2._current_state, Is.EqualTo(EClientState.Running), "Client 2 should be synced!");
 
+
+      // TODO: Way more to do!
+      // Inputs need to be exchanged between the players + we need to confirm that we are receiving and merging them correctly!
+      throw new Exception("Please complete this test!");
+
     }
 
     // --------------------------------------------------------------------------------------------------------------------------

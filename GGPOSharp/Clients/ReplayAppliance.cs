@@ -44,8 +44,8 @@ namespace GGPOSharp.Clients
     private Stopwatch Clock = default!;
 
     // OPTIONS:
-    const int PLAYER_COUNT = 2;
-    private ReplayEndpoint[] Endpoints = new ReplayEndpoint[PLAYER_COUNT];
+    // const int PLAYER_COUNT = 2;
+    // private ReplayEndpoint[] Endpoints = new ReplayEndpoint[PLAYER_COUNT];
 
     // TODO: This is something we will care about later....
     // private List<SpectateEndpoints> Spectators = new List<SpectateEndpoints>();
@@ -57,121 +57,153 @@ namespace GGPOSharp.Clients
       Options = ops_;
 
       // Validate options:
-      if (Options.SessionId == 0 ) { throw new InvalidOperationException("Invalid session id!"); }
+      if (Options.SessionId == 0) { throw new InvalidOperationException("Invalid session id!"); }
 
       RemoteIP = new IPEndPoint(IPAddress.Any, 0);
       RemoteEP = RemoteIP;
 
       Clock = Stopwatch.StartNew();
 
-      for (int i = 0; i < Endpoints.Length; i++)
-      {
-        Endpoints[i] = null!;
-      }
+      //for (int i = 0; i < Endpoints.Length; i++)
+      //{
+      //  Endpoints[i] = null!;
+      //}
     }
 
     public int ClientCount { get { return this.ConnectedClients.Count; } }
 
     // --------------------------------------------------------------------------------------------------------------------------
-    public ReplayEndpoint GetEndpoint(int index)
+    public GGPOEndpoint GetEndpoint(int index)
     {
-      return Endpoints[index];
+      return _endpoints[index];
+      // return Endpoints[index];
     }
 
     // --------------------------------------------------------------------------------------------------------------------------
     public override void DoPoll(int timeout)
     {
-      if (Options.StartupTimeout != -1 && Clock.ElapsedMilliseconds > Options.StartupTimeout)
-      {
-        throw new InvalidOperationException("Startup timeout exceeded!");
-      }
-
-      if (this.ConnectedClients.Count > 0) // AllConnected)
-      {
-        ReplayPoll();
-      }
-
-      // Look for new connections.
-      if (this.ConnectedClients.Count < 2)
-      {
-        while (true)
-        {
-          int msgLen = UDP.Receive(ReceiveBuffer, ref RemoteEP);
-          if (msgLen > 0)
-          {
-            var ipa = RemoteEP.Serialize();
-            if (!this.ConnectedClients.Contains(ipa))
-            {
-              // We will add the remote endpoint here.....
-              Log.Info("Got packet from remote... checking for session id...");
-
-              UdpMsg msg = new UdpMsg();
-              UdpMsg.FromBytes(ReceiveBuffer, ref msg, msgLen);
-
-              if (msg.header.type == EMsgType.SyncRequest)
-              {
-               // Log.Info($"Received a sync request with session id: {msg.u.sync_request.session_id}");
-
-                // Make sure that session id + player index are correct....
-                var sid = msg.u.sync_request.session_id;
-                if (sid != Options.SessionId)
-                {
-                  // We don't want to receive from this endpoint anymore.....
-                  // How can we block receiving?
-                  AddError("Connection attempt with invalid session id! [adding to blacklist]");
-                  UDP.AddToBlacklist(ipa);
-                  return;
-                }
-
-                // We also want to check to see if we are getting the correct player index.
-                // NOTE: If a certain player index is already connected, then we want to
-                // reject those other connections that are reporting the wrong one!
-                var pi = msg.u.sync_request.player_index;
-                if (ConnectedPlayerIndexes.Contains(pi)) {
-                  AddError($"The player with index: {pi} has already been connected! [adding to blacklist]");
-                  UDP.AddToBlacklist(ipa);
-                  return;
-                }
-
-                // NOTE: We should have a sync request with the correct request ID set!
-                // Don't know what to do if we don't... probably just ignore it...
-                var rip = (IPEndPoint)RemoteEP;
-                var rep = AddReplayEndpoint(rip.Address.ToString(), rip.Port, msg);
-
-                Log.Info("A remote endpoint was added...");
-
-                this.ConnectedClients.Add(ipa);
-                if (this.ConnectedClients.Count == 2)
-                {
-                  AllConnected = true;
-                  Log.Info("All clients are setup...");
-                }
-
-                // Send the sync reply, immediately.
-                rep.OnSyncRequest(ref msg, msgLen);
-
-              }
-              else
-              {
-                Log.Info("The message should be a sync request!");
-              }
-
-            }
-
-          }
-          else
-          {
-            // NO MORE DATA
-            break;
-          }
-        }
-      }
-      //else
+      // NOTE: We need newer, more better timeout code here!
+      //if (Options.StartupTimeout != -1 && Clock.ElapsedMilliseconds > Options.StartupTimeout)
       //{
+      //  throw new InvalidOperationException("Startup timeout exceeded!");
+      //}
+      base.DoPoll(timeout);
+
+
+      //while (true)
+      //{
+      //  int received = UDP.Receive(ReceiveBuffer, ref RemoteEP);
+      //  if (received == 0) { break; }
+
+      //  UdpMsg msg = new UdpMsg();
+      //  UdpMsg.FromBytes(ReceiveBuffer, ref msg, received);
+
+      //  // NOTE: This is going to make garbage, lame.
+      //  SocketAddress ipa = RemoteEP.Serialize();
+      //  if (msg.header.type == EMsgType.SyncRequest && !this.ConnectedClients.Contains(ipa))
+      //  {
+      //    int index = ConnectedClients.Count;
+      //    var ep = ConnectNewClient(ref msg, ipa);
+      //  }
       //}
 
-      //// this is where we can check the endpoint for data / connection?
-      //base.DoPoll(timeout);
+    }
+
+    // --------------------------------------------------------------------------------------------------------------------------
+    protected override void DeliverMessage(ref UdpMsg msg, int received, EndPoint receivedFrom)
+    {
+      // NOTE: This is going to make garbage.... lame!
+      SocketAddress ipa = receivedFrom.Serialize();
+      if (msg.header.type == EMsgType.SyncRequest && !this.ConnectedClients.Contains(ipa))
+      {
+        int index = ConnectedClients.Count;
+        var ep = ConnectNewClient(ref msg, ipa);
+      }
+
+      // Now that the end
+      base.DeliverMessage(ref msg, received, receivedFrom);
+
+      //int epCount = _endpoints.Count;
+      //for (int i = 0; i < epCount; i++)
+      //{
+      //  var ep = _endpoints[i];
+      //  if (!ep.IsLocalPlayer && ep.HasAddress(receivedFrom))
+      //  {
+      //    ep.HandleMessage(ref msg, received);
+      //    break;
+      //  }
+      //  else
+      //  {
+      //    int x = 10;
+      //  }
+      //}
+
+      // base.DeliverMessage(ref msg, received);
+    }
+
+    // --------------------------------------------------------------------------------------------------------------------------
+    private GGPOEndpoint ConnectNewClient(ref UdpMsg msg, SocketAddress ipa)
+    {
+      // JFC can we make this any more of a pain in the ass?
+      // TODO: This will probably go away when we fix how we represent this stuff....
+      // Also, this won't work with IPV6, booooo
+      var bufferData = ipa.Buffer.ToArray();
+      byte[] port = new byte[2];
+      port[0] = bufferData[3];
+      port[1] = bufferData[2];
+      var remotePort = BitConverter.ToUInt16(port);
+      string remoteHost = $"{bufferData[4]}.{bufferData[5]}.{bufferData[6]}.{bufferData[7]}";
+
+      // Make sure that session id + player index are correct....
+      var sid = msg.u.sync_request.session_id;
+      if (sid != Options.SessionId)
+      {
+        // We don't want to receive from this endpoint anymore.....
+        // How can we block receiving?
+        AddError("Connection attempt with invalid session id! [adding to blacklist]");
+        UDP.AddToBlacklist(ipa);
+        return null;
+      }
+
+      // We also want to check to see if we are getting the correct player index.
+      // NOTE: If a certain player index is already connected, then we want to
+      // reject those other connections that are reporting the wrong one!
+      var pi = msg.u.sync_request.player_index;
+      if (ConnectedPlayerIndexes.Contains(pi))
+      {
+        AddError($"The player with index: {pi} has already been connected! [adding to blacklist]");
+        UDP.AddToBlacklist(ipa);
+        return null;
+      }
+
+      // NOTE: We should have a sync request with the correct request ID set!
+      // Don't know what to do if we don't... probably just ignore it...
+      var rip = (IPEndPoint)RemoteEP;
+      var newEndpoint = AddReplayEndpoint(remoteHost, remotePort, msg);
+
+      Log.Info("A remote endpoint was added...");
+
+      this.ConnectedClients.Add(ipa);
+      if (this.ConnectedClients.Count == 2)
+      {
+        AllConnected = true;
+        Log.Info("All clients are setup...");
+      }
+
+      return newEndpoint;
+
+      // Send the sync reply, immediately.
+      // newEndpoint.OnSyncRequest(ref msg, received);
+
+    }
+
+    // --------------------------------------------------------------------------------------------------------------------------
+    protected override int PollPlayers(int current_frame)
+    {
+      // Replay appliance doesn't really do anything at this point, tho maybe this is where
+      // we do stuff like confim inputs or whatever.....?
+      // return base.PollPlayers(current_frame);
+      return current_frame;
     }
 
     // --------------------------------------------------------------------------------------------------------------------------
@@ -180,44 +212,44 @@ namespace GGPOSharp.Clients
       this.Errors.Add(msg);
     }
 
-    // --------------------------------------------------------------------------------------------------------------------------
-    /// <summary>
-    /// This is modeled after the base class's DoPoll function.
-    /// </summary>
-    private void ReplayPoll()
-    {
-      //base.DoPoll(timeout);
+    //// --------------------------------------------------------------------------------------------------------------------------
+    ///// <summary>
+    ///// This is modeled after the base class's 'DoPoll' function.
+    ///// </summary>
+    //private void ReplayPoll()
+    //{
+    //  //base.DoPoll(timeout);
 
-      // Endpoints get updated first so that we can get events, inputs, etc.
-      int epCount = Endpoints.Length;
-      for (int i = 0; i < epCount; i++)
-      {
-        var ep = Endpoints[i];
-        if (ep != null)
-        {
-          ep.OnLoopPoll();
-        }
-      }
+    //  // Endpoints get updated first so that we can get events, inputs, etc.
+    //  int epCount = Endpoints.Length;
+    //  for (int i = 0; i < epCount; i++)
+    //  {
+    //    var ep = Endpoints[i];
+    //    if (ep != null)
+    //    {
+    //      ep.OnLoopPoll();
+    //    }
+    //  }
 
-      // Now we can handle the results of the endpoint updates (events, etc.)
-      // Handle events!
-      PollUdpProtocolEvents();
+    //  // Now we can handle the results of the endpoint updates (events, etc.)
+    //  // Handle events!
+    //  PollUdpProtocolEvents();
 
 
-      // This is where we will check the sync + the input queues to 
+    //  // This is where we will check the sync + the input queues to 
 
-      // Get inputs from all connected clients.
-      // Do the merge.
-      // NOTE: This is where we may receive redundant inputs if the previous ACKS got lost or whatever...
-      // That is OK, we will just plow over them..
-      // Send out the ACKS.
+    //  // Get inputs from all connected clients.
+    //  // Do the merge.
+    //  // NOTE: This is where we may receive redundant inputs if the previous ACKS got lost or whatever...
+    //  // That is OK, we will just plow over them..
+    //  // Send out the ACKS.
 
-      // If there are connected live spectators, send them the latest set of settled inputs.
-      // TODO: This is something that will happen way later!
+    //  // If there are connected live spectators, send them the latest set of settled inputs.
+    //  // TODO: This is something that will happen way later!
 
-      ///throw new NotImplementedException();
+    //  ///throw new NotImplementedException();
 
-    }
+    //}
 
     // --------------------------------------------------------------------------------------------------------------------------
     protected override void CheckInitialSync()
@@ -246,6 +278,9 @@ namespace GGPOSharp.Clients
     // --------------------------------------------------------------------------------------------------------------------------
     private GGPOEndpoint AddReplayEndpoint(string remoteHost, int remotePort, UdpMsg msg)
     {
+      if (remoteHost == "0.0.0.0") { throw new InvalidOperationException("Invalid host!"); }
+      if (remotePort == 0) { throw new InvalidOperationException("Invalid port!"); }
+
       var playerIndex = msg.u.sync_request.player_index;
       var ops = new GGPOEndpointOptions()
       {
@@ -260,12 +295,11 @@ namespace GGPOSharp.Clients
         TestOptions = new TestOptions()
       };
 
-
       // NOTE: We may not want to send out the sync request immediately on these endpoints?
       // Nah -> it should be OK that they bounce around.....
       var remote = new ReplayEndpoint(this, ops, _local_connect_status);
-      this.Endpoints[playerIndex] = remote;
 
+      this._endpoints.Add(remote);
       ConnectedPlayerIndexes.Add(playerIndex);
 
       return remote;

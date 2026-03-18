@@ -113,6 +113,7 @@ public struct SyncRequest
 {
   public uint random_request;   // please reply back with this random data
   public byte player_index;     // Players must identify their desired index.
+  public byte isReplayEndpoint; // This is from a replay appliance.   ( we use a byte to make sure that we are C++ compatible)
   public UInt64 session_id;     // Used for replay ids.  This is the form of a unix timestamp in milliseconds!  For p2p connections, this can be zero, but is ignored.
   //public ushort remote_magic;
   //public byte remote_endpoint;
@@ -134,6 +135,7 @@ public unsafe struct SyncReply
   public UInt32 random_reply;     // OK, here's your random data back
   public UInt32 client_version;   // Version of this client, in 8 byte chunks: MAJOR - MINOR - REVISION - GGPO (protocol version)
   public byte player_index;       // Index of the remote player.  Should match what we expect / not be our index!
+  public byte isReplayEndpoint; // This is from a replay appliance.   ( we use a byte to make sure that we are C++ compatible)
   public byte delay;
   public byte runahead;
 
@@ -523,7 +525,7 @@ public struct GGPOEvent
 {
   public EEventCode event_code;
   public byte player_index;
-  public bool isReplayEndpoint;
+  public byte isReplayEndpoint;
   public EventUnion u;
 }
 

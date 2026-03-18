@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO.Pipes;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 
 namespace GGPOSharp;
 
@@ -18,8 +19,6 @@ public class GGPOClient : IGGPOClient, IDisposable
   protected int _ConnectedPlayerCount = 0;
 
   public IUdpBlaster UDP { get; private set; } = null!;
-
-  //public Stopwatch Clock { get; private set; } = Stopwatch.StartNew();
 
   private SimTimer Clock = null!;
   public int CurTime { get { return Clock.CurTime; } }
@@ -56,6 +55,9 @@ public class GGPOClient : IGGPOClient, IDisposable
   private int _next_recommended_sleep = 0;
 
   public string LocalPlayerName { get; private set; }
+
+  private byte[] _ReceiveBuffer = new byte[8192];
+  private EndPoint ReceivedFrom;
 
   // ----------------------------------------------------------------------------------------
   public GGPOClient(GGPOClientOptions options_, IUdpBlaster udp_, SimTimer clock_)
@@ -262,12 +264,8 @@ public class GGPOClient : IGGPOClient, IDisposable
   }
 
   // ----------------------------------------------------------------------------------------
-  private byte[] _ReceiveBuffer = new byte[8192];
-  // private IPEndPoint IP = new IPEndPoint(IPAddress.Any
-  private EndPoint ReceivedFrom;
   public virtual void DoPoll(int timeout)
   {
-    int epCount = _endpoints.Count;
 
     // Receive all messages + send them off to the correct endpoints.
     // This is basically a soft-router.
@@ -280,34 +278,15 @@ public class GGPOClient : IGGPOClient, IDisposable
       UdpMsg.FromBytes(_ReceiveBuffer, ref msg, received);
 
       // Endpoints get updated first so that we can get events, inputs, etc.
-      for (int i = 0; i < epCount; i++)
-      {
-        var ep = _endpoints[i];
-        if (!ep.IsLocalPlayer && ep.HasAddress(ReceivedFrom))
-        {
-          ep.HandleMessage(ref msg, received);
-          break;
-        }
-        else
-        {
-          int x = 10;
-        }
-      }
+      DeliverMessage(ref msg, received, ReceivedFrom);
     }
 
     // Now we can do the normal polling for the endpoints.
+    int epCount = _endpoints.Count;
     for (int i = 0; i < epCount; i++)
     {
       _endpoints[i].OnLoopPoll();
     }
-
-
-    //// Endpoints get updated first so that we can get events, inputs, etc.
-    //int epCount = _endpoints.Count;
-    //for (int i = 0; i < epCount; i++)
-    //{
-    //  _endpoints[i].OnLoopPoll();
-    //}
 
     // Now we can handle the results of the endpoint updates (events, etc.)
     // Handle events!
@@ -321,21 +300,14 @@ public class GGPOClient : IGGPOClient, IDisposable
       // next connection quality report
       int current_frame = _sync.GetFrameCount();
 
+
       for (int i = 0; i < epCount; i++)
       {
         _endpoints[i].SetLocalFrameNumber(current_frame);
       }
 
-      int total_min_confirmed;
-      if (_ConnectedPlayerCount == 2)
-      {
-        // We are connected to one other player....
-        total_min_confirmed = Poll2Players(current_frame);
-      }
-      else
-      {
-        total_min_confirmed = PollNPlayers(current_frame);
-      }
+      int total_min_confirmed = PollPlayers(current_frame);
+
 
       Utils.LogIt(LogCategories.ENDPOINT, "last confirmed: %d.", total_min_confirmed);
       if (total_min_confirmed >= 0)
@@ -378,6 +350,42 @@ public class GGPOClient : IGGPOClient, IDisposable
 
     // NOTE: Replay client is going to be converted into another type of endpoint!
     // UpdateReplayClient();
+  }
+
+  // ----------------------------------------------------------------------------------------------------------
+  protected virtual int PollPlayers(int current_frame)
+  {
+    int total_min_confirmed;
+    if (_ConnectedPlayerCount == 2)
+    {
+      // We are connected to one other player....
+      total_min_confirmed = Poll2Players(current_frame);
+    }
+    else
+    {
+      total_min_confirmed = PollNPlayers(current_frame);
+    }
+
+    return total_min_confirmed;
+  }
+
+  // ----------------------------------------------------------------------------------------------------------
+  protected virtual void DeliverMessage(ref UdpMsg msg, int received, EndPoint receivedFrom)
+  {
+    int epCount = _endpoints.Count;
+    for (int i = 0; i < epCount; i++)
+    {
+      var ep = _endpoints[i];
+      if (!ep.IsLocalPlayer && ep.HasAddress(receivedFrom))
+      {
+        ep.HandleMessage(ref msg, received);
+        break;
+      }
+      else
+      {
+        int x = 10;
+      }
+    }
   }
 
   //// ----------------------------------------------------------------------------------------------------------
@@ -761,7 +769,7 @@ public class GGPOClient : IGGPOClient, IDisposable
 
     GGPOEvent info = new GGPOEvent();
     info.player_index = playerIndex;
-    info.isReplayEndpoint = isReplay;
+    info.isReplayEndpoint = (byte)(isReplay ? 1 : 0);
 
     switch (evt.type)
     {
