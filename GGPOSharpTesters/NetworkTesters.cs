@@ -22,10 +22,15 @@ namespace GGPOSharpTesters
       const string P1_NAME = "Joe";
       const string P2_NAME = "Archie";
       TestContext context = CreateTestContext(P1_NAME, P2_NAME);
-      
+
 
       var ops = new GGPOClientOptions(0, REPLAY_APPLIANCE_PORT, Defaults.PROTOCOL_VERSION, SESSION_ID);
       ops.Callbacks = CreateDefaultCallbacks();
+
+      // SessionRefCallback<GGPOEvent> onEvent =
+  var cbh = new CallbackHandler();
+
+      ops.Callbacks.on_event = cbh.OnEvent;
 
       var replayOps = new ReplayListenOptions()
       {
@@ -34,7 +39,7 @@ namespace GGPOSharpTesters
       var blaster = new SimUdp(REPLAY_APPLIANCE_HOST, REPLAY_APPLIANCE_PORT, context.TimeSource, context.MsgQueue, SIM_PING, SIM_JITTER);
       var replayAppliance = new ReplayAppliance(ops, replayOps, blaster, context.TimeSource);
 
-      context.SetReplayAppliance(replayAppliance);  
+      context.SetReplayAppliance(replayAppliance);
 
       // Each of the players will need to send their data to the replay appliance.
       var p1 = context.Player1Client;
@@ -45,6 +50,7 @@ namespace GGPOSharpTesters
 
 
       // NOTE: Choose as little time as possible to get the clients synced.
+      // Maybe some kind of a callback or 'run until'...?
       const int STARTUP_TIME = 50;
       context.RunGame(STARTUP_TIME);
 
@@ -52,7 +58,7 @@ namespace GGPOSharpTesters
 
       // At this point we should have two connected clients on the replay appliance.
       Assert.That(replayAppliance.ClientCount, Is.EqualTo(2), "There should be two connected clients!");
-      
+
       // Make sure that the players are synced up as well as the GGPO client itself.
       var remote1 = context.Player1Client.GetRemotePlayer();
       Assert.That(context.Player1Client._synchronizing, Is.False);
@@ -71,6 +77,22 @@ namespace GGPOSharpTesters
 
       Assert.That(rc1._current_state, Is.EqualTo(EClientState.Running), "Client 1 should be synced!");
       Assert.That(rc2._current_state, Is.EqualTo(EClientState.Running), "Client 2 should be synced!");
+
+      // Now that both clients are running, they should be exchanging input.
+      // We want to inject a known set of inputs for each to test our recording capability.
+
+      int[] curInput = new int[2];
+      const int TIME_ = 1000;
+      context.RunGame(TIME_, (data, playerindex, curTime) =>
+      {
+        curInput[playerindex] += 1;
+        int useVal = curInput[0];
+
+        data[0] = (byte)(useVal & 0xFF);
+        data[1] = (byte)(useVal >> 8 & 0xFF);
+        data[2] = (byte)(useVal >> 16 & 0xFF);
+        data[3] = (byte)(useVal >> 24 & 0xFF);
+      });
 
 
       // TODO: Way more to do!
@@ -161,4 +183,15 @@ namespace GGPOSharpTesters
     }
   }
 
+}
+
+
+// ==============================================================================================================================
+public class CallbackHandler
+{
+  // --------------------------------------------------------------------------------------------------------------------------
+  public unsafe bool OnEvent(ref GGPOEvent e)
+  {
+    return true;
+  }
 }

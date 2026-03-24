@@ -60,7 +60,7 @@ public class GGPOEndpoint
   /// <summary>
   /// Client that owns this endpoint.
   /// </summary>
-  private IGGPOClient Client = null!;
+  protected IGGPOClient Client = null!;
 
   private int LocalPort;
   private int RemotePort;
@@ -100,9 +100,9 @@ public class GGPOEndpoint
 
   // Packet Loss
   RingBuffer<GameInput> _pending_output = new RingBuffer<GameInput>(64);
-  GameInput _last_received_input;
-  GameInput _last_sent_input;
-  GameInput _last_acked_input;
+  protected GameInput _last_received_input;
+  protected GameInput _last_sent_input;
+  protected GameInput _last_acked_input;
 
   private uint _last_send_time = 0;
   private uint _last_recv_time = 0;
@@ -333,10 +333,11 @@ public class GGPOEndpoint
   }
 
   // -------------------------------------------------------------------------------------
-  private bool OnInput(ref UdpMsg msg, int msgLen)
+  protected virtual bool OnInput(ref UdpMsg msg, int msgLen)
   {
     /*
      * If a disconnect is requested, go ahead and disconnect now.
+     * NOTE: These will be deprecated in the future....
      */
     bool disconnect_requested = msg.u.input.disconnect_requested;
     if (disconnect_requested)
@@ -426,24 +427,10 @@ public class GGPOEndpoint
               Utils.ASSERT(currentFrame == _last_received_input.frame + 1);
               _last_received_input.frame = currentFrame;
 
-              /*
-               * Send the event to the emualtor
-               */
-              // UdpProtocol::Event evt(UdpProtocol::Event::Input);
-              var evt = new UdpEvent(EEventType.Input);
-              evt.u.input = _last_received_input;
-
-              // NOTE: This is expensive loggin that we are not going to support in the C# version.  It
-              // should be replaced with something better tho.
-              // string desc = "NOT SUPPORTED - REWRITE";
-              //const int DESC_SIZE = 1024;
-              //byte[] desc = new byte[1024];
-              //_last_received_input.desc(desc, DESC_SIZE);
-
               RunningState.last_input_packet_recv_time = (uint)Client.CurTime;
 
-              // Utils.Log("Sending frame %d to emu queue %d (%d).", _last_received_input.frame, _queue, desc);
-              QueueEvent(evt);
+
+              SendInputEvent(ref _last_received_input);
 
             }
             else
@@ -462,16 +449,32 @@ public class GGPOEndpoint
 
     Utils.ASSERT(_last_received_input.frame >= last_received_frame_number);
 
-    /*
-     * Get rid of our buffered input
-     */
-    while (_pending_output.Size > 0 && _pending_output.Front().frame < msg.u.input.ack_frame)
+    // Get rid of our buffered input.
+    // This has already been accepted by the other side, so we don't need to resend them anymore.
+    // NOTE: _pending_output for the replay client will always be zero as it only ACKS inputs.
+    // All the same, I am going to put a guard around it.
+    if (!this.IsReplayClient)
     {
-      Utils.LogIt(LogCategories.INPUT, "ACK: Throwing away pending output frame %d", _pending_output.Front().frame);
-      _last_acked_input = _pending_output.Front();
-      _pending_output.Pop();
+      while (_pending_output.Size > 0 && _pending_output.Front().frame < msg.u.input.ack_frame)
+      {
+        Utils.LogIt(LogCategories.INPUT, "ACK: Throwing away pending output frame %d", _pending_output.Front().frame);
+        _last_acked_input = _pending_output.Front();
+        _pending_output.Pop();
+      }
     }
+
     return true;
+  }
+
+  // -------------------------------------------------------------------------------------
+  protected virtual void SendInputEvent(ref GameInput last_received_input)
+  {
+    // UdpProtocol::Event evt(UdpProtocol::Event::Input);
+    var evt = new UdpEvent(EEventType.Input);
+    evt.u.input = _last_received_input;
+
+    // Utils.Log("Sending frame %d to emu queue %d (%d).", _last_received_input.frame, _queue, desc);
+    QueueEvent(evt);
   }
 
   // -------------------------------------------------------------------------------------
@@ -804,7 +807,7 @@ public class GGPOEndpoint
       if (msg.header.magic != _remote_magic_number)
       {
         Utils.LogIt(LogCategories.MESSAGE, "magic-mismatch");
-        return ;
+        return;
       }
 
       // filter out out-of-order packets
@@ -813,7 +816,7 @@ public class GGPOEndpoint
       if (skipped > GGPOConsts.MAX_SEQ_DISTANCE)
       {
         Utils.LogIt(LogCategories.ENDPOINT, "OOP dropped: (seq: %d, last seq:%d)", seq, _next_recv_seq);
-        return ;
+        return;
       }
     }
 

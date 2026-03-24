@@ -15,6 +15,8 @@ namespace GGPOSharpTesters
     private List<byte[]> InputBuffers = new List<byte[]>();
     public ReplayAppliance? ReplayAppliance { get; private set; } = null;
 
+    public int LastFrame {get; private set; } = -1;
+
     // --------------------------------------------------------------------------------------------------------------------------
     public TestContext(SimTimer timeSource_, TestMessageQueue msgQueue_, IList<GGPOClient> allClients_, IList<byte[]> inputBuffers_, ReplayAppliance? replay_ = null)
     {
@@ -40,7 +42,7 @@ namespace GGPOSharpTesters
     }
 
     // --------------------------------------------------------------------------------------------------------------------------
-    /// <param name="setInputs">Callback for each frame and player so their inputs for the frame can be set.</param>
+    /// <param name="setInputs">Callback for each frame and player so their inputs for the frame can be set.  Args are: input data, player index, currentTime</param>
     public void RunGame(int totalTime, Action<byte[], int, int>? setInputs = null)
     {
 
@@ -72,6 +74,8 @@ namespace GGPOSharpTesters
             }
 
             Program.RunFrame(c, InputBuffers[clientIndex]);
+
+            ++LastFrame;
           }
 
         }

@@ -319,5 +319,22 @@ namespace GGPOSharp.Clients
       return true;
     }
 
+    // --------------------------------------------------------------------------------------------------------------------------
+    /// <summary>
+    /// This is where the inputs for the different frames will get merged, recorded, and later sent out.
+    /// </summary>
+    private bool _WarningSent = false;
+    internal void MergeInput(UdpMsg msg)
+    {
+      if (!_WarningSent)
+      {
+        Log.Warning("Input merging is currently unsupported!");
+        _WarningSent = true;
+      }
+      // For now, we will do nothing....
+      // Debug.
+      // Log.wa
+      // throw new NotImplementedException();
+    }
   }
 }
