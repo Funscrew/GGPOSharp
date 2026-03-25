@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace GGPOSharp.Clients
 {
@@ -45,17 +46,27 @@ namespace GGPOSharp.Clients
       // a set of ACKS to send back to the client. 
       // In this case our parent is going to be a replay appliance so we may need to keep a separate list
       // of stuff that needs to be acked / resolved on our end.....
-      if (this.Appliance != null)
-      {
-        this.Appliance.MergeInput(msg);
-      }
+      //if (this.Appliance != null)
+      //{
+      //  this.Appliance.MergeInput(msg);
+      //}
 
       int xawf = 10;
-      // Housekeeping.....
       bool res = base.OnInput(ref msg, msgLen);
 
-      // Let's grab the inputs?
+      // Housekeeping.  We can get rid of all confirmed acks.
+      // TODO: I'd like to log the size of these ring buffers to see what is typical.  Is there really a certain amount of 'overdraw' in the system always?
+      while (_PendingAcks.Size > 0 && _PendingAcks.Front().frame < msg.u.input.ack_frame)
+      {
+        Utils.LogIt(LogCategories.INPUT, "ACK: Throwing away pending ACK frame %d", _PendingAcks.Front().frame);
+        _last_acked_input = _PendingAcks.Front();
+        _PendingAcks.Pop();
 
+        if (this.Appliance != null)
+        {
+          this.Appliance.MergeInput(ref _last_acked_input, this.PlayerIndex);
+        }
+      }
 
       return res;
 
@@ -89,52 +100,28 @@ namespace GGPOSharp.Clients
     /// </summary>
     private void SendPendingAcks()
     {
-      while (_PendingAcks.Size > 0)
+      // GameInput last;
+      // NEW:
+      // We will collect all of the pending acks and send a message for each:
+      // In the future we can combine them all into a single message to ACK mulitple inputs.
+      if (_PendingAcks.Size > 0)
       {
-        // NOTE: Getting a ref to this would be ideal.....
-        var i = _PendingAcks.First();
+        var last = _last_acked_input;
+        var front = _PendingAcks.Front();
+        Utils.ASSERT(last.frame == -1 || last.frame + 1 == front.frame);
 
-        // Get the input:
-        // Send the ack data.
-        var msg = new UdpMsg(EMsgType.InputAck);
-        msg.u.input_ack.ack_frame = i.frame;
+        for (int i = 0; i < _PendingAcks.Size; i++)
+        {
+          var ack = _PendingAcks[i];
 
-        SendMsg(ref msg);
+          var msg = new UdpMsg(EMsgType.InputAck);
+          msg.u.input_ack.ack_frame = ack.frame;
 
-        // NOTE: We need to do some book keeping to make sure that we are allowed to remove this...
-        // We need to check the ACK frame from the received inputs first....
-        _PendingAcks.Pop();
+          SendMsg(ref msg);
+        }
       }
+
     }
-
-    //// --------------------------------------------------------------------------------------------------------------------------  
-    //public override void OnLoopPoll()
-    //{
-    //  base.OnLoopPoll();
-
-    //  // NOTE: Personally, I think that all of the endpoints should be responsible for handling
-    //  // the events internally.  That is something we can care about later however...
-    //  var evt = new UdpEvent();
-    //  while (this.GetEvent(ref evt))
-    //  {
-
-
-    //    switch (evt.type)
-    //    {
-    //      case EEventType.Connected:
-    //      case EEventType.Synchronizing:
-    //      case EEventType.Synchronized:
-    //      int x = 10;
-    //      break;
-
-    //      default:
-    //        throw new ArgumentOutOfRangeException($"No support for event type: {evt.type}");
-    //    }
-
-
-    //  }
-    //}
-
 
   }
 }

@@ -301,6 +301,8 @@ public class GGPOEndpoint
     {
       Utils.LogIt(LogCategories.INPUT, "ACK: Throwing away pending output frame %d", _pending_output.Front().frame);
       _last_acked_input = _pending_output.Front();
+      _last_received_input = _pending_output.Front();
+
       _pending_output.Pop();
     }
     return true;
@@ -428,7 +430,6 @@ public class GGPOEndpoint
               _last_received_input.frame = currentFrame;
 
               RunningState.last_input_packet_recv_time = (uint)Client.CurTime;
-
 
               SendInputEvent(ref _last_received_input);
 

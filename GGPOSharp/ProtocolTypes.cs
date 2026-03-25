@@ -208,10 +208,19 @@ public unsafe struct InputMsg
     get { return (_flags & 0x1) != 0; }
     set { _flags = value ? (_flags | 0x1) : (_flags & ~0x1); }
   }
+
   public int ack_frame
   {
-    get { return (_flags >> 1) & 0x7FFFFFFF; }
-    set { _flags = (_flags & 0x1) | ((value & 0x7FFFFFFF) << 1); }
+    get
+    {
+      // Arithmetic right shift preserves sign
+      return _flags >> 1;
+    }
+    set
+    {
+      // Preserve LSB (disconnect flag), overwrite upper 31 bits
+      _flags = (_flags & 0x1) | (value << 1);
+    }
   }
 
   public ushort num_bits;

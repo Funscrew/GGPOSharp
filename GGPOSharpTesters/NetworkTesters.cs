@@ -28,7 +28,7 @@ namespace GGPOSharpTesters
       ops.Callbacks = CreateDefaultCallbacks();
 
       // SessionRefCallback<GGPOEvent> onEvent =
-  var cbh = new CallbackHandler();
+      var cbh = new CallbackHandler();
 
       ops.Callbacks.on_event = cbh.OnEvent;
 
@@ -82,8 +82,8 @@ namespace GGPOSharpTesters
       // We want to inject a known set of inputs for each to test our recording capability.
 
       int[] curInput = new int[2];
-      const int TIME_ = 1000;
-      context.RunGame(TIME_, (data, playerindex, curTime) =>
+      const int ONE_SECOND = 1000;
+      context.RunGame(ONE_SECOND, (data, playerindex, curTime) =>
       {
         curInput[playerindex] += 1;
         int useVal = curInput[0];

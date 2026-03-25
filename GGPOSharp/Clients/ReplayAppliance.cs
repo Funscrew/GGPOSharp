@@ -1,12 +1,6 @@
 ﻿using drewCo.Tools.Logging;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.Design;
 using System.Diagnostics;
-using System.Linq;
 using System.Net;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace GGPOSharp.Clients
 {
@@ -43,13 +37,6 @@ namespace GGPOSharp.Clients
 
     private Stopwatch Clock = default!;
 
-    // OPTIONS:
-    // const int PLAYER_COUNT = 2;
-    // private ReplayEndpoint[] Endpoints = new ReplayEndpoint[PLAYER_COUNT];
-
-    // TODO: This is something we will care about later....
-    // private List<SpectateEndpoints> Spectators = new List<SpectateEndpoints>();
-
     // --------------------------------------------------------------------------------------------------------------------------
     public ReplayAppliance(GGPOClientOptions ggpoOps_, ReplayListenOptions ops_, IUdpBlaster udp_, SimTimer clock_)
       : base(ggpoOps_, udp_, clock_)
@@ -64,10 +51,6 @@ namespace GGPOSharp.Clients
 
       Clock = Stopwatch.StartNew();
 
-      //for (int i = 0; i < Endpoints.Length; i++)
-      //{
-      //  Endpoints[i] = null!;
-      //}
     }
 
     public int ClientCount { get { return this.ConnectedClients.Count; } }
@@ -76,37 +59,6 @@ namespace GGPOSharp.Clients
     public GGPOEndpoint GetEndpoint(int index)
     {
       return _endpoints[index];
-      // return Endpoints[index];
-    }
-
-    // --------------------------------------------------------------------------------------------------------------------------
-    public override void DoPoll(int timeout)
-    {
-      // NOTE: We need newer, more better timeout code here!
-      //if (Options.StartupTimeout != -1 && Clock.ElapsedMilliseconds > Options.StartupTimeout)
-      //{
-      //  throw new InvalidOperationException("Startup timeout exceeded!");
-      //}
-      base.DoPoll(timeout);
-
-
-      //while (true)
-      //{
-      //  int received = UDP.Receive(ReceiveBuffer, ref RemoteEP);
-      //  if (received == 0) { break; }
-
-      //  UdpMsg msg = new UdpMsg();
-      //  UdpMsg.FromBytes(ReceiveBuffer, ref msg, received);
-
-      //  // NOTE: This is going to make garbage, lame.
-      //  SocketAddress ipa = RemoteEP.Serialize();
-      //  if (msg.header.type == EMsgType.SyncRequest && !this.ConnectedClients.Contains(ipa))
-      //  {
-      //    int index = ConnectedClients.Count;
-      //    var ep = ConnectNewClient(ref msg, ipa);
-      //  }
-      //}
-
     }
 
     // --------------------------------------------------------------------------------------------------------------------------
@@ -123,22 +75,6 @@ namespace GGPOSharp.Clients
       // Now that the end
       base.DeliverMessage(ref msg, received, receivedFrom);
 
-      //int epCount = _endpoints.Count;
-      //for (int i = 0; i < epCount; i++)
-      //{
-      //  var ep = _endpoints[i];
-      //  if (!ep.IsLocalPlayer && ep.HasAddress(receivedFrom))
-      //  {
-      //    ep.HandleMessage(ref msg, received);
-      //    break;
-      //  }
-      //  else
-      //  {
-      //    int x = 10;
-      //  }
-      //}
-
-      // base.DeliverMessage(ref msg, received);
     }
 
     // --------------------------------------------------------------------------------------------------------------------------
@@ -211,45 +147,6 @@ namespace GGPOSharp.Clients
     {
       this.Errors.Add(msg);
     }
-
-    //// --------------------------------------------------------------------------------------------------------------------------
-    ///// <summary>
-    ///// This is modeled after the base class's 'DoPoll' function.
-    ///// </summary>
-    //private void ReplayPoll()
-    //{
-    //  //base.DoPoll(timeout);
-
-    //  // Endpoints get updated first so that we can get events, inputs, etc.
-    //  int epCount = Endpoints.Length;
-    //  for (int i = 0; i < epCount; i++)
-    //  {
-    //    var ep = Endpoints[i];
-    //    if (ep != null)
-    //    {
-    //      ep.OnLoopPoll();
-    //    }
-    //  }
-
-    //  // Now we can handle the results of the endpoint updates (events, etc.)
-    //  // Handle events!
-    //  PollUdpProtocolEvents();
-
-
-    //  // This is where we will check the sync + the input queues to 
-
-    //  // Get inputs from all connected clients.
-    //  // Do the merge.
-    //  // NOTE: This is where we may receive redundant inputs if the previous ACKS got lost or whatever...
-    //  // That is OK, we will just plow over them..
-    //  // Send out the ACKS.
-
-    //  // If there are connected live spectators, send them the latest set of settled inputs.
-    //  // TODO: This is something that will happen way later!
-
-    //  ///throw new NotImplementedException();
-
-    //}
 
     // --------------------------------------------------------------------------------------------------------------------------
     protected override void CheckInitialSync()
@@ -324,7 +221,7 @@ namespace GGPOSharp.Clients
     /// This is where the inputs for the different frames will get merged, recorded, and later sent out.
     /// </summary>
     private bool _WarningSent = false;
-    internal void MergeInput(UdpMsg msg)
+    internal void MergeInput(ref GameInput input, int playerIndex)
     {
       if (!_WarningSent)
       {
