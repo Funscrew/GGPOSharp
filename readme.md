@@ -29,20 +29,8 @@ value to that of the sync.  Since all messages have this value (and it is the sa
 
 
 ## Next Steps
-- Make a 'replay client'  This thing will just take the inputs from the other player, and replay them a fixed time
-later.  Options to reverse L/R directions + replay time would be nice.  Consider how such a thing might work in
-terms of a game with more than two players... not to actually implement it, but so that we don't paint ourselves into
-a corner when it comes to creating other types of clients that might interact with more than two players.
-
-- Setup two C# clients and let them blast frames at each other.  This will be used for perf testing, in particular we
-want to be sure that there isn't a bunch of garbage creation / collection.  Ideally we could pare it down to zero.
-
-- Do some testing with OO (out of order) packets.  I'm still not clear on how GGPO handles this, if at all.
-
-
-
-
-
+ - I think the next best step (after another tweak or two) is to get the C++ client working and talking to the echo client again.  Then I can add in the replay endpoint stuff on that end just to confirm that everything is going to work in a 'live' scenario...
+- Do some testing with OO (out of order) packets.  They should be handled just fine, but it would be good to confirm this....
 
 
 # GGPO PROTO:

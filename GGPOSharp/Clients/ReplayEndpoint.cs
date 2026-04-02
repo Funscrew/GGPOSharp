@@ -26,10 +26,6 @@ namespace GGPOSharp.Clients
       : base(client_, ops_, localConnectStatus_)
     {
       this.Appliance = this.Client as ReplayAppliance;
-      //if (this.Appliance == null)
-      //{
-      //  throw new InvalidOperationException($"Parent should be a {nameof(ReplayAppliance)} instance!");
-      //}
     }
 
     // --------------------------------------------------------------------------------------------------------------------------  
@@ -46,12 +42,6 @@ namespace GGPOSharp.Clients
       // a set of ACKS to send back to the client. 
       // In this case our parent is going to be a replay appliance so we may need to keep a separate list
       // of stuff that needs to be acked / resolved on our end.....
-      //if (this.Appliance != null)
-      //{
-      //  this.Appliance.MergeInput(msg);
-      //}
-
-      int xawf = 10;
       bool res = base.OnInput(ref msg, msgLen);
 
       // Housekeeping.  We can get rid of all confirmed acks.
@@ -69,13 +59,6 @@ namespace GGPOSharp.Clients
       }
 
       return res;
-
-      // We got an input, so we need to relay it to the client (parent) so that it can do the merge / record.
-      // We need to ignore it if we have received this before. --> Main client can do that.
-      // We need to ACK the inputs received as well.
-
-      // In order to deal with OOP, we will only ACK packets up to a certain contiguous number.
-
     }
 
     // --------------------------------------------------------------------------------------------------------------------------  

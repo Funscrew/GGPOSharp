@@ -145,6 +145,7 @@ namespace GGPOSharp.Clients
     // --------------------------------------------------------------------------------------------------------------------------
     private void AddError(string msg)
     {
+      Log.Error(msg);
       this.Errors.Add(msg);
     }
 

@@ -57,7 +57,7 @@ public class GGPOClient : IGGPOClient, IDisposable
   public string LocalPlayerName { get; private set; }
 
   private byte[] _ReceiveBuffer = new byte[8192];
-  private EndPoint ReceivedFrom;
+  private EndPoint ReceivedFrom = new IPEndPoint(IPAddress.Any, 0);   // This doesn't matter, we just need a place to stuff the data...
 
   // ----------------------------------------------------------------------------------------
   public GGPOClient(GGPOClientOptions options_, IUdpBlaster udp_, SimTimer clock_)
@@ -133,7 +133,7 @@ public class GGPOClient : IGGPOClient, IDisposable
   {
     if (LocalPlayer == null)
     {
-      throw new InvalidOperationException("The local player must be set to add a replay client!");
+      throw new InvalidOperationException("The local player must be added before adding a replay client!");
     }
 
     // This is one of the clients that will be sending the input, etc. data to the replay appliance.
@@ -206,47 +206,6 @@ public class GGPOClient : IGGPOClient, IDisposable
     return res;
   }
 
-  //// ----------------------------------------------------------------------------------------
-  //internal ReplayEndpoint AddReplayClient(string replayHost, int replayPort, int replayTimeout)
-  //{
-  //  if (ReplayClient != null) { throw new InvalidOperationException("The replay client has already been added!"); }
-
-  //  var ops = new GGPOEndpointOptions()
-  //  {
-  //    IsLocal = false,
-  //    IsReplayClient = true,
-  //    RemoteHost = replayHost,
-  //    RemotePort = replayPort,
-  //    ConnectTimeout = replayTimeout
-  //  };
-  //  var ep = new ReplayEndpoint(this, ops, this._local_connect_status);
-  //  ReplayClient = ep;
-
-  //  return ep;
-  //}
-
-  //// ----------------------------------------------------------------------------------------
-  //// TODO: Maybe there should be an option to (optionally) set the remote player name, and then it
-  //// will need to match for the connection to work?  Could help with spoofing or whatever....
-  //[Obsolete]
-  //public GGPOEndpoint AddRemotePlayer(string remoteHost, int remotePort, byte playerIndex, TestOptions? testOptions = null)
-  //{
-  //  CheckLocked();
-
-  //  var ops = new GGPOEndpointOptions()
-  //  {
-  //    IsLocal = false,
-  //    PlayerIndex = playerIndex,
-  //    RemoteHost = remoteHost,
-  //    RemotePort = remotePort,
-  //    TestOptions = testOptions ?? new TestOptions()
-  //  };
-
-  //  var res = new GGPOEndpoint(this, ops, _local_connect_status);
-  //  this._endpoints.Add(res);
-
-  //  return res;
-  //}
 
   // ----------------------------------------------------------------------------------------
   private void CheckLocked()
@@ -266,7 +225,7 @@ public class GGPOClient : IGGPOClient, IDisposable
   // ----------------------------------------------------------------------------------------
   public virtual void DoPoll(int timeout)
   {
-
+  //  var receivedFrom = new IPEndPoint(IPAddress.Any, );
     // Receive all messages + send them off to the correct endpoints.
     // This is basically a soft-router.
     while (true)

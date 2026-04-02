@@ -33,7 +33,6 @@ public abstract class ClientOptions
   /// </summary>
   [Option("session-id")]
   public UInt64 SessionId { get; set; } = 0;
-
 }
 
 // ==============================================================================================================================

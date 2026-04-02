@@ -121,6 +121,8 @@ namespace GGPOSharp
     // ------------------------------------------------------------------------------------------
     public int Send(byte[] buffer, int size, SocketAddress remoteEndPoint)
     {
+      if (this.Blacklist.Contains(remoteEndPoint)) { return 0; }
+
       if (buffer == null)
       {
         throw new ArgumentNullException(nameof(buffer));
@@ -164,6 +166,13 @@ namespace GGPOSharp
       if (Socket.Available > 0)
       {
         int read = Socket.ReceiveFrom(buffer, 0, buffer.Length, SocketFlags.None, ref remote);
+
+        // TODO: This will create garbage.  Probably not the end of the world tho?
+        if (Blacklist.Contains(remote.Serialize()))
+        {
+          return 0;
+        }
+
         return read;
       }
 

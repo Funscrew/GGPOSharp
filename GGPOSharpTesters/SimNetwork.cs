@@ -32,6 +32,7 @@ namespace GGPOSharpTesters
     // NOTE: This does matter as it is how we are going to track the replays...
     public int Port { get; private set; }
 
+    // 
     public HashSet<SocketAddress> Blacklist { get; private set; } = new HashSet<SocketAddress>();
 
     // ------------------------------------------------------------------------------------------------------------
@@ -74,8 +75,6 @@ namespace GGPOSharpTesters
     // ----------------------------------------------------------------------------------------------------------------
     public int Send(byte[] sendBuffer, int packetSize, SocketAddress useRemote)
     {
-      if (Blacklist.Contains(useRemote)) { return 0; }
-
       // NOTE: This is a very roundabout way to get the host + address from 'useRemote'
       // There is very likely a better way to do this...
       var ep = new IPEndPoint(IPAddress.Any, 0);

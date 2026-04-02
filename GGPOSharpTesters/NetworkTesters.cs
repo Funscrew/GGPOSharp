@@ -94,6 +94,7 @@ namespace GGPOSharpTesters
         data[3] = (byte)(useVal >> 24 & 0xFF);
       });
 
+      Assert.Inconclusive("Show that we have recorded a certain number of inputs!");
 
       // TODO: Way more to do!
       // Inputs need to be exchanged between the players + we need to confirm that we are receiving and merging them correctly!

@@ -172,7 +172,7 @@ public class Program
 
     CLIOptions = ops;
 
-    ClientOptions = new GGPOClientOptions((byte)(ops.PlayerNumber - 1), Defaults.LOCAL_PORT, ops.ProtocolVersion, 0)
+    ClientOptions = new GGPOClientOptions((byte)(ops.PlayerNumber - 1), Defaults.LOCAL_PORT, ops.ProtocolVersion, ops.SessionId)
     {
       Callbacks = new GGPOSessionCallbacks()
       {
