@@ -184,7 +184,7 @@ namespace GGPOSharp.Clients
       {
         Delay = 0,
         IsLocal = false,
-        PlayerIndex = GGPOConsts.REPLAY_APPLIANCE_PLAYER_INDEX,
+        PlayerIndex = playerIndex, // GGPOConsts.REPLAY_APPLIANCE_PLAYER_INDEX,
         PlayerName = "REPLAY_APP",
         RemoteHost = remoteHost,
         RemotePort = remotePort,

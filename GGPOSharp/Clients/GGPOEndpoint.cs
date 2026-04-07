@@ -297,7 +297,10 @@ public class GGPOEndpoint
   private bool OnInputAck(ref UdpMsg msg, int msgLen)
   {
     // Get rid of our buffered input
-    while (_pending_output.Size != 0 && _pending_output.Front().frame < msg.u.input_ack.ack_frame)
+    int start = msg.u.input_ack.start_frame;
+    int count = msg.u.input_ack.frame_count;
+    int max_frame = start + (count - 1);
+    while (_pending_output.Size != 0 && _pending_output.Front().frame < max_frame)
     {
       Utils.LogIt(LogCategories.INPUT, "ACK: Throwing away pending output frame %d", _pending_output.Front().frame);
       _last_acked_input = _pending_output.Front();
@@ -544,7 +547,7 @@ public class GGPOEndpoint
   }
 
   // ----------------------------------------------------------------------------------------------------------
-  internal void SendInput(ref GameInput input)
+  public virtual void SendInput(ref GameInput input)
   {
     if (Options.IsLocal) { return; }
 

@@ -86,7 +86,7 @@ namespace GGPOSharpTesters
     }
 
     // --------------------------------------------------------------------------------------------------------------------------
-    protected GGPOClient CreateGGPOClient(TestPlayerOptions local, TestPlayerOptions remote, TestMessageQueue msgQueue, UInt64 sessionId, GGPOSessionCallbacks? callbacks = null)
+    protected SimGGPOClient CreateGGPOClient(TestPlayerOptions local, TestPlayerOptions remote, TestMessageQueue msgQueue, UInt64 sessionId, GGPOSessionCallbacks? callbacks = null)
     {
       if (callbacks == null) { callbacks = CreateDefaultCallbacks(); }
 
@@ -95,7 +95,7 @@ namespace GGPOSharpTesters
 
       clientOps.IdleTimeout = 0;
       clientOps.Callbacks = callbacks;
-      var res = new GGPOClient(clientOps, udp, local.TimeSource);
+      var res = new SimGGPOClient(clientOps, udp, local.TimeSource);
 
       res.AddLocalPlayer(local.PlayerName, local.PlayerIndex);
 
@@ -108,6 +108,41 @@ namespace GGPOSharpTesters
       res.AddRemotePlayer(remoteOps);
 
       return res;
+    }
+  }
+
+
+  // ==============================================================================================================================
+  public class SimGGPOClient : GGPOClient
+  {
+    // --------------------------------------------------------------------------------------------------------------------------
+    public SimGGPOClient(GGPOClientOptions options_, IUdpBlaster udp_, GGPOSharp.SimTimer clock_)
+      : base(options_, udp_, clock_)
+    { }
+
+    // --------------------------------------------------------------------------------------------------------------------------
+    protected override GGPOEndpoint CreateEndpoint(GGPOClient client_, GGPOEndpointOptions ops, ConnectStatus[] local_connect_status)
+    {
+      var res = new SimGGPOEndpoint(client_, ops, local_connect_status);
+      return res;
+    }
+  }
+
+  // ==============================================================================================================================
+  public class SimGGPOEndpoint : GGPOEndpoint
+  {
+    public int TotalInputsSent { get; private set; }
+
+    // --------------------------------------------------------------------------------------------------------------------------
+    public SimGGPOEndpoint(IGGPOClient client_, GGPOEndpointOptions ops_, ConnectStatus[] localConnectStatus_)
+      : base(client_, ops_, localConnectStatus_)
+    { }
+
+    // --------------------------------------------------------------------------------------------------------------------------
+    public override void SendInput(ref GameInput input)
+    {
+      ++TotalInputsSent;
+      base.SendInput(ref input);
     }
   }
 }

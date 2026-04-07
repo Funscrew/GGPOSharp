@@ -1,4 +1,5 @@
-﻿using System;
+﻿using drewCo.Tools.Logging;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,13 +20,14 @@ namespace GGPOSharp.Clients
     /// <summary>
     /// The acks that we still need to send out.
     /// </summary>
-    private RingBuffer<GameInput> _PendingAcks = new RingBuffer<GameInput>(64);
+    private RingBuffer<GameInput> _PendingAcks = null!;
 
     // --------------------------------------------------------------------------------------------------------------------------  
     public ReplayEndpoint(IGGPOClient client_, GGPOEndpointOptions ops_, ConnectStatus[] localConnectStatus_)
       : base(client_, ops_, localConnectStatus_)
     {
       this.Appliance = this.Client as ReplayAppliance;
+      _PendingAcks = new RingBuffer<GameInput>(256);
     }
 
     // --------------------------------------------------------------------------------------------------------------------------  
@@ -73,7 +75,13 @@ namespace GGPOSharp.Clients
     // --------------------------------------------------------------------------------------------------------------------------  
     private void SendInputAck(ref GameInput input)
     {
+      if (_PendingAcks.IsFull)
+      {
+        Log.Error($"ACK BUFFER full for: player: {this.PlayerIndex}");
+        throw new InvalidOperationException($"{nameof(_PendingAcks)} buffer is full!  System will fail!");
+      }
       _PendingAcks.Push(input);
+
       SendPendingAcks();
     }
 
@@ -93,15 +101,35 @@ namespace GGPOSharp.Clients
         var front = _PendingAcks.Front();
         Utils.ASSERT(last.frame == -1 || last.frame + 1 == front.frame);
 
-        for (int i = 0; i < _PendingAcks.Size; i++)
+        var msg = new UdpMsg(EMsgType.InputAck);
+        msg.u.input_ack.start_frame = _PendingAcks[0].frame;
+
+        UInt16 useCount = 1;
+        int expectedFrame = _PendingAcks[0].frame;
+        for (int i = 1; i < _PendingAcks.Size; i++)
         {
-          var ack = _PendingAcks[i];
+          // NOTE: These checks are really more exploratory than anything....
+          // I am pretty sure that neither case will be encountered as part of the OOP handling...
+          if (expectedFrame == _PendingAcks[i].frame)
+          {
+            // A duplicate frame...
+            Log.Debug("duplicate frame in ACK encountered!");
+          }
 
-          var msg = new UdpMsg(EMsgType.InputAck);
-          msg.u.input_ack.ack_frame = ack.frame;
+          ++expectedFrame;
+          if (expectedFrame != _PendingAcks[i].frame)
+          {
+            Log.Debug("incorrect next frame....");
+            break;
+          }
 
-          SendMsg(ref msg);
+          ++useCount;
         }
+
+        // Log.Info($"sending input ack: {msg.u.input_ack.start_frame} - {useCount}");
+
+        msg.u.input_ack.frame_count = useCount;
+        SendMsg(ref msg);
       }
 
     }

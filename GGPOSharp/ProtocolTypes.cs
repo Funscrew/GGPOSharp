@@ -1,6 +1,7 @@
-﻿using System.Text;
+﻿using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
 
 
 namespace GGPOSharp;
@@ -115,16 +116,21 @@ public struct SyncRequest
   public byte player_index;     // Players must identify their desired index.
   public byte isReplayEndpoint; // This is from a replay appliance.   ( we use a byte to make sure that we are C++ compatible)
   public UInt64 session_id;     // Used for replay ids.  This is the form of a unix timestamp in milliseconds!  For p2p connections, this can be zero, but is ignored.
-  //public ushort remote_magic;
-  //public byte remote_endpoint;
 
   // ---------------------------------------------------------------------------------
   internal static void FromBytes(byte[] data, int startOffset, ref SyncRequest res)
   {
+    int useOffset = startOffset;
     res.random_request = BitConverter.ToUInt32(data, startOffset);
-    res.session_id = BitConverter.ToUInt64(data, startOffset + sizeof(uint));
-    //res.remote_magic = BitConverter.ToUInt16(data, startOffset + sizeof(UInt32));
-    //res.remote_endpoint = data[startOffset + sizeof(UInt32) + sizeof(UInt16)];
+    useOffset += sizeof(uint);
+
+    res.player_index = (byte)BitConverter.ToChar(data, useOffset);
+    useOffset += sizeof(byte);
+
+    res.isReplayEndpoint = (byte)BitConverter.ToChar(data, useOffset);
+    useOffset += sizeof(byte);
+
+    res.session_id = BitConverter.ToUInt64(data, useOffset);
   }
 }
 
@@ -135,9 +141,10 @@ public unsafe struct SyncReply
   public UInt32 random_reply;     // OK, here's your random data back
   public UInt32 client_version;   // Version of this client, in 8 byte chunks: MAJOR - MINOR - REVISION - GGPO (protocol version)
   public byte player_index;       // Index of the remote player.  Should match what we expect / not be our index!
-  public byte isReplayEndpoint; // This is from a replay appliance.   ( we use a byte to make sure that we are C++ compatible)
+  public byte isReplayEndpoint;   // This is from a replay appliance.   ( we use a byte to make sure that we are C++ compatible)
   public byte delay;
   public byte runahead;
+  //public byte is_ready;           // Readiness flag, used in the context of hooking up to a replay client.
 
   public fixed byte playerName[GGPOConsts.MAX_NAME_SIZE];
 
@@ -276,17 +283,8 @@ public unsafe struct InputMsg
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct InputAck
 {
-  // In C++: int ack_frame : 31;
-  private int _ackFlags;
-
-  public int ack_frame
-  {
-    get { return _ackFlags & 0x7FFFFFFF; }
-    set
-    {
-      _ackFlags = (_ackFlags & unchecked((int)0x80000000)) | (value & 0x7FFFFFFF);
-    }
-  }
+  public Int32 start_frame;      // What is the starting frame of the ACK?
+  public UInt16 frame_count;      // How many total frames were ACKed?
 }
 
 // ================================================================================================

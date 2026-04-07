@@ -11,6 +11,60 @@ namespace GGPOSharpTesters
 
     // --------------------------------------------------------------------------------------------------------------------------
     /// <summary>
+    /// This test case was provided to solve a problem where one player would start sending inputs
+    /// before it was confirmed that the other player was also connected / synced.  This is bad
+    /// as we would start recording inputs / miss inputs from the other player, etc.
+    /// --> NOTE: This is an effect of the way that this P2P replay system is being designed, which
+    /// is a flaw IMO.
+    /// </summary>
+    [Test]
+    public unsafe void ReplayApplianceWontSyncUntilAllPlayersAreConnected() 
+    {
+      const string P1_NAME = "Joe";
+      const string P2_NAME = "Archie";
+      TestContext context = CreateTestContext(P1_NAME, P2_NAME);
+
+      var ops = new GGPOClientOptions(0, REPLAY_APPLIANCE_PORT, Defaults.PROTOCOL_VERSION, SESSION_ID);
+      ops.Callbacks = CreateDefaultCallbacks();
+
+
+      var cbh = new CallbackHandler();
+      ops.Callbacks.on_event = cbh.OnEvent;
+
+      var replayOps = new ReplayListenOptions()
+      {
+        SessionId = SESSION_ID
+      };
+      var blaster = new SimUdp(REPLAY_APPLIANCE_HOST, REPLAY_APPLIANCE_PORT, context.TimeSource, context.MsgQueue, SIM_PING, SIM_JITTER);
+      var replayAppliance = new ReplayAppliance(ops, replayOps, blaster, context.TimeSource);
+
+      context.SetReplayAppliance(replayAppliance);
+
+      // We will connect only one player at this time, and run the system for a bit.
+      var p1 = context.Player1Client;
+      p1.AddReplayAppliance(REPLAY_APPLIANCE_HOST, REPLAY_APPLIANCE_PORT, REPLAY_APPLIANCE_TIMEOUT);
+
+
+      var p1Remote = p1.GetRemotePlayer() as SimGGPOEndpoint;
+      Assert.IsNotNull(p1Remote);
+
+
+
+      const int STARTUP_TIME = 100;
+      context.RunGame(STARTUP_TIME);
+      Assert.That(replayAppliance.Errors.Count, Is.EqualTo(0), "There should be no listed errors!");
+      Assert.That(replayAppliance.ClientCount, Is.EqualTo(1), "There should be one connected client!");
+
+      // We want to get a count for the number of times that we have sent inputs to the remote.
+      // We should not have any until everything is all synced up....
+      Assert.That(p1Remote.TotalInputsSent, Is.EqualTo(0), "We should not have sent ANY inputs until all players are synced with the replay appliance!");
+
+
+      Assert.Fail("please complete this test!");
+    }
+
+    // --------------------------------------------------------------------------------------------------------------------------
+    /// <summary>
     /// Shows that two clients can connect to the same replay client, and that client is able to record
     /// their inputs.
     /// NOTE: This test in particular doesn't do anything about handling dropped or OO packets.
@@ -23,13 +77,10 @@ namespace GGPOSharpTesters
       const string P2_NAME = "Archie";
       TestContext context = CreateTestContext(P1_NAME, P2_NAME);
 
-
       var ops = new GGPOClientOptions(0, REPLAY_APPLIANCE_PORT, Defaults.PROTOCOL_VERSION, SESSION_ID);
       ops.Callbacks = CreateDefaultCallbacks();
 
-      // SessionRefCallback<GGPOEvent> onEvent =
       var cbh = new CallbackHandler();
-
       ops.Callbacks.on_event = cbh.OnEvent;
 
       var replayOps = new ReplayListenOptions()
@@ -53,7 +104,6 @@ namespace GGPOSharpTesters
       // Maybe some kind of a callback or 'run until'...?
       const int STARTUP_TIME = 50;
       context.RunGame(STARTUP_TIME);
-
       Assert.That(replayAppliance.Errors.Count, Is.EqualTo(0), "There should be no listed errors!");
 
       // At this point we should have two connected clients on the replay appliance.

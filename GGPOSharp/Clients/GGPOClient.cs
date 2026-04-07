@@ -147,7 +147,7 @@ public class GGPOClient : IGGPOClient, IDisposable
       SessionId = this.SessionId,
     };
 
-    var replayClient = new ReplayEndpoint(this, epOps, this._local_connect_status);
+    var replayClient = new GGPOEndpoint(this, epOps, this._local_connect_status);
     this._endpoints.Add(replayClient);
     return replayClient;
   }
@@ -184,7 +184,7 @@ public class GGPOClient : IGGPOClient, IDisposable
   }
 
   // ----------------------------------------------------------------------------------------
-  public GGPOEndpoint AddRemotePlayer(RemoteEndpointData remoteData, TestOptions? testOps = null)
+  public  GGPOEndpoint AddRemotePlayer(RemoteEndpointData remoteData, TestOptions? testOps = null)
   {
     CheckLocked();
 
@@ -197,12 +197,19 @@ public class GGPOClient : IGGPOClient, IDisposable
       TestOptions = testOps ?? new TestOptions()
     };
 
-    var res = new GGPOEndpoint(this, ops, _local_connect_status);
+    GGPOEndpoint res = CreateEndpoint(this, ops, _local_connect_status);
     this._endpoints.Add(res);
 
     this._Players[this._ConnectedPlayerCount] = res;
     this._ConnectedPlayerCount++;
 
+    return res;
+  }
+
+// --------------------------------------------------------------------------------------------------------------------------
+ protected virtual GGPOEndpoint CreateEndpoint(GGPOClient gGPOClient, GGPOEndpointOptions ops, ConnectStatus[] local_connect_status)
+  {
+    var res = new GGPOEndpoint(this, ops, _local_connect_status);
     return res;
   }
 

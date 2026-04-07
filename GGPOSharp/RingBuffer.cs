@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using drewCo.Tools.Logging;
+using System.Collections;
 
 namespace GGPOSharp
 {
@@ -36,6 +37,7 @@ namespace GGPOSharp
     /// The _size. Buffer size.
     /// </summary>
     private int _size;
+
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RingBuffer{T}"/> class.
