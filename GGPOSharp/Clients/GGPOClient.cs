@@ -840,7 +840,7 @@ public class GGPOClient : IGGPOClient, IDisposable
 
         // xxx: IsInitialized() must go... we're actually using it as a proxy for "represents the local player"
         // NOTE: The above comment is a bit misleading.  'Is initialized' means that the endpoint is remote.
-        if (!ep.IsLocalPlayer && !ep.IsReplayClient &&
+        if (!ep.IsLocalPlayer &&
             !ep.IsSynchronized() &&
             !_local_connect_status[epi].disconnected)
         {

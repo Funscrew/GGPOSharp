@@ -238,6 +238,7 @@ public class GGPOEndpoint
   // ------------------------------------------------------------------------------------------------
   internal void Disconnect()
   {
+    throw new InvalidOperationException("OBSOLETE!");
     if (_current_state != EClientState.Disconnected)
     {
       _current_state = EClientState.Disconnected;
@@ -680,7 +681,6 @@ public class GGPOEndpoint
   }
 
   // ------------------------------------------------------------------------
-  // REFACTOR:  This is more like 'SendPendingLocalInputs'
   private unsafe void SendPendingOutput()
   {
     UdpMsg msg = new UdpMsg(EMsgType.Input);
@@ -691,7 +691,6 @@ public class GGPOEndpoint
     // This assert is checking consts.  Probably don't need to do this each time....
     // Can probably do it on program init....
     Utils.ASSERT((GameInput.GAMEINPUT_MAX_BYTES * GameInput.GAMEINPUT_MAX_PLAYERS * 8) < (1 << BitVector.BITVECTOR_NIBBLE_SIZE));
-
 
     if (_pending_output.Size != 0)
     {

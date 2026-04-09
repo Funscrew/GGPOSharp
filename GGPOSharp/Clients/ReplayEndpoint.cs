@@ -15,7 +15,9 @@ namespace GGPOSharp.Clients
   /// </summary>
   public class ReplayEndpoint : GGPOEndpoint
   {
-    ReplayAppliance Appliance = null;
+    public static int MAX_ACKS = 0x100;
+
+    private ReplayAppliance Appliance = null;
 
     /// <summary>
     /// The acks that we still need to send out.
@@ -27,7 +29,7 @@ namespace GGPOSharp.Clients
       : base(client_, ops_, localConnectStatus_)
     {
       this.Appliance = this.Client as ReplayAppliance;
-      _PendingAcks = new RingBuffer<GameInput>(256);
+      _PendingAcks = new RingBuffer<GameInput>(MAX_ACKS);
     }
 
     // --------------------------------------------------------------------------------------------------------------------------  
@@ -77,7 +79,11 @@ namespace GGPOSharp.Clients
     {
       if (_PendingAcks.IsFull)
       {
-        Log.Error($"ACK BUFFER full for: player: {this.PlayerIndex}");
+        Log.Error($"ACK BUFFER full for: player: {this.PlayerIndex}.  Disconnecting!");
+        Disconnect();
+
+        // We aren't going to fail, we are simply going to disconnect the client!
+
         throw new InvalidOperationException($"{nameof(_PendingAcks)} buffer is full!  System will fail!");
       }
       _PendingAcks.Push(input);
