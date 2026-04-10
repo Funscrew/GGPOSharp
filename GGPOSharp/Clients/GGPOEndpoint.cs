@@ -1142,6 +1142,7 @@ public unsafe struct GameInput
   public int frame;
   public int size; /* size in bytes of the entire input for all players */
 
+  // NOTE: This is probably too big in terms of copying data around locally....
   private const int BITS_SIZE = GAMEINPUT_MAX_BYTES * GAMEINPUT_MAX_PLAYERS;
   public fixed byte data[BITS_SIZE];
 

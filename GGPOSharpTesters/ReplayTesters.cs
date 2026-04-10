@@ -55,13 +55,11 @@ namespace GGPOSharpTesters
         recorder.AddInput(1, ref p2Input);
       }
 
-
-
       recorder.Dispose();
 
-      // TODO: May as well show that we can read the file back
+      // TODO: Best way to show that this is OK is to read the file back
       // and enure that the data is what we expect it to be.
-
+      
       // We will record some inputs + text + proper disconnect signal.
       Assert.Fail("Please complete this test!");
 
