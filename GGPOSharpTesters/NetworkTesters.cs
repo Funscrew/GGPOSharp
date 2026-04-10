@@ -11,11 +11,9 @@ namespace GGPOSharpTesters
 
     // --------------------------------------------------------------------------------------------------------------------------
     /// <summary>
-    /// This test case was provided to solve a problem where one player would start sending inputs
-    /// before it was confirmed that the other player was also connected / synced.  This is bad
-    /// as we would start recording inputs / miss inputs from the other player, etc.
-    /// --> NOTE: This is an effect of the way that this P2P replay system is being designed, which
-    /// is a flaw IMO.
+    /// This test case shows that while it may be able to connect to a replay appliance at some point, is dropped, etc.
+    /// When this condition is detected (probably during merge) we will want to send out the disconnect signal + log
+    /// the failure to capture the replay.
     /// </summary>
     [Test]
     public unsafe void ReplayApplianceWontSyncUntilAllPlayersAreConnected() 
@@ -36,7 +34,7 @@ namespace GGPOSharpTesters
         SessionId = SESSION_ID
       };
       var blaster = new SimUdp(REPLAY_APPLIANCE_HOST, REPLAY_APPLIANCE_PORT, context.TimeSource, context.MsgQueue, SIM_PING, SIM_JITTER);
-      var replayAppliance = new ReplayAppliance(ops, replayOps, blaster, context.TimeSource);
+      var replayAppliance = new SimReplayAppliance(ops, replayOps, blaster, context.TimeSource);
 
       context.SetReplayAppliance(replayAppliance);
 
@@ -48,8 +46,6 @@ namespace GGPOSharpTesters
       var p1Remote = p1.GetRemotePlayer() as SimGGPOEndpoint;
       Assert.IsNotNull(p1Remote);
 
-
-
       const int STARTUP_TIME = 100;
       context.RunGame(STARTUP_TIME);
       Assert.That(replayAppliance.Errors.Count, Is.EqualTo(0), "There should be no listed errors!");
@@ -57,8 +53,13 @@ namespace GGPOSharpTesters
 
       // We want to get a count for the number of times that we have sent inputs to the remote.
       // We should not have any until everything is all synced up....
-      Assert.That(p1Remote.TotalInputsSent, Is.EqualTo(0), "We should not have sent ANY inputs until all players are synced with the replay appliance!");
+      Assert.That(p1Remote.TotalInputsSent, Is.GreaterThan(0), "Inputs should be exchanged at this point.");
 
+
+      const int SIM_TIME = 2000;      // More than enough time for the mismatch to be detected / dropped.
+      context.RunGame(SIM_TIME);
+
+      // Show that there are no longer any connections....
 
       Assert.Fail("please complete this test!");
     }

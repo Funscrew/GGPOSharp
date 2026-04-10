@@ -102,7 +102,7 @@ namespace GGPOSharp.Clients
       // We will collect all of the pending acks and send a message for each:
       // In the future we can combine them all into a single message to ACK mulitple inputs.
       if (_PendingAcks.Size > 0)
-      {
+      { 
         var last = _last_acked_input;
         var front = _PendingAcks.Front();
         Utils.ASSERT(last.frame == -1 || last.frame + 1 == front.frame);

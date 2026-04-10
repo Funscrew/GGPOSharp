@@ -230,17 +230,17 @@ namespace GGPOSharp
     //  }
     //}
 
-    ///// <summary>
-    ///// Removes the element at the back of the buffer. Decreasing the 
-    ///// Buffer size by 1.
-    ///// </summary>
-    //public void PopBack()
-    //{
-    //  ThrowIfEmpty("Cannot take elements from an empty buffer.");
-    //  Decrement(ref _end);
-    //  _buffer[_end] = default(T);
-    //  --_size;
-    //}
+    /// <summary>
+    /// Removes the element at the back of the buffer. Decreasing the 
+    /// Buffer size by 1.
+    /// </summary>
+    public void PopBack()
+    {
+      ThrowIfEmpty("Cannot take elements from an empty buffer.");
+      Decrement(ref _end);
+      _buffer[_end] = default(T);
+      --_size;
+    }
 
     /// <summary>
     /// Removes the element at the front of the buffer. Decreasing the 
