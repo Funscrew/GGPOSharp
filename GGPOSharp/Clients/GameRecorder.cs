@@ -1,5 +1,7 @@
-﻿using drewCo.Tools;
+﻿using drewCo.Curations;
+using drewCo.Tools;
 using System.Diagnostics;
+using System.Security.Cryptography.X509Certificates;
 using System.Xml;
 
 namespace GGPOSharp.Clients
@@ -101,7 +103,7 @@ namespace GGPOSharp.Clients
       long start = this.DataStream.Position;
       int inputSize = this.GameData.TotalInputSize;
 
-      EZWriter.Write(DataStream, (byte)EDataSegment.InputData);
+      EZWriter.Write(DataStream, (byte)EDataSegmentType.InputData);
       EZWriter.Write(DataStream, (UInt16)inputSize);
 
       for (int i = 0; i < inputSize; i++)
@@ -133,7 +135,7 @@ namespace GGPOSharp.Clients
       long start = DataStream.Position;
 
       UInt16 segmentSize = GameData.MAX_GAME_NAME_SIZE + sizeof(UInt64) + sizeof(int) + sizeof(int);
-      EZWriter.Write(DataStream, (byte)EDataSegment.GameData);
+      EZWriter.Write(DataStream, (byte)EDataSegmentType.GameData);
       EZWriter.Write(DataStream, segmentSize);
 
       // And now for the data.....
@@ -152,6 +154,30 @@ namespace GGPOSharp.Clients
         throw new InvalidOperationException($"Data size mismatch on write: {total} - {expected}!");
       }
 
+    }
+
+
+    // -----------------------------------------------------------------------------------------------------------------------
+    private void WriteSegment(EDataSegmentType segmentType, Stream fromStream)
+    {
+      long start = this.DataStream.Position;
+      int segmentSize = (int)fromStream.Position;
+
+      EZWriter.Write(DataStream, (byte)segmentType);
+      EZWriter.Write(DataStream, (UInt16)segmentSize);
+      fromStream.Seek(0, SeekOrigin.Begin);
+      fromStream.CopyTo(this.DataStream);
+
+      // Sanity Check!
+      long end = DataStream.Position;
+      long total = end - start;
+      int expected = segmentSize + 3;
+      if (total != expected)
+      {
+        throw new InvalidOperationException($"Data size mismatch on write: {total} - {expected}!");
+      }
+
+      DataStream.Flush();
     }
 
     // -----------------------------------------------------------------------------------------------------------------------
@@ -182,9 +208,23 @@ namespace GGPOSharp.Clients
     /// reason why it was completed.  This could be through a proper disconnect,
     /// or an error, etc.
     /// </summary>
-    public void CompleteReplay(int frame, string reason)
+    public void CompleteReplay(int frame, ECompletionReason reason, string? errMsg = null)
     {
-      throw new Exception();
+      // TODO: Some kind of sanity check for the frame #?
+      const int COMPLETE_MSG_LEN = 64;
+      string useErr = errMsg == null ? string.Empty : StringTools.Truncate(errMsg, COMPLETE_MSG_LEN);
+
+      using (var ms = new MemoryStream(0x100))
+      {
+        // NOTE: In a perfect world we use our own write buffer.
+        EZWriter.Write(ms, (byte)reason);
+        EZWriter.Write(ms, frame);
+
+        CopyFixedString(useErr, COMPLETE_MSG_LEN, WriteBuffer, 0);
+        ms.Write(WriteBuffer, 0, COMPLETE_MSG_LEN);
+
+        WriteSegment(EDataSegmentType.Complete, ms);
+      }
     }
 
     // -----------------------------------------------------------------------------------------------------------------------
@@ -333,15 +373,35 @@ namespace GGPOSharp.Clients
   }
 
   // ==============================================================================================================================
+  public enum ECompletionReason
+  {
+    Invalid = 0,
+
+    /// <summary>
+    /// One or more players sent a proper disconnect signal.
+    /// </summary>
+    NormalDisconnect,
+
+    /// <summary>
+    /// Some other error.
+    /// </summary>
+    Error
+  }
+
+  // ==============================================================================================================================
   /// <summary>
   /// What types of data segments are we going to write into our replay files?
   /// </summary>
-  public enum EDataSegment
+  public enum EDataSegmentType
   {
     Invalid = 0,
     GameData,
     InputData,
     ChatData,
+    /// <summary>
+    /// A recording session is completed.  See 'ECompletionReasons' for more information.
+    /// </summary>
+    Complete,
   }
 
 }

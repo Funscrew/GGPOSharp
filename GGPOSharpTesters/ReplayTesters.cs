@@ -55,6 +55,8 @@ namespace GGPOSharpTesters
         recorder.AddInput(1, ref p2Input);
       }
 
+      recorder.CompleteReplay(p1Input.frame + 1, ECompletionReason.NormalDisconnect);
+
       recorder.Dispose();
 
       // TODO: Best way to show that this is OK is to read the file back
