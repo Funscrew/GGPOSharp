@@ -30,9 +30,11 @@ namespace GGPOSharpTesters
     public unsafe void CanMergeGameInputs()
     {
       const int TEST_SESSION_ID = 1234;
+      const string TEST_GAME_NAME = "MyGame";
+
       var recorder = new GameRecorder(new GameData()
       {
-        GameName = "MyGame",
+        GameName = TEST_GAME_NAME,
         PlayerCount = 2,
         TotalInputSize = 2 * 5
       }, TEST_DATA_DIR, TEST_SESSION_ID, true);
@@ -59,9 +61,18 @@ namespace GGPOSharpTesters
 
       recorder.Dispose();
 
+      var replayFile = new ReplayFile(recorder.FilePath);
+
       // TODO: Best way to show that this is OK is to read the file back
       // and enure that the data is what we expect it to be.
+      Assert.That(replayFile.GameData.GameName, Is.EqualTo(TEST_GAME_NAME), "Incorrect game name!");  
       
+      // Let's grab the inputs and see what they actually are...
+      var allInputs =  replayFile.GetInputs().ToList();
+      Assert.That(allInputs.Count, Is.EqualTo(TO_ADD), "Incorrect number of inputs!");
+
+      // Then we will confirm that the frame numbers are correct, ordinal, and that the data is what we expect!
+     
       // We will record some inputs + text + proper disconnect signal.
       Assert.Fail("Please complete this test!");
 

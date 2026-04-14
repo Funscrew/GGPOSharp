@@ -1,6 +1,8 @@
 ﻿using drewCo.Curations;
 using drewCo.Tools;
 using System.Diagnostics;
+using System.Diagnostics.Contracts;
+using System.Reflection.Metadata;
 using System.Security.Cryptography.X509Certificates;
 using System.Xml;
 
@@ -38,6 +40,8 @@ namespace GGPOSharp.Clients
 
     private byte[] WriteBuffer = new byte[0x800];
 
+    public string FilePath { get; private set; } = null!;
+
     // -----------------------------------------------------------------------------------------------------------------------
     // NOTE: In production environments, game data should not be allowed to be overwritten!
     public GameRecorder(GameData gameData_, string dataDir_, UInt64 sessionId_, bool overwriteExisting = false)
@@ -55,6 +59,7 @@ namespace GGPOSharp.Clients
 
       // TODO: This is where we will create the stream for where the file data will go.
       CreateStream(path);
+      FilePath = path;
 
       PlayerBuffers = new RingBuffer<GameInput>[MAX_PLAYERS];
       for (int i = 0; i < MAX_PLAYERS; i++)
@@ -89,7 +94,7 @@ namespace GGPOSharp.Clients
     {
       // Write the data header.
       // This indicates that it is a replay file, version 1
-      EZWriter.Write(res, new[] { 'f', 's', 'n', 'e', 'o', '-', 'r', 'f', '-' });
+      EZWriter.Write(res, ReplayFile.Preamble); // new[] { 'f', 's', 'n', 'e', 'o', '-', 'r', 'f' });
       EZWriter.WriteBytes(res, new[] { (byte)1 });
 
       // Now write the game data segment:
@@ -102,10 +107,12 @@ namespace GGPOSharp.Clients
     {
       long start = this.DataStream.Position;
       int inputSize = this.GameData.TotalInputSize;
+      int segmentSize = inputSize + sizeof(int);
 
       EZWriter.Write(DataStream, (byte)EDataSegmentType.InputData);
       EZWriter.Write(DataStream, (UInt16)inputSize);
 
+      EZWriter.Write(DataStream, input.frame);
       for (int i = 0; i < inputSize; i++)
       {
         WriteBuffer[i] = input.data[i];
@@ -115,7 +122,7 @@ namespace GGPOSharp.Clients
       // Sanity Check!
       long end = DataStream.Position;
       long total = end - start;
-      int expectedSize = inputSize + 3;
+      int expectedSize = segmentSize + 3;
       int expected = expectedSize;
       if (total != expected)
       {
@@ -134,7 +141,7 @@ namespace GGPOSharp.Clients
       // - Data (DataSize)
       long start = DataStream.Position;
 
-      UInt16 segmentSize = GameData.MAX_GAME_NAME_SIZE + sizeof(UInt64) + sizeof(int) + sizeof(int);
+      UInt16 segmentSize = GameData.DataSize;
       EZWriter.Write(DataStream, (byte)EDataSegmentType.GameData);
       EZWriter.Write(DataStream, segmentSize);
 
@@ -208,6 +215,9 @@ namespace GGPOSharp.Clients
     /// reason why it was completed.  This could be through a proper disconnect,
     /// or an error, etc.
     /// </summary>
+    /// <remarks>
+    /// 
+    /// </remarks>
     public void CompleteReplay(int frame, ECompletionReason reason, string? errMsg = null)
     {
       // TODO: Some kind of sanity check for the frame #?
@@ -223,7 +233,14 @@ namespace GGPOSharp.Clients
         CopyFixedString(useErr, COMPLETE_MSG_LEN, WriteBuffer, 0);
         ms.Write(WriteBuffer, 0, COMPLETE_MSG_LEN);
 
+        // Write the end code so that we know that the file is actually completed correctly.
+        EZWriter.Write(ms, ReplayFile.Footer);
+
         WriteSegment(EDataSegmentType.Complete, ms);
+
+        // We will put the total file size at the end, as a kind of checksum, I guess...
+        long finalSize = (int)(DataStream.Position + sizeof(long));
+        EZWriter.Write(DataStream, finalSize);
       }
     }
 
@@ -318,8 +335,14 @@ namespace GGPOSharp.Clients
       // positions for playback / correct interpretation later.
       GameInput merged = new GameInput();
       merged.size = this.GameData.TotalInputSize;
+      merged.frame = MergeBuffer[0].frame;
+
       for (int i = 0; i < len; i++)
       {
+        // Make sure that the frames are correct (NOTE: This may be done in a previous step already....);
+        if (MergeBuffer[i].frame != merged.frame) { 
+          throw new InvalidOperationException($"Unexpected frame # from merge buffer: {i}! ({merged.frame} {MergeBuffer[i].frame})");
+        }
         for (int j = 0; j < offset; j++)
         {
           merged.data[(i + offset) + j] = MergeBuffer[i].data[j];
@@ -334,10 +357,11 @@ namespace GGPOSharp.Clients
     }
   }
 
-
   // ==============================================================================================================================
   public class ChatData
   {
+    public const int CHAT_DATA_MAX = 128;
+
     public int PlayerIndex { get; set; }
     /// <summary>
     /// What frame was the message sent on?
@@ -358,9 +382,11 @@ namespace GGPOSharp.Clients
     public string GameName { get; set; }
 
     /// <summary>
-    /// Reserved
+    /// This should be a bitfield (or 8 char string) or whatever to represent the version of
+    /// a game (major, minor, revision, etc.).  Implementation defined!
     /// </summary>
-    public UInt64 GameVersion { get; private set; } = 1;
+    public UInt64 GameVersion { get; set; } = 1;
+
     /// <summary>
     /// How many people are playing.
     /// </summary>
@@ -370,6 +396,8 @@ namespace GGPOSharp.Clients
     /// Size of inputs for all players.
     /// </summary>
     public int TotalInputSize { get; set; }
+
+    public static ushort DataSize { get; } = GameData.MAX_GAME_NAME_SIZE + sizeof(UInt64) + sizeof(int) + sizeof(int);
   }
 
   // ==============================================================================================================================
