@@ -32,11 +32,13 @@ namespace GGPOSharpTesters
       const int TEST_SESSION_ID = 1234;
       const string TEST_GAME_NAME = "MyGame";
 
+      const int INPUT_SIZE = 5;
+
       var recorder = new GameRecorder(new GameData()
       {
         GameName = TEST_GAME_NAME,
         PlayerCount = 2,
-        TotalInputSize = 2 * 5
+        TotalInputSize = 2 * INPUT_SIZE
       }, TEST_DATA_DIR, TEST_SESSION_ID, true);
 
 
@@ -44,8 +46,8 @@ namespace GGPOSharpTesters
       GameInput p1Input = new GameInput();
       GameInput p2Input = new GameInput();
 
-      const int TO_ADD = 10;
-      for (int i = 0; i < TO_ADD; i++)
+      const int FRAME_COUNT = 10;
+      for (int i = 0; i < FRAME_COUNT; i++)
       {
         p1Input.frame = i;
         p1Input.data[0] = (byte)(i % 256);
@@ -69,13 +71,24 @@ namespace GGPOSharpTesters
       
       // Let's grab the inputs and see what they actually are...
       var allInputs =  replayFile.GetInputs().ToList();
-      Assert.That(allInputs.Count, Is.EqualTo(TO_ADD), "Incorrect number of inputs!");
+      Assert.That(allInputs.Count, Is.EqualTo(FRAME_COUNT), "Incorrect number of inputs!");
 
       // Then we will confirm that the frame numbers are correct, ordinal, and that the data is what we expect!
-     
-      // We will record some inputs + text + proper disconnect signal.
-      Assert.Fail("Please complete this test!");
+      for (int i = 0; i < FRAME_COUNT; i++)
+      {
+        GameInput gi = allInputs[i];
+        Assert.That(gi.frame, Is.EqualTo(i),$"Incorrect frame # for index: {i}");
 
+        // Make sure that the data is correct...
+        byte p1Data = gi.data[0];
+        byte p2Data = gi.data[INPUT_SIZE];
+
+        byte ep1 = (byte)(i %256);
+        byte ep2 = (byte)((i+1) % 265);
+
+        Assert.That(p1Data, Is.EqualTo(ep1), $"Invalid input information for p1 @ index: {i}!");
+        Assert.That(p2Data, Is.EqualTo(ep2), $"Invalid input information for p2 @ index: {i}!");
+      }
     }
 
   }

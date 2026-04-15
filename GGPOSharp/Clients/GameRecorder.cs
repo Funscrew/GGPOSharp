@@ -345,7 +345,8 @@ namespace GGPOSharp.Clients
         }
         for (int j = 0; j < offset; j++)
         {
-          merged.data[(i + offset) + j] = MergeBuffer[i].data[j];
+          byte d = MergeBuffer[i].data[j];
+          merged.data[(i * offset) + j] = d;
         }
       }
 
