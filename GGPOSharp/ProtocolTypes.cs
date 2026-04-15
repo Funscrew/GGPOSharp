@@ -359,6 +359,7 @@ public unsafe struct PlayerConnectData
 public unsafe struct Datagram
 {
   public byte code;
+  public int frame;
   public byte dataSize;
   public fixed byte data[GGPOConsts.MAX_GGPO_DATA_SIZE];
 
@@ -577,6 +578,7 @@ public unsafe struct EventDatagram
 {
   public byte player_index;
   public byte code;
+  public int frame;
   public byte dataSize;
   public fixed byte data[GGPOConsts.MAX_GGPO_DATA_SIZE];
   public fixed byte text[GGPOConsts.MAX_GGPO_DATA_SIZE];

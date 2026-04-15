@@ -787,6 +787,7 @@ public class GGPOClient : IGGPOClient, IDisposable
         info.event_code = EEventCode.GGPO_EVENTCODE_DATAGRAM;
         info.u.datagram.player_index = (byte)playerIndex;
         info.u.datagram.code = evt.u.chat.code;
+        info.u.datagram.frame =  evt.u.chat.frame;
         info.u.datagram.dataSize = evt.u.chat.dataSize;
 
         fixed (byte* pSrc = evt.u.chat.data)
