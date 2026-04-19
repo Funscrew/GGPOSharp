@@ -66,7 +66,7 @@ namespace GGPOSharpTesters
         // Add some chitchat....
         if (i % 11 == 0)
         {
-          recorder.AddChat(new ChatData()
+          recorder.AddChatSegment(new ChatData()
           {
             Frame = i,
             Message = CHAT1_MSG,
@@ -77,7 +77,7 @@ namespace GGPOSharpTesters
 
         if (i % 17 == 0)
         {
-          recorder.AddChat(new ChatData()
+          recorder.AddChatSegment(new ChatData()
           {
             Frame = i,
             Message = CHAT2_MSG,

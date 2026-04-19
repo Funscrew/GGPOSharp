@@ -1,11 +1,5 @@
-﻿using drewCo.Curations;
-using drewCo.Tools;
-using System.Diagnostics;
-using System.Diagnostics.Contracts;
-using System.Reflection.Metadata;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Xml;
+﻿using drewCo.Tools;
+using System.Windows.Markup;
 
 namespace GGPOSharp.Clients
 {
@@ -33,6 +27,7 @@ namespace GGPOSharp.Clients
     /// Used to track what should be the expected starting frame on merge operations when a given buffer is empty!
     /// </summary>
     private int BaseFrame = -1;
+
     private RingBuffer<GameInput>[] PlayerBuffers = null;
     private GameInput[] MergeBuffer = null;
 
@@ -42,6 +37,10 @@ namespace GGPOSharp.Clients
     private byte[] WriteBuffer = new byte[0x800];
 
     public string FilePath { get; private set; } = null!;
+
+    public bool RecordingComplete { get; private set; } = false;
+    public bool HasError { get; private set; } = false;
+    public string? ErrorMessage { get; private set; } = null!;
 
     // -----------------------------------------------------------------------------------------------------------------------
     // NOTE: In production environments, game data should not be allowed to be overwritten!
@@ -95,17 +94,25 @@ namespace GGPOSharp.Clients
     {
       // Write the data header.
       // This indicates that it is a replay file, version 1
-      EZWriter.Write(res, ReplayFile.Preamble); 
+      EZWriter.Write(res, ReplayFile.Preamble);
       EZWriter.WriteBytes(res, new[] { (byte)1 });
 
       // Now write the game data segment:
-      WriteSegment(this.GameData);
+      WriteGameDataSegment(this.GameData);
 
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------
+    private void CheckComplete()
+    {
+      if (this.RecordingComplete) { throw new InvalidOperationException("Recording is complete!  Can't write anymore!"); }
     }
 
     // -----------------------------------------------------------------------------------------------------------------------
     private unsafe void WriteInputSegment(ref GameInput input)
     {
+      CheckComplete();
+
       long start = this.DataStream.Position;
       int inputSize = this.GameData.TotalInputSize;
       int segmentSize = inputSize + sizeof(int);
@@ -134,8 +141,10 @@ namespace GGPOSharp.Clients
     }
 
     // -----------------------------------------------------------------------------------------------------------------------
-    private void WriteSegment(GameData gameData)
+    private void WriteGameDataSegment(GameData gameData)
     {
+      CheckComplete();
+
       // V1 Segments are of the form:
       // - Type (1B)
       // - DataSize (2B)
@@ -166,8 +175,10 @@ namespace GGPOSharp.Clients
 
 
     // -----------------------------------------------------------------------------------------------------------------------
-    private void WriteSegment(EDataSegmentType segmentType, Stream fromStream)
+    private void WriteSegmentData(EDataSegmentType segmentType, Stream fromStream)
     {
+      CheckComplete();
+
       long start = this.DataStream.Position;
       int segmentSize = (int)fromStream.Position;
 
@@ -216,11 +227,10 @@ namespace GGPOSharp.Clients
     /// reason why it was completed.  This could be through a proper disconnect,
     /// or an error, etc.
     /// </summary>
-    /// <remarks>
-    /// 
-    /// </remarks>
     public void CompleteReplay(int frame, ECompletionReason reason, string? errMsg = null)
     {
+      CheckComplete();
+
       // TODO: Some kind of sanity check for the frame #?
       const int COMPLETE_MSG_LEN = 64;
       string useErr = errMsg == null ? string.Empty : StringTools.Truncate(errMsg, COMPLETE_MSG_LEN);
@@ -237,30 +247,34 @@ namespace GGPOSharp.Clients
         // Write the end code so that we know that the file is actually completed correctly.
         EZWriter.Write(ms, ReplayFile.Footer);
 
-        WriteSegment(EDataSegmentType.Complete, ms);
+        WriteSegmentData(EDataSegmentType.Complete, ms);
 
         // We will put the total file size at the end, as a kind of checksum, I guess...
         long finalSize = (int)(DataStream.Position + sizeof(long));
         EZWriter.Write(DataStream, finalSize);
       }
+
+      RecordingComplete = true;
     }
 
     // -----------------------------------------------------------------------------------------------------------------------
-    public void AddChat(ChatData chat)
+    public void AddChatSegment(ChatData chat)
     {
+      CheckComplete();
+
       if (string.IsNullOrWhiteSpace(chat.Message)) { return; }
       chat.Message = StringTools.Truncate(chat.Message, ChatData.CHAT_DATA_MAX);
 
       int segmentSize = chat.Message.Length + sizeof(int) + sizeof(int);
 
-      long  start = DataStream.Position;
+      long start = DataStream.Position;
 
       EZWriter.Write(DataStream, (byte)EDataSegmentType.ChatData);
       EZWriter.Write(DataStream, (UInt16)segmentSize);
       EZWriter.Write(DataStream, chat.FromPlayerIndex);
       EZWriter.Write(DataStream, chat.ToPlayerIndex);
       EZWriter.RawString(DataStream, chat.Message);
-      
+
       long end = DataStream.Position;
       long total = end - start;
       int expected = segmentSize + 3;
@@ -276,7 +290,6 @@ namespace GGPOSharp.Clients
     /// <returns>
     /// Boolean value indicating if the frame was accepted.
     /// Returns false if the frame already exists</returns>
-    /// <exception cref="InvalidOperationException"></exception>
     public unsafe bool AddInput(int playerIndex, ref GameInput input)
     {
       var buf = PlayerBuffers[playerIndex];
@@ -286,7 +299,9 @@ namespace GGPOSharp.Clients
         // TODO: Shutdown the recorder correctly!
         // Send other events!
         // We don't want to use exceptions for flow control, rather we need to set an error state on the recorder!
-        throw new InvalidOperationException($"Input buffer for player: {playerIndex} is full!");
+        // throw new InvalidOperationException($"Input buffer for player: {playerIndex} is full!");
+
+        this.RecordingError($"Too many unmerged inputs!: {playerIndex}");
       }
 
       // It is OK if we add a duplicate frame.
@@ -313,10 +328,13 @@ namespace GGPOSharp.Clients
       {
         // Now that we have added a frame, we will go to the back, and find
         // all frames that match + do the merge.
-
         for (int i = 0; i < len; i++)
         {
-          if (this.PlayerBuffers[i].Size == 0) { popIt = false; break; }
+          if (this.PlayerBuffers[i].Size == 0)
+          {
+            popIt = false;
+            break;
+          }
           if (this.PlayerBuffers[i].Back().frame != startFrame)
           {
             throw new InvalidOperationException($"Invalid (back) frame number at player index: {i}!  Should be {startFrame}!");
@@ -346,6 +364,14 @@ namespace GGPOSharp.Clients
     }
 
     // -----------------------------------------------------------------------------------------------------------------------
+    private void RecordingError(string message)
+    {
+      this.HasError = true;
+      this.ErrorMessage = message;
+      CompleteReplay(this.BaseFrame, ECompletionReason.Error, message);
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------
     private unsafe void MergeInputs()
     {
       // We want to create a single GameInput instance from a full set.
@@ -362,7 +388,9 @@ namespace GGPOSharp.Clients
       for (int i = 0; i < len; i++)
       {
         // Make sure that the frames are correct (NOTE: This may be done in a previous step already....);
-        if (MergeBuffer[i].frame != merged.frame) { 
+        if (MergeBuffer[i].frame != merged.frame)
+        {
+          // CompleteReplay(
           throw new InvalidOperationException($"Unexpected frame # from merge buffer: {i}! ({merged.frame} {MergeBuffer[i].frame})");
         }
         for (int j = 0; j < offset; j++)
@@ -398,7 +426,6 @@ namespace GGPOSharp.Clients
     /// </summary>
     public int ToPlayerIndex { get; private set; } = -1;
   }
-
 
   // ==============================================================================================================================
   public class GameData

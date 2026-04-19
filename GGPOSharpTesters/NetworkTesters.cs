@@ -1,4 +1,3 @@
-using drewCo.Tools.Logging;
 using GGPOSharp;
 using GGPOSharp.Clients;
 
@@ -12,7 +11,7 @@ namespace GGPOSharpTesters
     // --------------------------------------------------------------------------------------------------------------------------
     /// <summary>
     /// This test case shows that while it may be able to connect to a replay appliance at some point, is dropped, etc.
-    /// When this condition is detected (probably during merge) we will want to send out the disconnect signal + log
+    /// When this condition is detected (during merge) we will want to send out the disconnect signal + log
     /// the failure to capture the replay.
     /// </summary>
     [Test]
