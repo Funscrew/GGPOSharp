@@ -200,6 +200,10 @@ namespace GGPOSharp.Clients
 
           res.Add(gi);
         }
+        else {
+          // I think we need to skip ahead here...
+          DataStream.Seek(size, SeekOrigin.Current);
+        }
       }
 
       return res;
