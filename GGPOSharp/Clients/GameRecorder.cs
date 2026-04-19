@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Reflection.Metadata;
 using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using System.Xml;
 
 namespace GGPOSharp.Clients
@@ -94,7 +95,7 @@ namespace GGPOSharp.Clients
     {
       // Write the data header.
       // This indicates that it is a replay file, version 1
-      EZWriter.Write(res, ReplayFile.Preamble); // new[] { 'f', 's', 'n', 'e', 'o', '-', 'r', 'f' });
+      EZWriter.Write(res, ReplayFile.Preamble); 
       EZWriter.WriteBytes(res, new[] { (byte)1 });
 
       // Now write the game data segment:
@@ -103,7 +104,7 @@ namespace GGPOSharp.Clients
     }
 
     // -----------------------------------------------------------------------------------------------------------------------
-    private unsafe void WriteSegment(ref GameInput input)
+    private unsafe void WriteInputSegment(ref GameInput input)
     {
       long start = this.DataStream.Position;
       int inputSize = this.GameData.TotalInputSize;
@@ -111,8 +112,8 @@ namespace GGPOSharp.Clients
 
       EZWriter.Write(DataStream, (byte)EDataSegmentType.InputData);
       EZWriter.Write(DataStream, (UInt16)inputSize);
-
       EZWriter.Write(DataStream, input.frame);
+
       for (int i = 0; i < inputSize; i++)
       {
         WriteBuffer[i] = input.data[i];
@@ -245,9 +246,30 @@ namespace GGPOSharp.Clients
     }
 
     // -----------------------------------------------------------------------------------------------------------------------
-    public void AddChat(int playerIndex, ChatData chat)
+    public void AddChat(ChatData chat)
     {
-      throw new Exception();
+      if (string.IsNullOrWhiteSpace(chat.Message)) { return; }
+      chat.Message = StringTools.Truncate(chat.Message, ChatData.CHAT_DATA_MAX);
+
+      int segmentSize = chat.Message.Length + sizeof(int) + sizeof(int);
+
+      long  start = DataStream.Position;
+
+      EZWriter.Write(DataStream, (byte)EDataSegmentType.ChatData);
+      EZWriter.Write(DataStream, (UInt16)segmentSize);
+      EZWriter.Write(DataStream, chat.FromPlayerIndex);
+      EZWriter.Write(DataStream, chat.ToPlayerIndex);
+      EZWriter.RawString(DataStream, chat.Message);
+      
+      long end = DataStream.Position;
+      long total = end - start;
+      int expected = segmentSize + 3;
+      if (total != expected)
+      {
+        throw new InvalidOperationException($"Data size mismatch on write: {total} - {expected}!");
+      }
+
+      DataStream.Flush();
     }
 
     // -----------------------------------------------------------------------------------------------------------------------
@@ -268,7 +290,7 @@ namespace GGPOSharp.Clients
       }
 
       // It is OK if we add a duplicate frame.
-      // NOTE: This is a copy we cna probably avoid!
+      // NOTE: This is a copy we can probably avoid!
       int startFrame = BaseFrame;
       if (buf.Size > 0)
       {
@@ -351,7 +373,7 @@ namespace GGPOSharp.Clients
       }
 
       // Write that data to disk!
-      WriteSegment(ref merged);
+      WriteInputSegment(ref merged);
 
       // Add it to the active window of inputs (which are used for live playback)
       this.MergedInputs.Push(merged);
@@ -363,12 +385,18 @@ namespace GGPOSharp.Clients
   {
     public const int CHAT_DATA_MAX = 128;
 
-    public int PlayerIndex { get; set; }
+    public int FromPlayerIndex { get; set; }
     /// <summary>
     /// What frame was the message sent on?
     /// </summary>
     public int Frame { get; set; }
-    public string Message { get; set; }
+    public string Message { get; set; } = null!;
+
+    /// <summary>
+    /// Determines who we are sending the message to,
+    /// use -1 for all players.
+    /// </summary>
+    public int ToPlayerIndex { get; private set; } = -1;
   }
 
 

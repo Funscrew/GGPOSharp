@@ -270,26 +270,7 @@ public class GGPOEndpoint
       Utils.CopyMem(evt.u.chat.data, pSrc, msg.u.datagram.dataSize);
     }
 
-    // Debug.Assert(evt.u.chat.dataSize == dataLen, );
-
-    //fixed (byte* txtData = msg.u.chat.data)
-    //{
-    //  evt.u.chat.SetData(txtData, evt.u.chat.dataSize);
-    //}
-    //string text = evt.u.chat.GetText();
-
-    // char code = text[0];
-
-
-
-    // Log.Info($"Received chat: {evt.u.chat.GetText()}");
-
-
-    // strcpy_s(evt.u.chat.text, textlen + 1, msg->u.chat.text);
-
-    //Log("Sending frame %d to emu queue %d (%s).", _last_received_input.frame, _queue, desc);
     QueueEvent(evt);
-
 
     return true;
   }
