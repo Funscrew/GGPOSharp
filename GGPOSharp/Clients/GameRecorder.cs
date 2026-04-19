@@ -1,5 +1,4 @@
 ﻿using drewCo.Tools;
-using System.Windows.Markup;
 
 namespace GGPOSharp.Clients
 {
@@ -39,8 +38,9 @@ namespace GGPOSharp.Clients
     public string FilePath { get; private set; } = null!;
 
     public bool RecordingComplete { get; private set; } = false;
-    public bool HasError { get; private set; } = false;
+    public bool HasError { get { return ErrorReason != EErrorReason.None; }}
     public string? ErrorMessage { get; private set; } = null!;
+    public EErrorReason ErrorReason { get; private set; }
 
     // -----------------------------------------------------------------------------------------------------------------------
     // NOTE: In production environments, game data should not be allowed to be overwritten!
@@ -227,7 +227,7 @@ namespace GGPOSharp.Clients
     /// reason why it was completed.  This could be through a proper disconnect,
     /// or an error, etc.
     /// </summary>
-    public void CompleteReplay(int frame, ECompletionReason reason, string? errMsg = null)
+    public void CompleteReplay(int frame, ECompletionReason reason, EErrorReason errReason, string? errMsg)
     {
       CheckComplete();
 
@@ -239,6 +239,7 @@ namespace GGPOSharp.Clients
       {
         // NOTE: In a perfect world we use our own write buffer.
         EZWriter.Write(ms, (byte)reason);
+        EZWriter.Write(ms, (byte)errReason);
         EZWriter.Write(ms, frame);
 
         CopyFixedString(useErr, COMPLETE_MSG_LEN, WriteBuffer, 0);
@@ -301,7 +302,7 @@ namespace GGPOSharp.Clients
         // We don't want to use exceptions for flow control, rather we need to set an error state on the recorder!
         // throw new InvalidOperationException($"Input buffer for player: {playerIndex} is full!");
 
-        this.RecordingError($"Too many unmerged inputs!: {playerIndex}");
+        this.OnError(EErrorReason.InputBufferFull, $"Too many unmerged inputs!: {playerIndex}");
       }
 
       // It is OK if we add a duplicate frame.
@@ -364,11 +365,11 @@ namespace GGPOSharp.Clients
     }
 
     // -----------------------------------------------------------------------------------------------------------------------
-    private void RecordingError(string message)
+    private void OnError(EErrorReason errReason, string message)
     {
-      this.HasError = true;
+      this.ErrorReason = errReason;
       this.ErrorMessage = message;
-      CompleteReplay(this.BaseFrame, ECompletionReason.Error, message);
+      CompleteReplay(this.BaseFrame, ECompletionReason.Error, errReason, message);
     }
 
     // -----------------------------------------------------------------------------------------------------------------------
@@ -455,6 +456,16 @@ namespace GGPOSharp.Clients
 
     public static ushort DataSize { get; } = GameData.MAX_GAME_NAME_SIZE + sizeof(UInt64) + sizeof(int) + sizeof(int);
   }
+
+  // ==============================================================================================================================
+public enum EErrorReason { 
+  None = 0,
+  /// <summary>
+  /// This happens when one or more input buffrers are full and we try to add another.
+  /// The main reason for this happening is that one or more clients are disconnected / not sending packets.
+  /// </summary>
+  InputBufferFull
+}
 
   // ==============================================================================================================================
   public enum ECompletionReason

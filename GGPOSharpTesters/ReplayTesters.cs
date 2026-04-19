@@ -87,7 +87,7 @@ namespace GGPOSharpTesters
         }
 
       }
-      recorder.CompleteReplay(p1Input.frame + 1, ECompletionReason.NormalDisconnect);
+      recorder.CompleteReplay(p1Input.frame + 1, ECompletionReason.NormalDisconnect, EErrorReason.None, null);
 
       recorder.Dispose();
 
