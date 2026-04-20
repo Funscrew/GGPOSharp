@@ -22,7 +22,7 @@ public abstract class ClientOptions
   public uint ProtocolVersion { get; set; } = Defaults.PROTOCOL_VERSION;
 
   [Option("replay-options", Required = false, HelpText = "Address of the replay applicance in the form of: <host>:<port>")]
-  public string? ReplayOptions { get; set; } = null;
+  public string? ReplayAddress { get; set; } = null;
 
   [Option("replay-timeout", Required = false, HelpText = "Time in ms. that attempts to sync will time out.  Gameplay will continue as normal, but no replay data will be sent.")]
   public int ReplayTimeout { get; set; } = Defaults.REPLAY_TIMEOUT;
@@ -32,7 +32,7 @@ public abstract class ClientOptions
   /// This is what will be sent to the client as this endpoint's "player name".
   /// </summary>
   [Option("session-id")]
-  public UInt64 SessionId { get; set; } = 0;
+  public UInt64 SessionId { get; set; } = 0;  
 }
 
 // ==============================================================================================================================
@@ -43,21 +43,20 @@ public abstract class ClientOptions
 [Verb("replay-appliance")]
 public class ReplayListenOptions : ClientOptions
 {
-
-
-  ///// <summary>
-  ///// Comma delimited list of all addresses that we are going to listen in on.
-  ///// There should be one entry for each player that will be sending the data.
-  ///// </summary>
-  //[Option("listen-on", HelpText = "host:port that we are listening for connections on.")]
-  //public string ListenOn { get; set; }
-
   /// <summary>
   /// Time in ms. for how long we will wait for the expected players to connect / sync.
   /// </summary>
   [Option("startup-timeout", Required = false, HelpText = "Time in ms. that we will wait for connections.  Use -1 for unlimited time.")]
   public int StartupTimeout { get; set; } = GGPOConsts.UNLIMITED_TIME;
 
+  [Option("data-dir", Required = false, HelpText = "Directory where replay data files will be stored.")]
+  public string DataDir { get; set; } = "replays";
+
+  [Option("game-name", Required = true, HelpText = "The name of the game")]
+  public string GameName { get; set; } = null!;
+
+  [Option("game-version", Required = true, HelpText = "Version of the game.  Max 16 chars.")]
+  public string GameVersion { get; set; } = null!;
 }
 
 // ==============================================================================================================================

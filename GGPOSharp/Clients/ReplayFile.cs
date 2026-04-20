@@ -67,10 +67,11 @@ namespace GGPOSharp.Clients
 
       //GameData = new GameData();
       DataStream.Read(ReadBuffer, 0, GameData.MAX_GAME_NAME_SIZE);
-
-
       string name = ReadFixedString(ReadBuffer, 0, GameData.MAX_GAME_NAME_SIZE);
-      var version = EZReader.ReadUInt64(DataStream);
+
+      DataStream.Read(ReadBuffer, 0, GameData.MAX_VERSION_SIZE);
+      string version = ReadFixedString(ReadBuffer, 0, GameData.MAX_VERSION_SIZE);
+
       int playerCount = EZReader.ReadInt32(DataStream);
       int inputSize = EZReader.ReadInt32(DataStream);
 

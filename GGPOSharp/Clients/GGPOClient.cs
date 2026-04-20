@@ -13,7 +13,7 @@ namespace GGPOSharp;
 /// </summary>
 public class GGPOClient : IGGPOClient, IDisposable
 {
-  private GGPOClientOptions Options = null!;
+  protected GGPOClientOptions ClientOptions = null!;
   protected List<GGPOEndpoint> _endpoints = new List<GGPOEndpoint>();
   protected GGPOEndpoint[] _Players = new GGPOEndpoint[GGPOConsts.MAX_PLAYERS];
   protected int _ConnectedPlayerCount = 0;
@@ -23,7 +23,7 @@ public class GGPOClient : IGGPOClient, IDisposable
   private SimTimer Clock = null!;
   public int CurTime { get { return Clock.CurTime; } }
 
-  public UInt32 ClientVersion { get { return this.Options.ClientVersion; } }
+  public UInt32 ClientVersion { get { return this.ClientOptions.ClientVersion; } }
 
   /// <summary>
   /// Indicates that the client is officially started, and no new connections can be added.
@@ -50,7 +50,7 @@ public class GGPOClient : IGGPOClient, IDisposable
   /// Session Id, which corresponds to unix time in milliseconds.
   /// Only used in replay contexts.
   /// </summary>
-  public UInt64 SessionId { get { return Options.SessionId; } }
+  public UInt64 SessionId { get { return ClientOptions.SessionId; } }
 
   private int _next_recommended_sleep = 0;
 
@@ -62,7 +62,7 @@ public class GGPOClient : IGGPOClient, IDisposable
   // ----------------------------------------------------------------------------------------
   public GGPOClient(GGPOClientOptions options_, IUdpBlaster udp_, SimTimer clock_)
   {
-    Options = options_;
+    ClientOptions = options_;
 
     ValidateOptions();
 
@@ -77,14 +77,14 @@ public class GGPOClient : IGGPOClient, IDisposable
 
     var ops = new SyncOptions()
     {
-      callbacks = Options.Callbacks,
-      input_size = Options.InputSize,
+      callbacks = ClientOptions.Callbacks,
+      input_size = ClientOptions.InputSize,
       num_players = 2,
       num_prediction_frames = GGPOConsts.MAX_PREDICTION_FRAMES
     };
     _sync = new Sync(_local_connect_status, ops);
 
-    _callbacks = Options.Callbacks;
+    _callbacks = ClientOptions.Callbacks;
 
     // I'm implementing this out of a sense of tradition....
     // Not really sure if this matters here, or if this is even the best place to
@@ -117,7 +117,7 @@ public class GGPOClient : IGGPOClient, IDisposable
   // ----------------------------------------------------------------------------------------
   private void ValidateOptions()
   {
-    if (Options.Callbacks == null)
+    if (ClientOptions.Callbacks == null)
     {
       throw new InvalidOperationException("Callbacks are null!");
     }
@@ -226,7 +226,7 @@ public class GGPOClient : IGGPOClient, IDisposable
   // ----------------------------------------------------------------------------------------
   public void Idle()
   {
-    DoPoll(Options.IdleTimeout);
+    DoPoll(ClientOptions.IdleTimeout);
   }
 
   // ----------------------------------------------------------------------------------------
@@ -545,7 +545,7 @@ public class GGPOClient : IGGPOClient, IDisposable
     input.init(-1, values, isize);
 
     // Feed the input for the current frame into the synchronzation layer.
-    if (!_sync.AddLocalInput(Options.PlayerIndex, ref input))
+    if (!_sync.AddLocalInput(ClientOptions.PlayerIndex, ref input))
     {
       // return GGPO_ERRORCODE_PREDICTION_THRESHOLD;
       return false;
@@ -560,8 +560,8 @@ public class GGPOClient : IGGPOClient, IDisposable
       // NOTE: All endpoints send out the _local_connect_status data with each message.
       // An ideal implemetation would have a single 'client' that we set this data on,
       // and then all endpoints would also be contained internally.
-      Utils.LogIt(LogCategories.INPUT, "local frame for: %d - %d", Options.PlayerIndex, input.frame);
-      _local_connect_status[Options.PlayerIndex].last_frame = input.frame;
+      Utils.LogIt(LogCategories.INPUT, "local frame for: %d - %d", ClientOptions.PlayerIndex, input.frame);
+      _local_connect_status[ClientOptions.PlayerIndex].last_frame = input.frame;
 
       // Send the input to all the remote players.
       // NOTE: This queues input, and it gets pumped out later....
@@ -907,7 +907,6 @@ public class GGPOClientOptions
       ReplayHost = x.Host;
       ReplayPort = x.Port;
       ReplayTimeout = replayTimeout;
-      // SessionId = x.SessionId
     }
   }
 

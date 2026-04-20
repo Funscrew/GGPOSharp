@@ -185,7 +185,7 @@ public class Program
       }
     };
 
-    ClientOptions.SetReplayOption(ops.ReplayOptions, ops.ReplayTimeout);
+    ClientOptions.SetReplayOption(ops.ReplayAddress, ops.ReplayTimeout);
 
     ClientMode = EMode.Echo;
 

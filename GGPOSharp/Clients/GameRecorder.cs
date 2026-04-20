@@ -1,4 +1,5 @@
 ﻿using drewCo.Tools;
+using System.ComponentModel.DataAnnotations;
 
 namespace GGPOSharp.Clients
 {
@@ -38,7 +39,7 @@ namespace GGPOSharp.Clients
     public string FilePath { get; private set; } = null!;
 
     public bool RecordingComplete { get; private set; } = false;
-    public bool HasError { get { return ErrorReason != EErrorReason.None; }}
+    public bool HasError { get { return ErrorReason != EErrorReason.None; } }
     public string? ErrorMessage { get; private set; } = null!;
     public EErrorReason ErrorReason { get; private set; }
 
@@ -156,9 +157,17 @@ namespace GGPOSharp.Clients
       EZWriter.Write(DataStream, segmentSize);
 
       // And now for the data.....
-      int size = CopyFixedString(gameData.GameName, GameData.MAX_GAME_NAME_SIZE, WriteBuffer, 0);
-      DataStream.Write(WriteBuffer, 0, size);
-      EZWriter.Write(DataStream, gameData.GameVersion);
+      {
+        int size = CopyFixedString(gameData.GameName, GameData.MAX_GAME_NAME_SIZE, WriteBuffer, 0);
+        DataStream.Write(WriteBuffer, 0, size);
+      }
+
+      {
+        int size = CopyFixedString(GameData.GameVersion, GameData.MAX_VERSION_SIZE, WriteBuffer, 0);
+        DataStream.Write(WriteBuffer, 0, size);
+      }
+
+      // EZWriter.Write(DataStream, gameData.GameVersion);
       EZWriter.Write(DataStream, gameData.PlayerCount);
       EZWriter.Write(DataStream, gameData.TotalInputSize);
 
@@ -432,6 +441,7 @@ namespace GGPOSharp.Clients
   public class GameData
   {
     public const int MAX_GAME_NAME_SIZE = 32;
+    public const int MAX_VERSION_SIZE = 16;
 
     /// <summary>
     /// Name of the game.
@@ -442,7 +452,8 @@ namespace GGPOSharp.Clients
     /// This should be a bitfield (or 8 char string) or whatever to represent the version of
     /// a game (major, minor, revision, etc.).  Implementation defined!
     /// </summary>
-    public UInt64 GameVersion { get; set; } = 1;
+    [MaxLength(MAX_VERSION_SIZE)]
+    public string GameVersion { get; set; } = "<n/a>";
 
     /// <summary>
     /// How many people are playing.
@@ -454,18 +465,19 @@ namespace GGPOSharp.Clients
     /// </summary>
     public int TotalInputSize { get; set; }
 
-    public static ushort DataSize { get; } = GameData.MAX_GAME_NAME_SIZE + sizeof(UInt64) + sizeof(int) + sizeof(int);
+    public static ushort DataSize { get; } = GameData.MAX_GAME_NAME_SIZE + MAX_VERSION_SIZE + sizeof(int) + sizeof(int);
   }
 
   // ==============================================================================================================================
-public enum EErrorReason { 
-  None = 0,
-  /// <summary>
-  /// This happens when one or more input buffrers are full and we try to add another.
-  /// The main reason for this happening is that one or more clients are disconnected / not sending packets.
-  /// </summary>
-  InputBufferFull
-}
+  public enum EErrorReason
+  {
+    None = 0,
+    /// <summary>
+    /// This happens when one or more input buffrers are full and we try to add another.
+    /// The main reason for this happening is that one or more clients are disconnected / not sending packets.
+    /// </summary>
+    InputBufferFull
+  }
 
   // ==============================================================================================================================
   public enum ECompletionReason

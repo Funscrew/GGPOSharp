@@ -12,13 +12,11 @@ namespace GGPOSharp.Clients
   /// </summary>
   public class ReplayAppliance : GGPOClient
   {
-    private ReplayListenOptions Options = default!;
+    private ReplayListenOptions ReplayOptions = default!;
 
     // FROM: GGPOEndpoint
     private IPEndPoint RemoteIP;
     private EndPoint RemoteEP;
-    private SocketAddress UseRemote;
-    private byte[] ReceiveBuffer = new byte[8192];
 
     // The two clients that we expect to receive data from.  These will be the remote endpoints that we
     // then set up.
@@ -37,20 +35,38 @@ namespace GGPOSharp.Clients
 
     private Stopwatch Clock = default!;
 
+    private GameRecorder Recorder = null!;
+
     // --------------------------------------------------------------------------------------------------------------------------
     public ReplayAppliance(GGPOClientOptions ggpoOps_, ReplayListenOptions ops_, IUdpBlaster udp_, SimTimer clock_)
       : base(ggpoOps_, udp_, clock_)
     {
-      Options = ops_;
+      ReplayOptions = ops_;
 
       // Validate options:
-      if (Options.SessionId == 0) { throw new InvalidOperationException("Invalid session id!"); }
+      if (ReplayOptions.SessionId == 0) { throw new InvalidOperationException("Invalid session id!"); }
 
       RemoteIP = new IPEndPoint(IPAddress.Any, 0);
       RemoteEP = RemoteIP;
 
       Clock = Stopwatch.StartNew();
 
+      InitGameRecorder();
+    }
+
+    // --------------------------------------------------------------------------------------------------------------------------
+    private void InitGameRecorder()
+    {
+      Recorder = new GameRecorder(new GameData()
+      {
+        GameName = ReplayOptions.GameName,
+        GameVersion = ReplayOptions.GameVersion,
+        PlayerCount = ClientOptions.MaxPlayerCount,
+        TotalInputSize = ClientOptions.InputSize * ClientOptions.MaxPlayerCount
+      },
+      ReplayOptions.DataDir,
+      ClientOptions.SessionId
+      );
     }
 
     public int ClientCount { get { return this.ConnectedClients.Count; } }
@@ -92,7 +108,7 @@ namespace GGPOSharp.Clients
 
       // Make sure that session id + player index are correct....
       var sid = msg.u.sync_request.session_id;
-      if (sid != Options.SessionId)
+      if (sid != ReplayOptions.SessionId)
       {
         // We don't want to receive from this endpoint anymore.....
         // How can we block receiving?
@@ -217,18 +233,19 @@ namespace GGPOSharp.Clients
       return true;
     }
 
+
     // --------------------------------------------------------------------------------------------------------------------------
     /// <summary>
     /// This is where the inputs for the different frames will get merged, recorded, and later sent out.
     /// </summary>
-    private bool _WarningSent = false;
+    // private bool _WarningSent = false;
     internal void MergeInput(ref GameInput input, int playerIndex)
     {
-      if (!_WarningSent)
-      {
-        Log.Warning("Input merging is currently unsupported!");
-        _WarningSent = true;
-      }
+      //if (!_WarningSent)
+      //{
+      //  Log.Warning("Input merging is currently unsupported!");
+      //  _WarningSent = true;
+      //}
       // For now, we will do nothing....
       // Debug.
       // Log.wa
