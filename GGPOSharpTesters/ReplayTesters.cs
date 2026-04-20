@@ -30,7 +30,7 @@ namespace GGPOSharpTesters
     public unsafe void CanRecordAndLoadReplayInformation()
     {
       const int TEST_SESSION_ID = 1234;
-      const string TEST_GAME_NAME = "MyGame";
+      const string TEST_GAME_NAME = "MyGame"; //"MyGame -€";     // NOTE: Use unicode character to show proper UTF-8 support!
 
       const int INPUT_SIZE = 5;
 

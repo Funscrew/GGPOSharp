@@ -316,7 +316,11 @@ namespace GGPOSharp.Clients
 
       // It is OK if we add a duplicate frame.
       // NOTE: This is a copy we can probably avoid!
+      // The start frame should be per-player, otherwise they have to always be in perfect sync...
       int startFrame = BaseFrame;
+      
+      
+      
       if (buf.Size > 0)
       {
         var f = buf.Front();
@@ -446,12 +450,14 @@ namespace GGPOSharp.Clients
     /// <summary>
     /// Name of the game.
     /// </summary>
-    public string GameName { get; set; }
+    [Required]
+    public string GameName { get; set; } = default!;
 
     /// <summary>
     /// This should be a bitfield (or 8 char string) or whatever to represent the version of
     /// a game (major, minor, revision, etc.).  Implementation defined!
     /// </summary>
+    [Required]
     [MaxLength(MAX_VERSION_SIZE)]
     public string GameVersion { get; set; } = "<n/a>";
 

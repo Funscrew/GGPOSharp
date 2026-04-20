@@ -1,3 +1,4 @@
+using drewCo.Tools;
 using GGPOSharp;
 using GGPOSharp.Clients;
 
@@ -7,6 +8,12 @@ namespace GGPOSharpTesters
   // ==============================================================================================================================
   public class NetworkTesters : TestBase
   {
+    // --------------------------------------------------------------------------------------------------------------------------
+    public NetworkTesters()
+    {
+      FileTools.EmptyDirectory("replays");
+      FileTools.CreateDirectory("replays");
+    }
 
     // --------------------------------------------------------------------------------------------------------------------------
     /// <summary>
@@ -15,7 +22,7 @@ namespace GGPOSharpTesters
     /// the failure to capture the replay.
     /// </summary>
     [Test]
-    public unsafe void ReplayApplianceWontSyncUntilAllPlayersAreConnected() 
+    public unsafe void ReplayApplianceWontSyncUntilAllPlayersAreConnected()
     {
       const string P1_NAME = "Joe";
       const string P2_NAME = "Archie";
@@ -30,7 +37,9 @@ namespace GGPOSharpTesters
 
       var replayOps = new ReplayListenOptions()
       {
-        SessionId = SESSION_ID
+        SessionId = SESSION_ID,       // TODO: Resolve a valid replay ID!
+        GameName = "Test_Game_1",
+        GameVersion = "0.1",
       };
       var blaster = new SimUdp(REPLAY_APPLIANCE_HOST, REPLAY_APPLIANCE_PORT, context.TimeSource, context.MsgQueue, SIM_PING, SIM_JITTER);
       var replayAppliance = new SimReplayAppliance(ops, replayOps, blaster, context.TimeSource);

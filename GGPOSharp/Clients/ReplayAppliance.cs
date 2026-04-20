@@ -1,4 +1,5 @@
-﻿using drewCo.Tools.Logging;
+﻿using drewCo.Tools;
+using drewCo.Tools.Logging;
 using System.Diagnostics;
 using System.Net;
 
@@ -57,6 +58,15 @@ namespace GGPOSharp.Clients
     // --------------------------------------------------------------------------------------------------------------------------
     private void InitGameRecorder()
     {
+      if (string.IsNullOrWhiteSpace(ReplayOptions.GameName))
+      {
+        throw new InvalidOperationException("Invalid game name!");
+      }
+      if (string.IsNullOrWhiteSpace(ReplayOptions.GameVersion))
+      {
+        throw new InvalidOperationException("Invalid game version!");
+      }
+
       Recorder = new GameRecorder(new GameData()
       {
         GameName = ReplayOptions.GameName,
@@ -241,6 +251,11 @@ namespace GGPOSharp.Clients
     // private bool _WarningSent = false;
     internal void MergeInput(ref GameInput input, int playerIndex)
     {
+      if (Recorder.HasError)  {
+        int x = 10;
+      }
+      Recorder.AddInput(playerIndex, ref input);
+
       //if (!_WarningSent)
       //{
       //  Log.Warning("Input merging is currently unsupported!");
