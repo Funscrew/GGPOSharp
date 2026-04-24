@@ -3,7 +3,9 @@ using System.Collections;
 
 namespace GGPOSharp
 {
-  // =================================================================================
+
+
+  // ========================================================================================================
   /// <summary>
   /// Ring buffer.
   /// 
@@ -135,6 +137,13 @@ namespace GGPOSharp
       return _buffer[_start];
     }
 
+    public void GetFront(ref T front)
+    {
+      ThrowIfEmpty();
+      //return _buffer[_start];
+      front = _buffer[_start];
+    }
+
     /// <summary>
     /// Element at the back of the buffer - this[Size - 1].
     /// </summary>
@@ -142,7 +151,18 @@ namespace GGPOSharp
     public T Back()
     {
       ThrowIfEmpty();
-      return _buffer[(_end != 0 ? _end : Capacity) - 1];
+      int index = (_end != 0 ? _end : Capacity) - 1;
+      return _buffer[index];
+    }
+
+    /// <summary>
+    /// Element at the back of the buffer w/o copy.
+    /// </summary>
+    public void GetBack(ref T back)
+    {
+      ThrowIfEmpty();
+      int index = (_end != 0 ? _end : Capacity) - 1;
+      back = _buffer[index];
     }
 
     /// <summary>
@@ -418,4 +438,8 @@ namespace GGPOSharp
     }
     #endregion
   }
+
+
+
 }
+

@@ -59,6 +59,8 @@ public class GGPOClient : IGGPOClient, IDisposable
   private byte[] _ReceiveBuffer = new byte[8192];
   private EndPoint ReceivedFrom = new IPEndPoint(IPAddress.Any, 0);   // This doesn't matter, we just need a place to stuff the data...
 
+  public bool IsDisconnected { get; protected set; } = false;
+
   // ----------------------------------------------------------------------------------------
   public GGPOClient(GGPOClientOptions options_, IUdpBlaster udp_, SimTimer clock_)
   {
@@ -98,6 +100,21 @@ public class GGPOClient : IGGPOClient, IDisposable
   public void Dispose()
   {
     UDP?.Dispose();
+  }
+
+  // ----------------------------------------------------------------------------------------
+  public virtual void DisconnectAll()
+  {
+    for (int i = 0; i < this.ClientCount; i++)
+    {
+      this.Endpoints[i].Disconnect();
+    }
+    this.AllConnected = false;
+    this.Endpoints.Clear();
+    this.ConnectedPlayerIndexes.Clear();
+
+    this.IsDisconnected = true;
+
   }
 
   // ----------------------------------------------------------------------------------------
@@ -184,7 +201,7 @@ public class GGPOClient : IGGPOClient, IDisposable
   }
 
   // ----------------------------------------------------------------------------------------
-  public  GGPOEndpoint AddRemotePlayer(RemoteEndpointData remoteData, TestOptions? testOps = null)
+  public GGPOEndpoint AddRemotePlayer(RemoteEndpointData remoteData, TestOptions? testOps = null)
   {
     CheckLocked();
 
@@ -206,8 +223,8 @@ public class GGPOClient : IGGPOClient, IDisposable
     return res;
   }
 
-// --------------------------------------------------------------------------------------------------------------------------
- protected virtual GGPOEndpoint CreateEndpoint(GGPOClient gGPOClient, GGPOEndpointOptions ops, ConnectStatus[] local_connect_status)
+  // --------------------------------------------------------------------------------------------------------------------------
+  protected virtual GGPOEndpoint CreateEndpoint(GGPOClient gGPOClient, GGPOEndpointOptions ops, ConnectStatus[] local_connect_status)
   {
     var res = new GGPOEndpoint(this, ops, _local_connect_status);
     return res;
@@ -232,7 +249,7 @@ public class GGPOClient : IGGPOClient, IDisposable
   // ----------------------------------------------------------------------------------------
   public virtual void DoPoll(int timeout)
   {
-  //  var receivedFrom = new IPEndPoint(IPAddress.Any, );
+    //  var receivedFrom = new IPEndPoint(IPAddress.Any, );
     // Receive all messages + send them off to the correct endpoints.
     // This is basically a soft-router.
     while (true)
@@ -787,7 +804,7 @@ public class GGPOClient : IGGPOClient, IDisposable
         info.event_code = EEventCode.GGPO_EVENTCODE_DATAGRAM;
         info.u.datagram.player_index = (byte)playerIndex;
         info.u.datagram.code = evt.u.chat.code;
-        info.u.datagram.frame =  evt.u.chat.frame;
+        info.u.datagram.frame = evt.u.chat.frame;
         info.u.datagram.dataSize = evt.u.chat.dataSize;
 
         fixed (byte* pSrc = evt.u.chat.data)

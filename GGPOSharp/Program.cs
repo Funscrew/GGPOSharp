@@ -75,6 +75,11 @@ public class Program
     int frameCount = 0;
     while (true)
     {
+      if (Client.IsDisconnected)
+      {
+        // Exit the program.
+      }
+
       double elapsed = Clock.Elapsed.TotalSeconds;
       if (elapsed < nextFrameTime)
       {

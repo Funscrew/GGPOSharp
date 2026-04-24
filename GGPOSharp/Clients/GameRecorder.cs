@@ -1,5 +1,6 @@
 ﻿using drewCo.Tools;
 using System.ComponentModel.DataAnnotations;
+using System.Runtime.InteropServices.Marshalling;
 
 namespace GGPOSharp.Clients
 {
@@ -26,9 +27,11 @@ namespace GGPOSharp.Clients
     /// <summary>
     /// Used to track what should be the expected starting frame on merge operations when a given buffer is empty!
     /// </summary>
-    private int BaseFrame = -1;
+    private int SyncedBaseFrame = 0;
 
-    private RingBuffer<GameInput>[] PlayerBuffers = null;
+    private EZQ<GameInput>[] PlayerBuffers = null!;
+    private int[] BaseFrames = null!;
+
     private GameInput[] MergeBuffer = null;
 
     private Stream DataStream = null!;
@@ -62,10 +65,16 @@ namespace GGPOSharp.Clients
       CreateStream(path);
       FilePath = path;
 
-      PlayerBuffers = new RingBuffer<GameInput>[MAX_PLAYERS];
+      BaseFrames = new int[MAX_PLAYERS];
+      int len = BaseFrames.Length;
+      for (int i = 0; i < len; i++)
+      {
+        BaseFrames[i] = -1;
+      }
+      PlayerBuffers = new EZQ<GameInput>[MAX_PLAYERS];
       for (int i = 0; i < MAX_PLAYERS; i++)
       {
-        PlayerBuffers[i] = new RingBuffer<GameInput>(PLAYER_INPUT_BUFFER_SIZE);
+        PlayerBuffers[i] = new EZQ<GameInput>(PLAYER_INPUT_BUFFER_SIZE);
       }
       MergeBuffer = new GameInput[MAX_PLAYERS];
     }
@@ -312,21 +321,25 @@ namespace GGPOSharp.Clients
         // throw new InvalidOperationException($"Input buffer for player: {playerIndex} is full!");
 
         this.OnError(EErrorReason.InputBufferFull, $"Too many unmerged inputs!: {playerIndex}");
+        return false;
       }
 
       // It is OK if we add a duplicate frame.
       // NOTE: This is a copy we can probably avoid!
       // The start frame should be per-player, otherwise they have to always be in perfect sync...
-      int startFrame = BaseFrame;
-      
-      
-      
-      if (buf.Size > 0)
+      int startFrame = BaseFrames[playerIndex]; /// SyncedBaseFrame;
+      if (input.frame == startFrame)
       {
-        var f = buf.Front();
-        if (f.frame == input.frame) { return false; }
-        startFrame = f.frame;
+        // Ignore duplicate frame.
+        // TODO: Log this, we may not actually need it...
+        return false;
       }
+      //if (buf.Size > 0)
+      //{
+      //  var f = buf.Front();
+      //  if (f.frame == input.frame) { return false; }
+      //  // startFrame = f.frame;
+      //}
       if (input.frame != startFrame + 1)
       {
         // TODO: Close the recording here, properly!
@@ -334,25 +347,38 @@ namespace GGPOSharp.Clients
       }
       buf.Push(input);
       startFrame++;
+      BaseFrames[playerIndex] = startFrame;
 
       int len = this.PlayerBuffers.Length;
       bool popIt = true;
 
       while (true)
       {
+        int startMergeFrame = SyncedBaseFrame;
+
+        // throw new InvalidOperationException("refigure how to do the sync/global base frames");
+
         // Now that we have added a frame, we will go to the back, and find
         // all frames that match + do the merge.
         for (int i = 0; i < len; i++)
         {
-          if (this.PlayerBuffers[i].Size == 0)
+          var pBuf = this.PlayerBuffers[i];
+          if (pBuf.Count == 0)
           {
             popIt = false;
             break;
           }
-          if (this.PlayerBuffers[i].Back().frame != startFrame)
+
+          GameInput giBuf = new GameInput();
+          pBuf.First(ref giBuf);
+          if (giBuf.frame != startMergeFrame)
           {
-            throw new InvalidOperationException($"Invalid (back) frame number at player index: {i}!  Should be {startFrame}!");
+            throw new InvalidOperationException($"Invalid (back) frame number at player index: {i}!  Should be {startMergeFrame}!");
           }
+          //// if (this.PlayerBuffers[i].Back().frame != startMergeFrame)
+          //{
+          //  throw new InvalidOperationException($"Invalid (back) frame number at player index: {i}!  Should be {startMergeFrame}!");
+          //}
         }
 
         // Nothing left to confirm!
@@ -361,16 +387,19 @@ namespace GGPOSharp.Clients
         // Copy data for the merge!
         for (int i = 0; i < len; i++)
         {
-          MergeBuffer[i] = this.PlayerBuffers[i].Front();
-          this.PlayerBuffers[i].PopBack();
+          var giBuf = new GameInput();
+          this.PlayerBuffers[i].First(ref giBuf);
+          MergeBuffer[i] = giBuf;
+
+          this.PlayerBuffers[i].Pop();
         }
 
         MergeInputs();
 
 
         // Do the merge here + write the segment!
-        BaseFrame = startFrame;
-        startFrame++;
+        startMergeFrame++;
+        SyncedBaseFrame = startMergeFrame;
       }
 
       // throw new Exception();
@@ -382,7 +411,7 @@ namespace GGPOSharp.Clients
     {
       this.ErrorReason = errReason;
       this.ErrorMessage = message;
-      CompleteReplay(this.BaseFrame, ECompletionReason.Error, errReason, message);
+      CompleteReplay(this.SyncedBaseFrame, ECompletionReason.Error, errReason, message);
     }
 
     // -----------------------------------------------------------------------------------------------------------------------

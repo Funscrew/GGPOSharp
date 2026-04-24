@@ -22,6 +22,10 @@ namespace GGPOSharp.Clients
     // The two clients that we expect to receive data from.  These will be the remote endpoints that we
     // then set up.
     private HashSet<SocketAddress> ConnectedClients = new HashSet<SocketAddress>();
+    private List<GGPOEndpoint> Endpoints = new List<GGPOEndpoint>();
+    private bool AllConnected = false;
+    private List<int> ConnectedPlayerIndexes = new List<int>();
+    public int ClientCount { get { return this.ConnectedClients.Count; } }
 
     public List<string> Errors { get; private set; } = new List<string>();
 
@@ -30,9 +34,6 @@ namespace GGPOSharp.Clients
     /// </summary>
     private HashSet<SocketAddress> Blacklisted = new HashSet<SocketAddress>();
 
-    private List<int> ConnectedPlayerIndexes = new List<int>();
-
-    private bool AllConnected = false;
 
     private Stopwatch Clock = default!;
 
@@ -79,7 +80,6 @@ namespace GGPOSharp.Clients
       );
     }
 
-    public int ClientCount { get { return this.ConnectedClients.Count; } }
 
     // --------------------------------------------------------------------------------------------------------------------------
     public GGPOEndpoint GetEndpoint(int index)
@@ -96,6 +96,7 @@ namespace GGPOSharp.Clients
       {
         int index = ConnectedClients.Count;
         var ep = ConnectNewClient(ref msg, ipa);
+        Endpoints.Add(ep);
       }
 
       // Now that the end
@@ -251,20 +252,29 @@ namespace GGPOSharp.Clients
     // private bool _WarningSent = false;
     internal void MergeInput(ref GameInput input, int playerIndex)
     {
-      if (Recorder.HasError)  {
+      if (Recorder.HasError)
+      {
         int x = 10;
+        // We have detected an error in the recorder.  We will log this, and send disconnect
+        // notices to all active clients.
+        Log.Error($"There was a recording error: {Recorder.ErrorReason} : {Recorder.ErrorMessage}");
+        DisconnectAll();
       }
       Recorder.AddInput(playerIndex, ref input);
+    }
 
-      //if (!_WarningSent)
-      //{
-      //  Log.Warning("Input merging is currently unsupported!");
-      //  _WarningSent = true;
-      //}
-      // For now, we will do nothing....
-      // Debug.
-      // Log.wa
-      // throw new NotImplementedException();
+    // --------------------------------------------------------------------------------------------------------------------------
+    protected virtual void DisconnectAll()
+    {
+      for (int i = 0; i < this.ClientCount; i++)
+      {
+        this.Endpoints[i].Disconnect();
+      }
+      this.AllConnected = false;
+      this.Endpoints.Clear();
+      this.ConnectedPlayerIndexes.Clear();
+
+      this.IsDisconnected = true;
     }
   }
 
