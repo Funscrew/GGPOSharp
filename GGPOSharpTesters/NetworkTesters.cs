@@ -25,13 +25,11 @@ namespace GGPOSharpTesters
     [Test]
     public unsafe void ReplayApplianceWontSyncUntilAllPlayersAreConnected()
     {
-      ulong sessId = GetNextSessionId();
-
       const string P1_NAME = "Joe";
       const string P2_NAME = "Archie";
       TestContext context = CreateTestContext(P1_NAME, P2_NAME);
 
-      var ops = new GGPOClientOptions(0, REPLAY_APPLIANCE_PORT, Defaults.PROTOCOL_VERSION, sessId);
+      var ops = new GGPOClientOptions(0, REPLAY_APPLIANCE_PORT, Defaults.PROTOCOL_VERSION, context.SessionId);
       ops.Callbacks = CreateDefaultCallbacks();
 
 
@@ -40,7 +38,7 @@ namespace GGPOSharpTesters
 
       var replayOps = new ReplayApplianceOptions()
       {
-        SessionId = sessId,       // TODO: Resolve a valid replay ID!
+        SessionId = context.SessionId,       // TODO: Resolve a valid replay ID!
         GameName = "Test_Game_1",
         GameVersion = "0.1",
       };

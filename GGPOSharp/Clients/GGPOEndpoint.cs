@@ -3,6 +3,7 @@ using System.Net;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using drewCo.Tools.Logging;
+using Microsoft.VisualBasic;
 
 namespace GGPOSharp;
 
@@ -236,15 +237,24 @@ public class GGPOEndpoint
   }
 
   // ------------------------------------------------------------------------------------------------
-  internal void Disconnect()
+  internal void Disconnect(int onFrame)
   {
-    throw new InvalidOperationException("OBSOLETE!");
-    if (_current_state != EClientState.Disconnected)
+    // We send out duplicate message packets in case of packet loss.
+    const int MSG_COUNT = 3;
+    for (int i = 0; i < MSG_COUNT; i++)
     {
-      _current_state = EClientState.Disconnected;
-      _shutdown_timeout = (uint)(Client.CurTime + UDP_SHUTDOWN_TIMER);
+      UdpMsg msg = new UdpMsg(EMsgType.Datagram);
+      msg.u.datagram.code = 4 ;
+      msg.u.datagram.frame = onFrame;
+
+      SendMsg(ref msg);
     }
+
+    _current_state = EClientState.Disconnected;
+    _shutdown_timeout = (uint)(Client.CurTime + UDP_SHUTDOWN_TIMER); 
   }
+
+
 
   // -------------------------------------------------------------------------------------
   private unsafe bool OnDatagram(ref UdpMsg msg, int msgLen)

@@ -103,9 +103,10 @@ public class GGPOClient : IGGPOClient, IDisposable
   // ----------------------------------------------------------------------------------------
   public virtual void DisconnectAll()
   {
+    int frameCount = _sync.GetFrameCount();
     for (int i = 0; i < this.ClientCount; i++)
     {
-      this._endpoints[i].Disconnect();
+      this._endpoints[i].Disconnect(frameCount);
     }
     this._endpoints.Clear();
 
@@ -705,6 +706,8 @@ public class GGPOClient : IGGPOClient, IDisposable
   //void DisconnectPlayer(byte playerIndex, int syncto)
   void DisconnectEndpoint(GGPOEndpoint endpoint, int syncto)
   {
+    int frameCount = _sync.GetFrameCount();
+
     if (!endpoint.IsReplayClient)
     {
       var playerIndex = endpoint.PlayerIndex;
@@ -712,7 +715,7 @@ public class GGPOClient : IGGPOClient, IDisposable
       GGPOEvent info = new GGPOEvent();
       int framecount = _sync.GetFrameCount();
 
-      _endpoints[playerIndex].Disconnect();
+      _endpoints[playerIndex].Disconnect(frameCount);
 
       Utils.LogIt(LogCategories.ENDPOINT, "Changing player: %d local connect status for last frame from %d to %d on disconnect request (current: %d).", playerIndex, _local_connect_status[playerIndex].last_frame, syncto, framecount);
 
@@ -735,13 +738,14 @@ public class GGPOClient : IGGPOClient, IDisposable
     else
     {
       // NOTE: All endpoints should be disconnected this way.....
-      endpoint.Disconnect();
+      endpoint.Disconnect(frameCount);
     }
   }
 
   // ----------------------------------------------------------------------------------------------------------
   protected unsafe virtual void OnUdpProtocolEvent(ref UdpEvent evt, GGPOEndpoint endpoint)
   {
+
     byte playerIndex = endpoint.PlayerIndex;
     bool isReplay = endpoint.IsReplayClient;
 
@@ -827,7 +831,8 @@ public class GGPOClient : IGGPOClient, IDisposable
 
           // Log.Info("disconnect notice was received...");
           // The endpoint has disconnected.... what do we do?
-          _endpoints[pi].Disconnect();
+          int frameCount = _sync.GetFrameCount();
+          _endpoints[pi].Disconnect(frameCount);
         }
 
         _callbacks.on_event(ref info);

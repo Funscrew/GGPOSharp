@@ -80,7 +80,7 @@ namespace GGPOSharp.Clients
       if (_PendingAcks.IsFull)
       {
         Log.Error($"ACK BUFFER full for: player: {this.PlayerIndex}.  Disconnecting!");
-        Disconnect();
+        Disconnect(0);
 
         // We aren't going to fail, we are simply going to disconnect the client!
 
