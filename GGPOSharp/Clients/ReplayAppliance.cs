@@ -1,6 +1,4 @@
-﻿using drewCo.Tools;
-using drewCo.Tools.Logging;
-using System.Diagnostics;
+﻿using drewCo.Tools.Logging;
 using System.Net;
 
 namespace GGPOSharp.Clients
@@ -15,10 +13,6 @@ namespace GGPOSharp.Clients
   {
     private ReplayApplianceOptions ReplayOptions = default!;
 
-    // FROM: GGPOEndpoint
-    private IPEndPoint RemoteIP;
-    private EndPoint RemoteEP;
-
     // The two clients that we expect to receive data from.  These will be the remote endpoints that we
     // then set up.
     private HashSet<SocketAddress> ConnectedClients = new HashSet<SocketAddress>();
@@ -27,7 +21,7 @@ namespace GGPOSharp.Clients
 
     public List<string> Errors { get; private set; } = new List<string>();
 
-    private GameRecorder Recorder = null!;
+    public GameRecorder Recorder { get ; private set; }
 
     // --------------------------------------------------------------------------------------------------------------------------
     public ReplayAppliance(GGPOClientOptions ggpoOps_, ReplayApplianceOptions ops_, IUdpBlaster udp_, SimTimer clock_)
@@ -38,9 +32,6 @@ namespace GGPOSharp.Clients
 
       // Validate options:
       if (ReplayOptions.SessionId == 0) { throw new InvalidOperationException("Invalid session id!"); }
-
-      RemoteIP = new IPEndPoint(IPAddress.Any, 0);
-      RemoteEP = RemoteIP;
 
       InitGameRecorder();
     }
@@ -148,7 +139,6 @@ namespace GGPOSharp.Clients
 
       // NOTE: We should have a sync request with the correct request ID set!
       // Don't know what to do if we don't... probably just ignore it...
-      var rip = (IPEndPoint)RemoteEP;
       var newEndpoint = AddReplayEndpoint(remoteHost, remotePort, msg);
 
       Log.Info("A remote endpoint was added...");
@@ -265,6 +255,7 @@ namespace GGPOSharp.Clients
         // notices to all active clients.
         Log.Error($"There was a recording error: {Recorder.ErrorReason} : {Recorder.ErrorMessage}");
         DisconnectAll();
+        return;
       }
       Recorder.AddInput(playerIndex, ref input);
     }

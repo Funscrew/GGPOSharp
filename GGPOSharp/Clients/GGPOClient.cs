@@ -55,9 +55,11 @@ public class GGPOClient : IGGPOClient, IDisposable
   private byte[] _ReceiveBuffer = new byte[8192];
   private EndPoint ReceivedFrom = new IPEndPoint(IPAddress.Any, 0);   // This doesn't matter, we just need a place to stuff the data...
 
-  public bool IsDisconnected { get; protected set; } = false;
+  public bool IsComplete { get; protected set; } = false;
 
   public int ClientCount { get { return this._endpoints.Count; } }
+
+  public int CurrentFrame { get { return this._sync.GetFrameCount(); } }
 
   // ----------------------------------------------------------------------------------------
   public GGPOClient(GGPOClientOptions options_, IUdpBlaster udp_, SimTimer clock_)
@@ -110,7 +112,7 @@ public class GGPOClient : IGGPOClient, IDisposable
     }
     this._endpoints.Clear();
 
-    this.IsDisconnected = true;
+    this.IsComplete = true;
   }
 
   // ----------------------------------------------------------------------------------------
@@ -245,7 +247,8 @@ public class GGPOClient : IGGPOClient, IDisposable
   // ----------------------------------------------------------------------------------------
   public virtual void DoPoll(int timeout)
   {
-    //  var receivedFrom = new IPEndPoint(IPAddress.Any, );
+    if (IsComplete) { return; }
+
     // Receive all messages + send them off to the correct endpoints.
     // This is basically a soft-router.
     while (true)
@@ -993,9 +996,9 @@ public class ClockTimer : SimTimer
 // ==========================================================================================
 public interface IGGPOClient : SimTimer
 {
-  // Stopwatch Clock { get; }
   IUdpBlaster UDP { get; }
   UInt32 ClientVersion { get; }
   string LocalPlayerName { get; }
+  int CurrentFrame { get; }
 }
 

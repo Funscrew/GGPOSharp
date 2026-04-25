@@ -76,9 +76,11 @@ public class Program
     int frameCount = 0;
     while (true)
     {
-      if (Client.IsDisconnected)
+      if (Client.IsComplete)
       {
         // Exit the program.
+        // Probably finalize logging, etc. and then deal with it.
+        throw new InvalidOperationException("Not sure what to do here....");
       }
 
       double elapsed = Clock.Elapsed.TotalSeconds;

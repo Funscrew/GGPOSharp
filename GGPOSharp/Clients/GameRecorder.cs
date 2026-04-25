@@ -82,12 +82,18 @@ namespace GGPOSharp.Clients
     // -----------------------------------------------------------------------------------------------------------------------
     public void Dispose()
     {
+      CloseStream();
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------
+    private void CloseStream()
+    {
       DataStream?.Dispose();
       DataStream = null;
     }
 
     // -----------------------------------------------------------------------------------------------------------------------
-    public void FLush()
+    public void Flush()
     {
       DataStream?.Flush();
     }
@@ -147,7 +153,7 @@ namespace GGPOSharp.Clients
         throw new InvalidOperationException($"Data size mismatch on write: {total} - {expected}!");
       }
 
-      DataStream.Flush();
+      Flush();
     }
 
     // -----------------------------------------------------------------------------------------------------------------------
@@ -214,7 +220,7 @@ namespace GGPOSharp.Clients
         throw new InvalidOperationException($"Data size mismatch on write: {total} - {expected}!");
       }
 
-      DataStream.Flush();
+      Flush();
     }
 
     // -----------------------------------------------------------------------------------------------------------------------
@@ -272,6 +278,8 @@ namespace GGPOSharp.Clients
         long finalSize = (int)(DataStream.Position + sizeof(long));
         EZWriter.Write(DataStream, finalSize);
       }
+
+      CloseStream();
 
       RecordingComplete = true;
     }

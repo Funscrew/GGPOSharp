@@ -262,18 +262,21 @@ public class GGPOEndpoint
     var evt = new UdpEvent(EEventType.Datagram);
     // evt.u.input.input = _last_received_input;
     //_last_received_input.desc(desc, ARRAY_SIZE(desc));
-
     //_state.running.last_input_packet_recv_time = Platform::GetCurrentTimeMS();
+    //int dataLen = msgLen - 5; //sizeof(UdpMsg::header);
+    //evt.u.chat.code = msg.u.datagram.code;
+    //evt.u.chat.dataSize = msg.u.datagram.dataSize;
+    //if (evt.u.chat.dataSize != dataLen - 2)
+    //{
+    //  throw new InvalidOperationException($"Unexpected data length in: {nameof(OnDatagram)}");
+    //}
 
     int dataLen = msgLen - 5; //sizeof(UdpMsg::header);
 
     evt.u.chat.code = msg.u.datagram.code;
+    evt.u.chat.frame = Client.CurrentFrame;
     evt.u.chat.dataSize = msg.u.datagram.dataSize;
 
-    if (evt.u.chat.dataSize != dataLen - 2)
-    {
-      throw new InvalidOperationException($"Unexpected data length in: {nameof(OnDatagram)}");
-    }
 
     fixed (byte* pSrc = msg.u.datagram.data)
     {

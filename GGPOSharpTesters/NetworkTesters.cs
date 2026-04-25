@@ -32,7 +32,6 @@ namespace GGPOSharpTesters
       var ops = new GGPOClientOptions(0, REPLAY_APPLIANCE_PORT, Defaults.PROTOCOL_VERSION, context.SessionId);
       ops.Callbacks = CreateDefaultCallbacks();
 
-
       var cbh = new CallbackHandler();
       ops.Callbacks.on_event = cbh.OnEvent;
 
@@ -69,8 +68,13 @@ namespace GGPOSharpTesters
       context.RunGame(SIM_TIME);
 
       // Show that there are no longer any connections....
+      Assert.IsTrue(replayAppliance.IsComplete, "The appliance should be in the complete state.");
+      Assert.That(replayAppliance.ClientCount, Is.EqualTo(0), "There should no longer be any connected clients!");
 
-      Assert.Fail("please complete this test!");
+      var recorder = replayAppliance.Recorder;
+      Assert.IsTrue(recorder.RecordingComplete, "The recording should be marked as complete!");
+      Assert.IsTrue(recorder.HasError, "The recorder should be marked as having an error!");
+
     }
 
     // --------------------------------------------------------------------------------------------------------------------------
