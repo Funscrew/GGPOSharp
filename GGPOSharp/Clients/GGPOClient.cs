@@ -1,9 +1,5 @@
-﻿using GGPOSharp.Clients;
-using System.Diagnostics;
-using System.IO.Pipes;
+﻿using System.Diagnostics;
 using System.Net;
-using System.Net.Sockets;
-using System.Security.Cryptography;
 
 namespace GGPOSharp;
 
@@ -61,6 +57,8 @@ public class GGPOClient : IGGPOClient, IDisposable
 
   public bool IsDisconnected { get; protected set; } = false;
 
+  public int ClientCount { get { return this._endpoints.Count; } }
+
   // ----------------------------------------------------------------------------------------
   public GGPOClient(GGPOClientOptions options_, IUdpBlaster udp_, SimTimer clock_)
   {
@@ -107,14 +105,11 @@ public class GGPOClient : IGGPOClient, IDisposable
   {
     for (int i = 0; i < this.ClientCount; i++)
     {
-      this.Endpoints[i].Disconnect();
+      this._endpoints[i].Disconnect();
     }
-    this.AllConnected = false;
-    this.Endpoints.Clear();
-    this.ConnectedPlayerIndexes.Clear();
+    this._endpoints.Clear();
 
     this.IsDisconnected = true;
-
   }
 
   // ----------------------------------------------------------------------------------------

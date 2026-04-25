@@ -29,7 +29,8 @@ namespace GGPOSharpTesters
     [Test]
     public unsafe void CanRecordAndLoadReplayInformation()
     {
-      const int TEST_SESSION_ID = 1234;
+
+      var sessionId = GetNextSessionId();
       const string TEST_GAME_NAME = "MyGame"; //"MyGame -€";     // NOTE: Use unicode character to show proper UTF-8 support!
 
       const int INPUT_SIZE = 5;
@@ -39,7 +40,7 @@ namespace GGPOSharpTesters
         GameName = TEST_GAME_NAME,
         PlayerCount = 2,
         TotalInputSize = 2 * INPUT_SIZE
-      }, TEST_DATA_DIR, TEST_SESSION_ID, true);
+      }, TEST_DATA_DIR, sessionId, true);
 
 
       // Add some inputs for the players...

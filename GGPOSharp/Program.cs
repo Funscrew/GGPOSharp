@@ -1,4 +1,5 @@
 ﻿using CommandLine;
+using drewCo.Tools;
 using drewCo.Tools.Logging;
 using GGPOSharp.Clients;
 using System.Diagnostics;
@@ -50,10 +51,10 @@ public class Program
     Log.Info("Welcome to GGPOSharp");
 
     int res = Parser.Default.ParseArguments<InputEchoOptions,
-                                            ReplayListenOptions>(args)
-                            .MapResult((InputEchoOptions ops) => RunEchoClient(ops),
-                                       (ReplayListenOptions ops) => RunReplayClient(ops),
-                                        errs => 1);
+                                            ReplayApplianceOptions>(args).MapResult(
+                                            (InputEchoOptions ops) => RunEchoClient(ops),
+                                            (ReplayApplianceOptions ops) => SetupClientOptions(ops),
+                                            errs => 1);
 
     if (res != 0)
     {
@@ -146,7 +147,7 @@ public class Program
   }
 
   // ------------------------------------------------------------------------------------------------------
-  private static unsafe int RunReplayClient(ReplayListenOptions ops)
+  private static unsafe int SetupClientOptions(ReplayApplianceOptions ops)
   {
     Log.Info("Setting up replay appliance...");
 
@@ -212,7 +213,20 @@ public class Program
 
       case EMode.Replay:
         {
-          var cliOps = CLIOptions as ReplayListenOptions;
+
+
+          ReplayApplianceOptions cliOps = (CLIOptions as ReplayApplianceOptions)!;
+
+          // TODO: We will have to come up with a robust way to create session ids....
+          if (cliOps.SessionId == 0)
+          {
+            Log.Warning("Session ID is zero.  A new one will be generated, but this probably isn't what you want.");
+
+            long ts = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            cliOps.SessionId = (ulong)ts;
+          }
+
+          FileTools.CreateDirectory(cliOps.DataDir);
 
           var udp = new UdpBlaster(ClientOptions.LocalPort);
           Client = new ReplayAppliance(ClientOptions, cliOps, udp, new ClockTimer());

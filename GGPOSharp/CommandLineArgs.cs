@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 namespace GGPOSharp;
 
 
-
 // ==============================================================================================================================
 public abstract class ClientOptions
 {
@@ -29,10 +28,10 @@ public abstract class ClientOptions
 
   /// <summary>
   /// This is how the replay sessions are uniquely identified.
-  /// This is what will be sent to the client as this endpoint's "player name".
+  /// Use 'zero' to auto-assign a session ID!
   /// </summary>
-  [Option("session-id")]
-  public UInt64 SessionId { get; set; } = 0;  
+  [Option("session-id", Required = true, HelpText = "Session ID.  This should match between clients and should be unique.")]
+  public UInt64 SessionId { get; set; } = 0;
 }
 
 // ==============================================================================================================================
@@ -41,7 +40,7 @@ public abstract class ClientOptions
 /// that are sent along.
 /// </summary>
 [Verb("replay-appliance")]
-public class ReplayListenOptions : ClientOptions
+public class ReplayApplianceOptions : ClientOptions
 {
   /// <summary>
   /// Time in ms. for how long we will wait for the expected players to connect / sync.
@@ -57,6 +56,7 @@ public class ReplayListenOptions : ClientOptions
 
   [Option("game-version", Required = true, HelpText = "Version of the game.  Max 16 chars.")]
   public string GameVersion { get; set; } = null!;
+
 }
 
 // ==============================================================================================================================

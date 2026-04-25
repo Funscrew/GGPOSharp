@@ -30,7 +30,7 @@ namespace GGPOSharpTesters
 
     public const int REPLAY_APPLIANCE_TIMEOUT = 5000;
 
-    public const UInt64 SESSION_ID = 12345;
+    //public const UInt64 DEFAULT_SESSION_ID = 12345;
 
     // --------------------------------------------------------------------------------------------------------------------------
     private static void NoOp_BeginGame(string gameName)
@@ -55,12 +55,6 @@ namespace GGPOSharpTesters
       return true;
     }
 
-    // --------------------------------------------------------------------------------------------------------------------------
-    private unsafe static bool NoOp_LoadGame(byte** buffer, int len)
-    {
-      return true;
-    }
-
     // ------------------------------------------------------------------------------------------------------
     private static unsafe bool NoOp_FreeBuffer(byte* arg)
     {
@@ -69,6 +63,19 @@ namespace GGPOSharpTesters
       return true;
     }
 
+    // --------------------------------------------------------------------------------------------------------------------------
+    private unsafe static bool NoOp_LoadGame(byte** buffer, int len)
+    {
+      return true;
+    }
+
+    // --------------------------------------------------------------------------------------------------------------------------
+    protected ulong GetNextSessionId()
+    {
+      var ss = new SessionService();
+      ulong res = ss.GetNextSessionId();
+      return res;
+    }
 
     // --------------------------------------------------------------------------------------------------------------------------
     protected unsafe GGPOSessionCallbacks CreateDefaultCallbacks()

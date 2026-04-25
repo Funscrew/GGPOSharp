@@ -1,6 +1,7 @@
 using drewCo.Tools;
 using GGPOSharp;
 using GGPOSharp.Clients;
+using System.Net.Mime;
 
 namespace GGPOSharpTesters
 {
@@ -24,20 +25,22 @@ namespace GGPOSharpTesters
     [Test]
     public unsafe void ReplayApplianceWontSyncUntilAllPlayersAreConnected()
     {
+      ulong sessId = GetNextSessionId();
+
       const string P1_NAME = "Joe";
       const string P2_NAME = "Archie";
       TestContext context = CreateTestContext(P1_NAME, P2_NAME);
 
-      var ops = new GGPOClientOptions(0, REPLAY_APPLIANCE_PORT, Defaults.PROTOCOL_VERSION, SESSION_ID);
+      var ops = new GGPOClientOptions(0, REPLAY_APPLIANCE_PORT, Defaults.PROTOCOL_VERSION, sessId);
       ops.Callbacks = CreateDefaultCallbacks();
 
 
       var cbh = new CallbackHandler();
       ops.Callbacks.on_event = cbh.OnEvent;
 
-      var replayOps = new ReplayListenOptions()
+      var replayOps = new ReplayApplianceOptions()
       {
-        SessionId = SESSION_ID,       // TODO: Resolve a valid replay ID!
+        SessionId = sessId,       // TODO: Resolve a valid replay ID!
         GameName = "Test_Game_1",
         GameVersion = "0.1",
       };
@@ -86,15 +89,17 @@ namespace GGPOSharpTesters
       const string P2_NAME = "Archie";
       TestContext context = CreateTestContext(P1_NAME, P2_NAME);
 
-      var ops = new GGPOClientOptions(0, REPLAY_APPLIANCE_PORT, Defaults.PROTOCOL_VERSION, SESSION_ID);
+      var ops = new GGPOClientOptions(0, REPLAY_APPLIANCE_PORT, Defaults.PROTOCOL_VERSION, context.SessionId);
       ops.Callbacks = CreateDefaultCallbacks();
 
       var cbh = new CallbackHandler();
       ops.Callbacks.on_event = cbh.OnEvent;
 
-      var replayOps = new ReplayListenOptions()
+      var replayOps = new ReplayApplianceOptions()
       {
-        SessionId = SESSION_ID
+        SessionId = context.SessionId,
+        GameName = "TestGame",
+        GameVersion = "0.0.1",
       };
       var blaster = new SimUdp(REPLAY_APPLIANCE_HOST, REPLAY_APPLIANCE_PORT, context.TimeSource, context.MsgQueue, SIM_PING, SIM_JITTER);
       var replayAppliance = new ReplayAppliance(ops, replayOps, blaster, context.TimeSource);
@@ -205,6 +210,7 @@ namespace GGPOSharpTesters
     /// </summary>
     protected TestContext CreateTestContext(string p1Name, string p2Name)
     {
+      ulong sessId = GetNextSessionId();
 
       // This is how we actually move the messages around....
       var timeSource = new SimTimer();
@@ -228,8 +234,8 @@ namespace GGPOSharpTesters
         InputBuffer = new byte[5 * MAX_PLAYERS],
         PlayerName = "Archie"
       };
-      var p1GGPO = CreateGGPOClient(ops1, ops2, testQueue, SESSION_ID);
-      var p2GGPO = CreateGGPOClient(ops2, ops1, testQueue, SESSION_ID);
+      var p1GGPO = CreateGGPOClient(ops1, ops2, testQueue, sessId);
+      var p2GGPO = CreateGGPOClient(ops2, ops1, testQueue, sessId);
 
       // NOTE: If we use 'GetLocalPlayer' then the test fails.  This is part of some weird implementation
       // detail of how the GGPOEndpoints/Client code runs.  I am pretty sure this is by design, and I have
@@ -237,7 +243,7 @@ namespace GGPOSharpTesters
       //var p2 = p1GGPO.GetRemotePlayer();
       //var p1 = p2GGPO.GetRemotePlayer();
 
-      var context = new TestContext(timeSource, testQueue, new[] { p1GGPO, p2GGPO }, new[] { ops1.InputBuffer, ops2.InputBuffer });
+      var context = new TestContext(sessId, timeSource, testQueue, new[] { p1GGPO, p2GGPO }, new[] { ops1.InputBuffer, ops2.InputBuffer });
 
       return context;
     }

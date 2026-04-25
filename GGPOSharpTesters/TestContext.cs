@@ -17,9 +17,12 @@ namespace GGPOSharpTesters
 
     public int LastFrame {get; private set; } = -1;
 
+    public ulong SessionId { get; private set; }
+
     // --------------------------------------------------------------------------------------------------------------------------
-    public TestContext(SimTimer timeSource_, TestMessageQueue msgQueue_, IList<GGPOClient> allClients_, IList<byte[]> inputBuffers_, ReplayAppliance? replay_ = null)
+    public TestContext(ulong sessionId_, SimTimer timeSource_, TestMessageQueue msgQueue_, IList<GGPOClient> allClients_, IList<byte[]> inputBuffers_, ReplayAppliance? replay_ = null)
     {
+      SessionId = sessionId_;
       TimeSource = timeSource_;
       MsgQueue = msgQueue_;
       AllClients.AddRange(allClients_);

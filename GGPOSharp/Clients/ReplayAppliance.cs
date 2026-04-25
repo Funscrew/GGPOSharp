@@ -13,7 +13,7 @@ namespace GGPOSharp.Clients
   /// </summary>
   public class ReplayAppliance : GGPOClient
   {
-    private ReplayListenOptions ReplayOptions = default!;
+    private ReplayApplianceOptions ReplayOptions = default!;
 
     // FROM: GGPOEndpoint
     private IPEndPoint RemoteIP;
@@ -22,28 +22,19 @@ namespace GGPOSharp.Clients
     // The two clients that we expect to receive data from.  These will be the remote endpoints that we
     // then set up.
     private HashSet<SocketAddress> ConnectedClients = new HashSet<SocketAddress>();
-    private List<GGPOEndpoint> Endpoints = new List<GGPOEndpoint>();
     private bool AllConnected = false;
     private List<int> ConnectedPlayerIndexes = new List<int>();
-    public int ClientCount { get { return this.ConnectedClients.Count; } }
 
     public List<string> Errors { get; private set; } = new List<string>();
-
-    /// <summary>
-    /// Certain endpoints are blacklisted if they send bad player / session ids.
-    /// </summary>
-    private HashSet<SocketAddress> Blacklisted = new HashSet<SocketAddress>();
-
-
-    private Stopwatch Clock = default!;
 
     private GameRecorder Recorder = null!;
 
     // --------------------------------------------------------------------------------------------------------------------------
-    public ReplayAppliance(GGPOClientOptions ggpoOps_, ReplayListenOptions ops_, IUdpBlaster udp_, SimTimer clock_)
+    public ReplayAppliance(GGPOClientOptions ggpoOps_, ReplayApplianceOptions ops_, IUdpBlaster udp_, SimTimer clock_)
       : base(ggpoOps_, udp_, clock_)
     {
       ReplayOptions = ops_;
+      ValidateOptions();
 
       // Validate options:
       if (ReplayOptions.SessionId == 0) { throw new InvalidOperationException("Invalid session id!"); }
@@ -51,18 +42,21 @@ namespace GGPOSharp.Clients
       RemoteIP = new IPEndPoint(IPAddress.Any, 0);
       RemoteEP = RemoteIP;
 
-      Clock = Stopwatch.StartNew();
-
       InitGameRecorder();
     }
 
     // --------------------------------------------------------------------------------------------------------------------------
-    private void InitGameRecorder()
+    private void ValidateOptions()
     {
       if (string.IsNullOrWhiteSpace(ReplayOptions.GameName))
       {
         throw new InvalidOperationException("Invalid game name!");
       }
+    }
+
+    // --------------------------------------------------------------------------------------------------------------------------
+    private void InitGameRecorder()
+    {
       if (string.IsNullOrWhiteSpace(ReplayOptions.GameVersion))
       {
         throw new InvalidOperationException("Invalid game version!");
@@ -82,6 +76,16 @@ namespace GGPOSharp.Clients
 
 
     // --------------------------------------------------------------------------------------------------------------------------
+    public override void DisconnectAll()
+    {
+      base.DisconnectAll();
+
+      this.AllConnected = false;
+      this.ConnectedPlayerIndexes.Clear();
+    }
+
+
+    // --------------------------------------------------------------------------------------------------------------------------
     public GGPOEndpoint GetEndpoint(int index)
     {
       return _endpoints[index];
@@ -96,7 +100,10 @@ namespace GGPOSharp.Clients
       {
         int index = ConnectedClients.Count;
         var ep = ConnectNewClient(ref msg, ipa);
-        Endpoints.Add(ep);
+        if (ep != null)
+        {
+          _endpoints.Add(ep);
+        }
       }
 
       // Now that the end
@@ -123,7 +130,7 @@ namespace GGPOSharp.Clients
       {
         // We don't want to receive from this endpoint anymore.....
         // How can we block receiving?
-        AddError("Connection attempt with invalid session id! [adding to blacklist]");
+        AddError($"Connection attempt with invalid session id! ({ReplayOptions.SessionId}-{msg.u.sync_request.session_id}) [adding to blacklist]");
         UDP.AddToBlacklist(ipa);
         return null;
       }
@@ -224,7 +231,6 @@ namespace GGPOSharp.Clients
       // Nah -> it should be OK that they bounce around.....
       var remote = new ReplayEndpoint(this, ops, _local_connect_status);
 
-      this._endpoints.Add(remote);
       ConnectedPlayerIndexes.Add(playerIndex);
 
       return remote;
@@ -263,19 +269,6 @@ namespace GGPOSharp.Clients
       Recorder.AddInput(playerIndex, ref input);
     }
 
-    // --------------------------------------------------------------------------------------------------------------------------
-    protected virtual void DisconnectAll()
-    {
-      for (int i = 0; i < this.ClientCount; i++)
-      {
-        this.Endpoints[i].Disconnect();
-      }
-      this.AllConnected = false;
-      this.Endpoints.Clear();
-      this.ConnectedPlayerIndexes.Clear();
-
-      this.IsDisconnected = true;
-    }
   }
 
 }
