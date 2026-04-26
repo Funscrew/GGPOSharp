@@ -238,6 +238,8 @@ public class GGPOEndpoint
   // ------------------------------------------------------------------------------------------------
   internal void Disconnect(int onFrame, bool sendDisconnectMessage = true)
   {
+    if (_current_state == EClientState.Disconnected) { return; }
+
     // We send out duplicate message packets in case of packet loss.
     if (sendDisconnectMessage)
     {
@@ -1062,10 +1064,13 @@ public class GGPOEndpoint
   }
 
   // ------------------------------------------------------------------------
-  internal bool IsDisconnected()
+  internal bool IsDisconnected
   {
-    bool res = this._current_state == EClientState.Disconnected;
-    return res;
+    get
+    {
+      bool res = this._current_state == EClientState.Disconnected;
+      return res;
+    }
   }
 
   // ------------------------------------------------------------------------

@@ -656,13 +656,7 @@ public class GGPOClient : IGGPOClient, IDisposable
 
         if (evt.u.datagram.code == UdpEvent.DATAGRAM_CODE_DISCONNECT)
         {
-          // The given endpoint is indicating that it wants to disconnect.
-          // For now, I think that we will only care about the case where it is a replay appliance...
-          if (endpoint.IsReplayClient)
-          {
-            // Effectively disconnect the endpoint so it no longer sends / receives data...
-            endpoint.Disconnect(0, false);
-          }
+          HandleDisconnect(endpoint);
         }
 
         break;
@@ -671,6 +665,18 @@ public class GGPOClient : IGGPOClient, IDisposable
         DisconnectEndpoint(endpoint);
         break;
 
+    }
+  }
+
+  // ----------------------------------------------------------------------------------------------------------
+  protected virtual void HandleDisconnect(GGPOEndpoint endpoint)
+  {
+    // The given endpoint is indicating that it wants to disconnect.
+    // For now, I think that we will only care about the case where it is a replay appliance...
+    if (endpoint.IsReplayClient)
+    {
+      // Effectively disconnect the endpoint so it no longer sends / receives data...
+      endpoint.Disconnect(0, false);
     }
   }
 
@@ -845,7 +851,7 @@ public class GGPOClient : IGGPOClient, IDisposable
           // Disconnect datagrams come in bursts, so if we have already handled it for this index,
           // then we can skip raising the event multiple times.
           // NOTE:  We may want to keep more information about the conditions of a disconnect....
-          if (_endpoints[pi].IsDisconnected()) { return; }
+          if (_endpoints[pi].IsDisconnected) { return; }
 
           // Log.Info("disconnect notice was received...");
           // The endpoint has disconnected.... what do we do?

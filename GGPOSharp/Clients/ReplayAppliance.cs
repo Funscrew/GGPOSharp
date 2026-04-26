@@ -66,6 +66,15 @@ namespace GGPOSharp.Clients
     }
 
     // --------------------------------------------------------------------------------------------------------------------------
+    protected override void HandleDisconnect(GGPOEndpoint endpoint)
+    {
+      base.HandleDisconnect(endpoint);
+      if (endpoint.IsDisconnected) { 
+        Log.Info("A player disconnected.... wrapping up....");
+      }
+    }
+
+    // --------------------------------------------------------------------------------------------------------------------------
     public override void DisconnectAll()
     {
       base.DisconnectAll();
