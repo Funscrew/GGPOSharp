@@ -652,6 +652,21 @@ public class GGPOClient : IGGPOClient, IDisposable
         }
         break;
 
+      case EEventType.Datagram:
+
+        if (evt.u.datagram.code == UdpEvent.DATAGRAM_CODE_DISCONNECT)
+        {
+          // The given endpoint is indicating that it wants to disconnect.
+          // For now, I think that we will only care about the case where it is a replay appliance...
+          if (endpoint.IsReplayClient)
+          {
+            // Effectively disconnect the endpoint so it no longer sends / receives data...
+            endpoint.Disconnect(0, false);
+          }
+        }
+
+        break;
+
       case EEventType.Disconnected:
         DisconnectEndpoint(endpoint);
         break;
@@ -805,13 +820,13 @@ public class GGPOClient : IGGPOClient, IDisposable
 
         info.event_code = EEventCode.GGPO_EVENTCODE_DATAGRAM;
         info.u.datagram.player_index = (byte)playerIndex;
-        info.u.datagram.code = evt.u.chat.code;
-        info.u.datagram.frame = evt.u.chat.frame;
-        info.u.datagram.dataSize = evt.u.chat.dataSize;
+        info.u.datagram.code = evt.u.datagram.code;
+        info.u.datagram.frame = evt.u.datagram.frame;
+        info.u.datagram.dataSize = evt.u.datagram.dataSize;
 
-        fixed (byte* pSrc = evt.u.chat.data)
+        fixed (byte* pSrc = evt.u.datagram.data)
         {
-          Utils.CopyMem(info.u.datagram.data, pSrc, evt.u.chat.dataSize);
+          Utils.CopyMem(info.u.datagram.data, pSrc, evt.u.datagram.dataSize);
         }
 
         // NOTE: I am going to change this up so that we can surface the events in a different way?
@@ -972,7 +987,6 @@ public static class Defaults
 
   public const int REPLAY_TIMEOUT = 5000;
 }
-
 
 
 // ==========================================================================================

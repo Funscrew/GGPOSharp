@@ -88,10 +88,14 @@ public class Program
       {
         if (ReconnectTime != -1 && elapsed >= ReconnectTime)
         {
-          // Put the client back into a listening / sync state...
-          Log.Info("Putting the client back into sync state, waiting for remote connection...");
-          ReconnectTime = -1.0d;
-          InitializeClient();
+          Log.Info("complete!");
+          return 0;
+
+          // TEMP: I am disabling this for now....
+          //Log.Info("Putting the client back into sync state, waiting for remote connection...");
+          //ReconnectTime = -1.0d;
+          //InitializeClient();
+
         }
         else
         {

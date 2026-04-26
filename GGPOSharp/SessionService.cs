@@ -9,6 +9,8 @@ namespace GGPOSharp
   // ==============================================================================================================================
   public class SessionService
   {
+    public const uint TEST_SESSION_ID = 12345;
+
     private ulong LastSessionId = 0;
     private object GetSessionLock = new object();
 

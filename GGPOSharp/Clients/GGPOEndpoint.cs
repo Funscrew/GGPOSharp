@@ -144,7 +144,6 @@ public class GGPOEndpoint
   private UInt64 SessionId = 0;
 
   public byte PlayerIndex { get { return Options.PlayerIndex; } }
-
   public bool IsLocalPlayer { get { return Options.IsLocal; } }
   public bool IsReplayClient { get { return Options.IsReplayClient; } }
 
@@ -237,21 +236,25 @@ public class GGPOEndpoint
   }
 
   // ------------------------------------------------------------------------------------------------
-  internal void Disconnect(int onFrame)
+  internal void Disconnect(int onFrame, bool sendDisconnectMessage = true)
   {
     // We send out duplicate message packets in case of packet loss.
-    const int MSG_COUNT = 3;
-    for (int i = 0; i < MSG_COUNT; i++)
+    if (sendDisconnectMessage)
     {
-      UdpMsg msg = new UdpMsg(EMsgType.Datagram);
-      msg.u.datagram.code = 4 ;
-      msg.u.datagram.frame = onFrame;
+      const int MSG_COUNT = 3;
+      for (int i = 0; i < MSG_COUNT; i++)
+      {
+        UdpMsg msg = new UdpMsg(EMsgType.Datagram);
+        msg.u.datagram.code = UdpEvent.DATAGRAM_CODE_DISCONNECT;
+        msg.u.datagram.frame = onFrame;
+        msg.u.datagram.dataSize = 0;
 
-      SendMsg(ref msg);
+        SendMsg(ref msg);
+      }
     }
 
     _current_state = EClientState.Disconnected;
-    _shutdown_timeout = (uint)(Client.CurTime + UDP_SHUTDOWN_TIMER); 
+    _shutdown_timeout = (uint)(Client.CurTime + UDP_SHUTDOWN_TIMER);
   }
 
 
@@ -273,14 +276,14 @@ public class GGPOEndpoint
 
     int dataLen = msgLen - 5; //sizeof(UdpMsg::header);
 
-    evt.u.chat.code = msg.u.datagram.code;
-    evt.u.chat.frame = Client.CurrentFrame;
-    evt.u.chat.dataSize = msg.u.datagram.dataSize;
+    evt.u.datagram.code = msg.u.datagram.code;
+    evt.u.datagram.dataSize = msg.u.datagram.dataSize;
+    evt.u.datagram.frame = msg.u.datagram.frame;
 
 
     fixed (byte* pSrc = msg.u.datagram.data)
     {
-      Utils.CopyMem(evt.u.chat.data, pSrc, msg.u.datagram.dataSize);
+      Utils.CopyMem(evt.u.datagram.data, pSrc, msg.u.datagram.dataSize);
     }
 
     QueueEvent(evt);
@@ -1304,6 +1307,7 @@ public enum EEventType
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public unsafe struct UdpEvent
 {
+  public static byte DATAGRAM_CODE_DISCONNECT = 4;
 
   // ----------------------------------------------------------------------------------------------
   public UdpEvent() { }
@@ -1336,7 +1340,7 @@ public unsafe struct UdpEvent
     public NetworkInterruptedData network_interrupted;
 
     [FieldOffset(0)]
-    public Datagram chat;
+    public Datagram datagram;
   }
 
   public struct SyncData

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -359,8 +360,8 @@ public unsafe struct PlayerConnectData
 public unsafe struct Datagram
 {
   public byte code;
-  public int frame;
   public byte dataSize;
+  public int frame;
   public fixed byte data[GGPOConsts.MAX_GGPO_DATA_SIZE];
 
   public bool IsText { get { return code == (byte)'T'; } }
@@ -480,7 +481,9 @@ public struct UdpMsg
 
       case EMsgType.Datagram:
         // Include one extra byte to ensure zero termination.
-        res = u.datagram.dataSize; // GetTextSize() + 1; //  GetText()  strnlen_s(u.chat.text, MAX_GGPOCHAT_SIZE) + 1;
+        res = sizeof(byte) * 2;     // code + dataSize
+        res += sizeof(int);         // frame
+        res += u.datagram.dataSize; // GetTextSize() + 1; //  GetText()  strnlen_s(u.chat.text, MAX_GGPOCHAT_SIZE) + 1;
         return res;
 
       default:

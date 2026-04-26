@@ -1,4 +1,5 @@
 ﻿using drewCo.Tools;
+using drewCo.Tools.Logging;
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices.Marshalling;
 
@@ -53,6 +54,12 @@ namespace GGPOSharp.Clients
       GameData = gameData_;
       SessionId = sessionId_;
       DataDir = dataDir_;
+
+      if (SessionId == SessionService.TEST_SESSION_ID)
+      {
+        Log.Debug($"Magic session id: {SessionService.TEST_SESSION_ID} was used, replay overwrite is enabled!");
+        overwriteExisting = true;
+      }
 
       // Let's create the file.  If it already exists, then we have a problem / invalid session ID!
       string path = Path.Combine(DataDir, SessionId + ".replay");
@@ -251,13 +258,13 @@ namespace GGPOSharp.Clients
     /// reason why it was completed.  This could be through a proper disconnect,
     /// or an error, etc.
     /// </summary>
-    public void CompleteReplay(int frame, ECompletionReason reason, EErrorReason errReason, string? errMsg)
+    public void CompleteReplay(int frame, ECompletionReason reason, EErrorReason errReason, string? message)
     {
       CheckComplete();
 
       // TODO: Some kind of sanity check for the frame #?
       const int COMPLETE_MSG_LEN = 64;
-      string useErr = errMsg == null ? string.Empty : StringTools.Truncate(errMsg, COMPLETE_MSG_LEN);
+      string useMsg = message == null ? string.Empty : StringTools.Truncate(message, COMPLETE_MSG_LEN);
 
       using (var ms = new MemoryStream(0x100))
       {
@@ -266,7 +273,7 @@ namespace GGPOSharp.Clients
         EZWriter.Write(ms, (byte)errReason);
         EZWriter.Write(ms, frame);
 
-        CopyFixedString(useErr, COMPLETE_MSG_LEN, WriteBuffer, 0);
+        CopyFixedString(useMsg, COMPLETE_MSG_LEN, WriteBuffer, 0);
         ms.Write(WriteBuffer, 0, COMPLETE_MSG_LEN);
 
         // Write the end code so that we know that the file is actually completed correctly.
