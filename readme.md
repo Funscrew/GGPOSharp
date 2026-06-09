@@ -1,5 +1,11 @@
+# IMPORTANT!
+This code has been moved to the fs-fbneo repository.
+You can find it @ [fs-fbneo/ReplayAppliance](https://github.com/Funscrew/fs-fbneo/tree/ReplayAppliance/ReplayAppliance)
+This version of the code will live here for a while longer, but should be considered obsolete.
+
 # GGPOSharp
 A C# implementation of the GPPO code that I found, and how it was integrated into fs-fbneo.
+
 
 
 

@@ -18,6 +18,7 @@ namespace GGPOSharp.Clients
     // I need a window of currently active inputs.  We don't want to have them always hanging around.
     // this window of active inputs is also what can be used in cases where we want to stream the game out to
     // active clients.
+    // TODO: I think that we can convert this to EZQ as well!
     private RingBuffer<GameInput> MergedInputs = new RingBuffer<GameInput>(64);
 
     // Each player will also have their inputs in their own slightly larger buffers.

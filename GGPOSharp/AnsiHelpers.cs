@@ -37,6 +37,7 @@ public static unsafe class AnsiHelpers
   }
 
   // ------------------------------------------------------------------------------------
+  [Obsolete("we are going to convert everything to utf-8!")]
   public static void WriteAnsiString(string value, byte* dest, int capacity)
   {
     var bytes = Encoding.ASCII.GetBytes(value ?? string.Empty);
